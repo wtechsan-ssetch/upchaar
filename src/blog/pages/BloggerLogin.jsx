@@ -16,18 +16,15 @@ export default function BloggerLogin() {
         e.preventDefault();
         setError('');
         setLoading(true);
-        await new Promise(r => setTimeout(r, 600));
         try {
-            loginBlogger(form.email, form.password);
+            await loginBlogger(form.email, form.password);
             navigate('/blogger/dashboard', { replace: true });
-        } catch {
-            setError('Invalid credentials. Please try again.');
+        } catch (err) {
+            setError(err.message || 'Invalid credentials. Please try again.');
         } finally {
             setLoading(false);
         }
     };
-
-    const fillDemo = () => setForm({ email: 'blogger@sanjiwani.health', password: 'blog123' });
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-primary/60 flex items-center justify-center p-4">
@@ -44,14 +41,6 @@ export default function BloggerLogin() {
                         </div>
                         <h1 className="text-2xl font-bold text-slate-800">Blogger Portal</h1>
                         <p className="text-sm text-slate-500 mt-1">Sanjiwani Health — Writer Access</p>
-                    </div>
-
-                    <div className="mb-5 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                        <p className="text-xs text-slate-500 mb-2 font-medium">Quick fill for demo:</p>
-                        <button onClick={fillDemo}
-                            className="w-full text-xs py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 font-medium transition-colors">
-                            Dr. Meera Krishnan (Health Writer)
-                        </button>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">

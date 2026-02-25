@@ -7,7 +7,7 @@ import { Shield, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 export default function AdminLogin() {
     const { login } = useAdmin();
     const navigate = useNavigate();
-    const [form, setForm] = useState({ email: '', password: '', role: 'super_admin' });
+    const [form, setForm] = useState({ email: '', password: '' });
     const [showPwd, setShowPwd] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -16,21 +16,17 @@ export default function AdminLogin() {
         e.preventDefault();
         setError('');
         setLoading(true);
-        await new Promise(r => setTimeout(r, 700));
         try {
-            login(form.email, form.password, form.role);
+            await login(form.email, form.password);
             navigate('/admin/dashboard', { replace: true });
-        } catch {
-            setError('Invalid credentials. Please check your email, password and role.');
+        } catch (err) {
+            setError(err.message || 'Invalid credentials. Please check your email and password.');
         } finally {
             setLoading(false);
         }
     };
 
-    const fillDemo = (role) => {
-        if (role === 'super_admin') setForm({ email: 'superadmin@sanjiwani.health', password: 'admin123', role: 'super_admin' });
-        else setForm({ email: 'support@sanjiwani.health', password: 'support123', role: 'support_admin' });
-    };
+
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900 flex items-center justify-center p-4">
@@ -57,32 +53,7 @@ export default function AdminLogin() {
                         <p className="text-sm text-slate-500 mt-1">Sanjiwani Health — Secure Access</p>
                     </div>
 
-                    {/* Demo credentials hint */}
-                    <div className="mb-5 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                        <p className="text-xs text-slate-500 mb-2 font-medium">Quick fill for demo:</p>
-                        <div className="flex gap-2">
-                            <button onClick={() => fillDemo('super_admin')} className="flex-1 text-xs py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 font-medium transition-colors">
-                                Super Admin
-                            </button>
-                            <button onClick={() => fillDemo('support_admin')} className="flex-1 text-xs py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium transition-colors">
-                                Support Admin
-                            </button>
-                        </div>
-                    </div>
-
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Role */}
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Role</label>
-                            <select
-                                value={form.role}
-                                onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
-                                className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                            >
-                                <option value="super_admin">Super Admin</option>
-                                <option value="support_admin">Support Admin</option>
-                            </select>
-                        </div>
 
                         {/* Email */}
                         <div>
