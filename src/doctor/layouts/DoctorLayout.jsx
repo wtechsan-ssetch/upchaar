@@ -18,7 +18,7 @@ const NAV = [
 ];
 
 export default function DoctorLayout() {
-    const { doctor, logout } = useDoctor();
+    const { doctor, logout, loading } = useDoctor();
     const [collapsed, setCollapsed] = useState(false);
     const [isOnline, setIsOnline] = useState(true);
 

@@ -3,13 +3,13 @@
  * ─────────────────────────────────────────────────
  * Doctor portal authentication and session management.
  *
- * ⚠️  Does NOT subscribe to supabase.auth.onAuthStateChange.
- *     Only AuthContext subscribes to that event.
- *     Session is restored via getSession() on mount only.
+ * Keeps doctor state in sync with Supabase session restore
+ * and auth state changes across refreshes and token updates.
  * ─────────────────────────────────────────────────
  */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase.js';
+import { isStrongPassword, PASSWORD_RULE_MESSAGE, withAuthTimeout } from '@/lib/auth.js';
 
 const DoctorContext = createContext(null);
 
@@ -23,7 +23,22 @@ export function DoctorProvider({ children }) {
     const [doctor, setDoctor] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // ── Restore session on mount (one-time, no listener) ─────────────────────
+    const restoreDoctorSession = useCallback(async (session) => {
+        if (!session?.user) {
+            setDoctor(null);
+            return;
+        }
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('profile_type')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+        setDoctor(profile?.profile_type === 'doctor' ? formatUser(session.user) : null);
+    }, []);
+
+    // ── Restore session on mount + keep in sync with auth changes ────────────
     useEffect(() => {
         let mounted = true;
         Promise.race([
@@ -31,28 +46,40 @@ export function DoctorProvider({ children }) {
             new Promise((_, rej) => setTimeout(() => rej(new Error('session fetch timeout')), 5000))
         ]).then(async ({ data: { session } }) => {
             if (!mounted) return;
-            if (session?.user) {
-                // Verify this user is actually a doctor
-                const { data: profile } = await supabase.from('profiles').select('profile_type').eq('id', session.user.id).maybeSingle();
-                if (profile?.profile_type === 'doctor') {
-                    setDoctor(formatUser(session.user));
-                } else {
-                    setDoctor(null);
-                }
-            } else {
-                setDoctor(null);
-            }
+            await restoreDoctorSession(session);
             if (mounted) setLoading(false);
         }).catch(() => { if (mounted) setLoading(false); });
 
-        return () => { mounted = false; };
-    }, []);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            (event, session) => {
+                if (!mounted) return;
+
+                if (event === 'SIGNED_OUT') {
+                    setDoctor(null);
+                    setLoading(false);
+                    return;
+                }
+
+                if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+                    void (async () => {
+                        await restoreDoctorSession(session);
+                        if (mounted) setLoading(false);
+                    })();
+                }
+            }
+        );
+
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
+    }, [restoreDoctorSession]);
 
     // ── Login ─────────────────────────────────────────────────────────────────
     const login = useCallback(async (email, password) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await withAuthTimeout(supabase.auth.signInWithPassword({
             email: email.trim(), password,
-        });
+        }), 'Sign in is taking too long. Please check your connection and try again.');
         if (error) {
             throw new Error(
                 error.message.includes('Invalid login credentials')
@@ -78,7 +105,11 @@ export function DoctorProvider({ children }) {
 
     // ── Register ──────────────────────────────────────────────────────────────
     const register = useCallback(async ({ fullName, email, phone, password, specialization, city }) => {
-        const { data, error } = await supabase.auth.signUp({
+        if (!isStrongPassword(password)) {
+            throw new Error(PASSWORD_RULE_MESSAGE);
+        }
+
+        const { data, error } = await withAuthTimeout(supabase.auth.signUp({
             email: email.trim(),
             password,
             options: {
@@ -95,7 +126,7 @@ export function DoctorProvider({ children }) {
                     avatarColor: '#0d9488', joinedAt: new Date().toISOString(),
                 },
             },
-        });
+        }), 'Sign up is taking too long. Please check your connection and try again.');
         if (error) {
             throw new Error(
                 error.message.includes('already registered')

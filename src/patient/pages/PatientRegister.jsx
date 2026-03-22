@@ -19,6 +19,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { usePatient } from '../context/PatientContext.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, User, Phone } from 'lucide-react';
+import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '@/lib/auth.js';
 
 export default function PatientRegister() {
     const { signUp } = usePatient();
@@ -55,6 +56,10 @@ export default function PatientRegister() {
         }
         if (form.password.length < 6) {
             setError('Password must be at least 6 characters.');
+            return;
+        }
+        if (!isStrongPassword(form.password)) {
+            setError(PASSWORD_RULE_MESSAGE);
             return;
         }
 

@@ -3,14 +3,13 @@
  * ─────────────────────────────────────────────────
  * Admin portal authentication — super_admin & support_admin.
  *
- * ⚠️  Does NOT subscribe to supabase.auth.onAuthStateChange.
- *     Only AuthContext subscribes to that event.
- *     This context restores its session via getSession() on
- *     mount, then manages state directly via login/logout.
+ * Restores the admin session on mount and keeps it in sync
+ * with Supabase auth state changes.
  * ─────────────────────────────────────────────────
  */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase.js';
+import { withAuthTimeout } from '@/lib/auth.js';
 
 const AdminContext = createContext(null);
 
@@ -44,7 +43,17 @@ export function AdminProvider({ children }) {
         }
     }, []);
 
-    // ── Restore session on mount (one-time, no listener) ─────────────────────
+    const restoreAdminSession = useCallback(async (session, timeoutMs = 3000) => {
+        if (!session?.user) {
+            setAdmin(null);
+            return;
+        }
+
+        const ctrl = await fetchController(session.user.id, timeoutMs);
+        setAdmin(ctrl ? { ...ctrl, email: session.user.email } : null);
+    }, [fetchController]);
+
+    // ── Restore session on mount + keep in sync with auth changes ────────────
     useEffect(() => {
         let mounted = true;
 
@@ -53,29 +62,43 @@ export function AdminProvider({ children }) {
             new Promise((_, rej) => setTimeout(() => rej(new Error('session fetch timeout')), 5000))
         ]).then(async ({ data: { session } }) => {
             if (!mounted) return;
-            if (session?.user) {
-                // Use 3s timeout for session restore (faster than login's 5s)
-                const ctrl = await fetchController(session.user.id, 3000);
-                if (mounted) {
-                    setAdmin(ctrl ? { ...ctrl, email: session.user.email } : null);
-                    setLoading(false);
-                }
-            } else {
-                if (mounted) setLoading(false);
-            }
+            await restoreAdminSession(session, 3000);
+            if (mounted) setLoading(false);
         }).catch(() => { if (mounted) setLoading(false); });
 
-        return () => { mounted = false; };
-    }, [fetchController]);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            (event, session) => {
+                if (!mounted) return;
+
+                if (event === 'SIGNED_OUT') {
+                    setAdmin(null);
+                    setLoading(false);
+                    return;
+                }
+
+                if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+                    void (async () => {
+                        await restoreAdminSession(session, 3000);
+                        if (mounted) setLoading(false);
+                    })();
+                }
+            }
+        );
+
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
+    }, [restoreAdminSession]);
 
     // ── Login ─────────────────────────────────────────────────────────────────
     const login = useCallback(async (email, password) => {
         setLoading(true);
         try {
             // Step 1: Supabase auth
-            const { data, error } = await supabase.auth.signInWithPassword({
+            const { data, error } = await withAuthTimeout(supabase.auth.signInWithPassword({
                 email: email.trim(), password,
-            });
+            }), 'Sign in is taking too long. Please check your connection and try again.');
             if (error) {
                 throw new Error(
                     error.message.toLowerCase().includes('invalid login credentials')

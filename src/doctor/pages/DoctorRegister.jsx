@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDoctor } from '../context/DoctorContext.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Stethoscope, Eye, EyeOff, Loader2, AlertCircle, Phone, Lock, User, MapPin, ChevronDown } from 'lucide-react';
+import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '@/lib/auth.js';
 
 const SPECIALIZATIONS = [
     'General Physician', 'Cardiologist', 'Dermatologist', 'Endocrinologist',
@@ -29,6 +30,7 @@ export default function DoctorRegister() {
         if (!form.phone.trim() || !/^\d{10}$/.test(form.phone.trim())) return 'Enter a valid 10-digit phone number.';
         if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) return 'Enter a valid email address.';
         if (form.password.length < 6) return 'Password must be at least 6 characters.';
+        if (!isStrongPassword(form.password)) return PASSWORD_RULE_MESSAGE;
         if (form.password !== form.confirmPassword) return 'Passwords do not match.';
         return null;
     };

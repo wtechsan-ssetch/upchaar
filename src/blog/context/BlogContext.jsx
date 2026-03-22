@@ -4,14 +4,14 @@
  * Blog portal auth + posts state.
  * Bloggers authenticate via Supabase Auth & controllers table.
  *
- * ⚠️  Does NOT subscribe to supabase.auth.onAuthStateChange.
- *     Only AuthContext subscribes to that event.
- *     Session is restored via getSession() on mount only.
+ * Restores blogger state on refresh and keeps it in sync
+ * with Supabase auth state changes.
  * ─────────────────────────────────────────────────
  */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase.js';
 import { BLOG_CATEGORIES, COVER_GRADIENTS } from '@/lib/constants.js';
+import { withAuthTimeout } from '@/lib/auth.js';
 
 export { BLOG_CATEGORIES, COVER_GRADIENTS };
 
@@ -38,7 +38,17 @@ export function BlogProvider({ children }) {
         }
     }, []);
 
-    // ── Restore session on mount (one-time, no listener) ─────────────────────
+    const restoreBloggerSession = useCallback(async (session) => {
+        if (!session?.user) {
+            setBlogger(null);
+            return;
+        }
+
+        const profile = await fetchBloggerProfile(session.user.id);
+        setBlogger(profile ? { ...profile, email: session.user.email } : null);
+    }, [fetchBloggerProfile]);
+
+    // ── Restore session on mount + keep in sync with auth changes ────────────
     useEffect(() => {
         let mounted = true;
         Promise.race([
@@ -46,15 +56,34 @@ export function BlogProvider({ children }) {
             new Promise((_, rej) => setTimeout(() => rej(new Error('session fetch timeout')), 5000))
         ]).then(async ({ data: { session } }) => {
             if (!mounted) return;
-            if (session?.user) {
-                const profile = await fetchBloggerProfile(session.user.id);
-                if (mounted) setBlogger(profile ? { ...profile, email: session.user.email } : null);
-            }
+            await restoreBloggerSession(session);
             if (mounted) setLoading(false);
         }).catch(() => { if (mounted) setLoading(false); });
 
-        return () => { mounted = false; };
-    }, [fetchBloggerProfile]);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            (event, session) => {
+                if (!mounted) return;
+
+                if (event === 'SIGNED_OUT') {
+                    setBlogger(null);
+                    setLoading(false);
+                    return;
+                }
+
+                if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+                    void (async () => {
+                        await restoreBloggerSession(session);
+                        if (mounted) setLoading(false);
+                    })();
+                }
+            }
+        );
+
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
+    }, [restoreBloggerSession]);
 
     // ── Load published posts on mount ─────────────────────────────────────────
     useEffect(() => { loadPosts(); }, []);
@@ -78,7 +107,10 @@ export function BlogProvider({ children }) {
 
     // ── Blogger login ─────────────────────────────────────────────────────────
     const loginBlogger = useCallback(async (email, password) => {
-        const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        const { data, error } = await withAuthTimeout(
+            supabase.auth.signInWithPassword({ email: email.trim(), password }),
+            'Sign in is taking too long. Please check your connection and try again.'
+        );
         if (error) {
             throw new Error(
                 error.message.toLowerCase().includes('invalid login credentials')

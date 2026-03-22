@@ -22,6 +22,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase.js';
+import { isStrongPassword, PASSWORD_RULE_MESSAGE, withAuthTimeout } from '@/lib/auth.js';
 
 // ── Context ───────────────────────────────────────
 const PatientContext = createContext(null);
@@ -82,7 +83,7 @@ export function PatientProvider({ children }) {
 
         // ── Auth state change (login / logout events) ──────────────
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
+            (event, session) => {
                 if (!mounted) return;
 
                 if (event === 'SIGNED_OUT') {
@@ -92,15 +93,18 @@ export function PatientProvider({ children }) {
                 }
 
                 if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
-                    if (session?.user) {
+                    if (!session?.user) {
+                        if (mounted) setLoading(false);
+                        return;
+                    }
+
+                    void (async () => {
                         const profile = await fetchProfile(session.user.id);
                         if (mounted) {
                             setPatient(profile?.profile_type === 'patient' ? profile : null);
                             setLoading(false);
                         }
-                    } else {
-                        if (mounted) setLoading(false);
-                    }
+                    })();
                 }
                 // INITIAL_SESSION is handled by getSession() above, skip it here
             }
@@ -122,10 +126,10 @@ export function PatientProvider({ children }) {
      * @returns {object} The patient profile from public.profiles
      */
     const signIn = useCallback(async (email, password) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await withAuthTimeout(supabase.auth.signInWithPassword({
             email: email.trim(),
             password,
-        });
+        }), 'Sign in is taking too long. Please check your connection and try again.');
 
         if (error) {
             if (error.message.includes('Invalid login credentials')) {
@@ -160,8 +164,12 @@ export function PatientProvider({ children }) {
      * @returns {object} The newly created profile row
      */
     const signUp = useCallback(async ({ fullName, email, phone, password }) => {
+        if (!isStrongPassword(password)) {
+            throw new Error(PASSWORD_RULE_MESSAGE);
+        }
+
         // Step 1: Create Supabase Auth user
-        const { data, error } = await supabase.auth.signUp({
+        const { data, error } = await withAuthTimeout(supabase.auth.signUp({
             email: email.trim(),
             password,
             options: {
@@ -171,7 +179,7 @@ export function PatientProvider({ children }) {
                     profile_type: 'patient',
                 },
             },
-        });
+        }), 'Sign up is taking too long. Please check your connection and try again.');
 
         if (error) {
             if (error.message.includes('already registered')) {

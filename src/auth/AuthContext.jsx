@@ -14,6 +14,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase.js';
+import { isStrongPassword, PASSWORD_RULE_MESSAGE, withAuthTimeout } from '@/lib/auth.js';
 
 const AuthContext = createContext(null);
 
@@ -30,6 +31,25 @@ export function AuthProvider({ children }) {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const isRegistering = useRef(false);
+
+    const clearAuthState = useCallback(() => {
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+    }, []);
+
+    const safeSignOut = useCallback(async () => {
+        try {
+            await withAuthTimeout(
+                supabase.auth.signOut(),
+                'Sign out is taking too long. Local session was cleared.'
+            );
+        } catch (err) {
+            console.warn('[Auth] signOut warning:', err.message);
+        } finally {
+            clearAuthState();
+        }
+    }, [clearAuthState]);
 
     /**
      * fetchProfile — reads public.profiles with a 4s timeout.
@@ -75,9 +95,7 @@ export function AuthProvider({ children }) {
                 console.log('[Auth] event:', event);
 
                 if (event === 'SIGNED_OUT') {
-                    setUser(null);
-                    setProfile(null);
-                    setLoading(false);
+                    clearAuthState();
                     return;
                 }
 
@@ -95,13 +113,13 @@ export function AuthProvider({ children }) {
         );
 
         return () => { mounted = false; subscription.unsubscribe(); };
-    }, [fetchProfile]);
+    }, [clearAuthState, fetchProfile]);
 
     /** signIn — for patients/doctors/etc. via unified login */
     const signIn = useCallback(async (email, password) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await withAuthTimeout(supabase.auth.signInWithPassword({
             email: email.trim(), password,
-        });
+        }), 'Sign in is taking too long. Please check your connection and try again.');
         if (error) {
             throw new Error(
                 error.message.toLowerCase().includes('invalid login credentials')
@@ -111,23 +129,27 @@ export function AuthProvider({ children }) {
         }
         const p = await fetchProfile(data.user.id);
         if (!p) {
-            await supabase.auth.signOut();
+            await safeSignOut();
             throw new Error('No profile found. Please register first.');
         }
         if (p.status === 'suspended') {
-            await supabase.auth.signOut();
+            await safeSignOut();
             throw new Error('Your account has been suspended. Contact support.');
         }
         setUser(data.user);
         setProfile(p);
         return { user: data.user, profile: p };
-    }, [fetchProfile]);
+    }, [fetchProfile, safeSignOut]);
 
     /** signUp — creates auth user + profile via DB trigger */
     const signUp = useCallback(async ({ fullName, email, phone, password, profileType }) => {
         isRegistering.current = true;
         try {
-            const { data, error } = await supabase.auth.signUp({
+            if (!isStrongPassword(password)) {
+                throw new Error(PASSWORD_RULE_MESSAGE);
+            }
+
+            const { data, error } = await withAuthTimeout(supabase.auth.signUp({
                 email: email.trim(),
                 password,
                 options: {
@@ -137,7 +159,7 @@ export function AuthProvider({ children }) {
                         profile_type: profileType,
                     },
                 },
-            });
+            }), 'Sign up is taking too long. Please check your connection and try again.');
             if (error) {
                 let msg = error.message;
                 if (msg.toLowerCase().includes('already registered')) {
@@ -169,27 +191,21 @@ export function AuthProvider({ children }) {
                 }).select().maybeSingle();
             }
 
-            // Sign out so user must log in manually
-            await supabase.auth.signOut();
-            setUser(null);
-            setProfile(null);
-            setLoading(false);
+            // Clear the temporary session without letting sign-out block the UI.
+            await safeSignOut();
             isRegistering.current = false;
             return { success: true };
         } catch (err) {
             isRegistering.current = false;
-            setLoading(false);
-            await supabase.auth.signOut().catch(() => { });
+            await safeSignOut();
             throw err;
         }
-    }, [fetchProfile]);
+    }, [fetchProfile, safeSignOut]);
 
     /** signOut */
     const signOut = useCallback(async () => {
-        await supabase.auth.signOut();
-        setUser(null);
-        setProfile(null);
-    }, []);
+        await safeSignOut();
+    }, [safeSignOut]);
 
     const getDashboardPath = useCallback((p) => {
         return PROFILE_TYPE_DASHBOARDS[p?.profile_type] || '/';

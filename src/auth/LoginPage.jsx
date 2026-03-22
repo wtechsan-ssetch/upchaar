@@ -22,6 +22,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '@/lib/auth.js';
 import {
     Heart, Mail, Lock, Eye, EyeOff, Loader2, AlertCircle,
     User, Phone, ChevronDown, Stethoscope, Building2,
@@ -127,6 +128,10 @@ export default function LoginPage() {
         }
         if (signUpForm.password.length < 6) {
             setError('Password must be at least 6 characters.');
+            return;
+        }
+        if (!isStrongPassword(signUpForm.password)) {
+            setError(PASSWORD_RULE_MESSAGE);
             return;
         }
 
