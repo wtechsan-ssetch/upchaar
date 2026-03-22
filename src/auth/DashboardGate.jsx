@@ -41,7 +41,7 @@ export default function DashboardGate() {
 
     // Logged in → redirect to the correct dashboard
     const dashboardRoutes = {
-        patient: '/patient/dashboard',
+        patient: '/',                    // Patients land on the public landing page
         doctor: '/doctor/dashboard',
         clinic: '/clinic/dashboard',
         medical: '/medical/dashboard',

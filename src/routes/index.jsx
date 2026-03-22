@@ -120,8 +120,9 @@ export function AppRoutes() {
             <Route path="/" element={<LandingPage />} />
 
             {/* Patient-facing feature pages */}
-            <Route path="/doctors" element={<AppLayout><DoctorsPage /></AppLayout>} />
-            <Route path="/doctors/:id" element={<AppLayout><DoctorDetailPage /></AppLayout>} />
+            <Route path="/dashboard" element={<ProtectedRoute><AppLayout><DashboardPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/doctors" element={<ProtectedRoute><AppLayout><DoctorsPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/doctors/:id" element={<ProtectedRoute><AppLayout><DoctorDetailPage /></AppLayout></ProtectedRoute>} />
             <Route path="/diagnostics" element={<AppLayout><DiagnosticsPage /></AppLayout>} />
             <Route path="/hospitals" element={<AppLayout><HospitalsPage /></AppLayout>} />
             <Route path="/records" element={<AppLayout><RecordsPage /></AppLayout>} />
