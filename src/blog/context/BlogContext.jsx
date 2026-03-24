@@ -88,6 +88,25 @@ export function BlogProvider({ children }) {
     // ── Load published posts on mount ─────────────────────────────────────────
     useEffect(() => { loadPosts(); }, []);
 
+    /** Map snake_case DB columns → camelCase so components stay consistent */
+    const normalizePost = (p) => ({
+        ...p,
+        coverGradient:  p.cover_gradient  || p.coverGradient  || COVER_GRADIENTS[0],
+        imageUrl:       p.image_url       || p.imageUrl       || '',
+        readTime:       p.read_time       || p.readTime       || 5,
+        publishedAt:    p.published_at    || p.publishedAt    || null,
+        updatedAt:      p.updated_at      || p.updatedAt      || new Date().toISOString(),
+        createdAt:      p.created_at      || p.createdAt      || new Date().toISOString(),
+        author: p.controllers
+            ? {
+                name:      p.controllers.name,
+                avatarUrl: p.controllers.avatar_url,
+                avatarColor: (p.controllers.metadata || {}).avatarColor || (p.controllers.metadata || {}).avatar_color || '#0d9488',
+                ...(p.controllers.metadata || {}),
+              }
+            : { name: 'Unknown', avatarColor: '#0d9488' },
+    });
+
     const loadPosts = async () => {
         setPostsLoading(true);
         const { data, error } = await supabase
@@ -95,15 +114,11 @@ export function BlogProvider({ children }) {
             .select('*, controllers:author_id(id, name, avatar_url, metadata)')
             .order('published_at', { ascending: false });
         if (!error) {
-            setPosts((data || []).map(p => ({
-                ...p,
-                author: p.controllers
-                    ? { name: p.controllers.name, avatarUrl: p.controllers.avatar_url, ...(p.controllers.metadata || {}) }
-                    : { name: 'Unknown' },
-            })));
+            setPosts((data || []).map(normalizePost));
         }
         setPostsLoading(false);
     };
+
 
     // ── Blogger login ─────────────────────────────────────────────────────────
     const loginBlogger = useCallback(async (email, password) => {

@@ -4,7 +4,7 @@ import DoctorPendingPage from '../pages/DoctorPendingPage.jsx';
 import {
     LayoutDashboard, Calendar, Users, ClipboardList,
     UserCircle, LogOut, ChevronLeft, ChevronRight, Stethoscope,
-    Video, Bell, Search, MessageSquare
+    Video, Bell, Search, MessageSquare, Menu, X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ export default function DoctorLayout() {
     const { doctor, doctorRecord, logout, loading } = useDoctor();
     const [collapsed, setCollapsed] = useState(false);
     const [isOnline, setIsOnline] = useState(true);
+    const [mobileOpen, setMobileOpen] = useState(false);
 
     if (loading) {
         return (
@@ -46,17 +47,83 @@ export default function DoctorLayout() {
 
     return (
         <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-            {/* Ambient Background for Glassmorphism */}
+            {/* Ambient Background */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
                 <div className="absolute -top-40 -right-40 w-96 h-96 bg-teal-400/10 rounded-full blur-3xl opacity-50" />
                 <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl opacity-50" />
             </div>
 
-            {/* Sidebar (Glassmorphic) */}
+            {/* ── Mobile overlay drawer ───────────────────────────── */}
+            <AnimatePresence>
+                {mobileOpen && (
+                    <>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            onClick={() => setMobileOpen(false)}
+                            className="fixed inset-0 bg-black/40 z-30 lg:hidden" />
+                        <motion.aside
+                            initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
+                            transition={{ duration: 0.25, ease: 'easeInOut' }}
+                            className="fixed left-0 top-0 h-full w-64 bg-white/95 backdrop-blur-xl border-r border-white/50 shadow-2xl z-40 lg:hidden flex flex-col">
+                            {/* Mobile drawer header */}
+                            <div className="flex items-center justify-between px-6 py-6 h-20 flex-shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-400 shadow-lg shadow-teal-500/20 flex items-center justify-center">
+                                        <Stethoscope size={20} className="text-white" />
+                                    </div>
+                                    <span className="font-bold text-base text-slate-800">Sanjiwani<span className="text-teal-500">.</span>Doctor</span>
+                                </div>
+                                <button onClick={() => setMobileOpen(false)}
+                                    className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+                                    <X size={16} />
+                                </button>
+                            </div>
+                            {/* Mobile doctor card */}
+                            <div className="px-6 pb-3">
+                                <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-2xl">
+                                    <div className="h-10 w-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shrink-0"
+                                        style={{ backgroundColor: doctor.avatarColor || '#0d9488' }}>
+                                        {initials}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-slate-800 truncate">{doctor.fullName}</p>
+                                        <p className="text-[11px] text-slate-500">{doctor.specialization || 'Doctor'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            {/* Mobile nav */}
+                            <nav className="flex flex-col gap-2 px-4 py-2 flex-1 overflow-y-auto">
+                                {NAV.map(({ to, icon: Icon, label }) => (
+                                    <NavLink key={to} to={to} onClick={() => setMobileOpen(false)}
+                                        end={to === '/doctor/dashboard'}
+                                        className={({ isActive }) => cn(
+                                            'flex items-center gap-3 px-3 py-3 rounded-2xl text-sm font-medium transition-all duration-200',
+                                            isActive ? 'bg-teal-50 text-teal-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                        )}>
+                                        {({ isActive }) => (
+                                            <>
+                                                <Icon className={cn(isActive ? 'text-teal-600' : 'text-slate-400')} size={20} />
+                                                <span>{label}</span>
+                                            </>
+                                        )}
+                                    </NavLink>
+                                ))}
+                            </nav>
+                            <div className="p-4">
+                                <button onClick={handleLogout}
+                                    className="flex items-center gap-3 px-3 py-3 rounded-2xl text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all w-full">
+                                    <LogOut size={20} /> Sign Out
+                                </button>
+                            </div>
+                        </motion.aside>
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* Sidebar (Glassmorphic) — desktop only */}
             <motion.aside
                 animate={{ width: collapsed ? 80 : 260 }}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="relative flex flex-col bg-white/70 backdrop-blur-xl border-r border-white/50 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.05)] flex-shrink-0 overflow-visible z-20 m-3 mr-0 rounded-3xl"
+                className="relative hidden lg:flex flex-col bg-white/70 backdrop-blur-xl border-r border-white/50 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.05)] flex-shrink-0 overflow-visible z-20 m-3 mr-0 rounded-3xl"
             >
                 {/* Logo */}
                 <div className="flex items-center gap-3 px-6 py-6 h-20 flex-shrink-0">
@@ -157,7 +224,13 @@ export default function DoctorLayout() {
             {/* Main content */}
             <div className="relative flex flex-col flex-1 min-w-0 overflow-hidden z-10">
                 {/* Topbar */}
-                <header className="h-20 bg-white/60 backdrop-blur-md border-b border-white/50 flex items-center justify-between px-8 flex-shrink-0 z-20 sticky top-0">
+                <header className="h-20 bg-white/60 backdrop-blur-md border-b border-white/50 flex items-center justify-between px-4 sm:px-8 flex-shrink-0 z-20 sticky top-0">
+                    {/* Hamburger — mobile only */}
+                    <button onClick={() => setMobileOpen(true)}
+                        className="lg:hidden h-9 w-9 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 transition-colors">
+                        <Menu size={20} />
+                    </button>
+
                     {/* Welcome Text */}
                     <div className="hidden sm:block">
                         <h2 className="font-bold text-slate-800 text-lg tracking-tight">Welcome, Dr. {doctor.fullName?.split(' ')[1] || doctor.fullName?.split(' ')[0]}</h2>
