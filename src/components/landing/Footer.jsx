@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { ShieldCheck } from 'lucide-react';
 
 export const Footer = () => {
     const [currentYear, setCurrentYear] = useState(null);
@@ -60,7 +61,34 @@ export const Footer = () => {
                         </div>
                     ))}
                 </div>
-                <div className="mt-12 border-t border-slate-800 pt-8 flex flex-col items-center gap-4">
+
+                {/* ── Staff Portal ──────────────────────────────────── */}
+                <div className="mt-10 border-t border-slate-800 pt-6">
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                        <span className="flex items-center gap-1.5 text-xs text-slate-500 select-none">
+                            <ShieldCheck size={13} className="text-slate-600" />
+                            Staff Portal:
+                        </span>
+                        <div className="flex items-center gap-4">
+                            <Link
+                                to="/admin/login"
+                                className="text-xs text-slate-500 hover:text-teal-400 transition-colors duration-200 flex items-center gap-1"
+                            >
+                                Super Admin Login
+                            </Link>
+                            <span className="text-slate-700 text-xs">|</span>
+                            <Link
+                                to="/admin/login"
+                                className="text-xs text-slate-500 hover:text-teal-400 transition-colors duration-200 flex items-center gap-1"
+                            >
+                                Support Admin Login
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── Copyright ─────────────────────────────────────── */}
+                <div className="mt-6 border-t border-slate-800 pt-6 flex flex-col items-center gap-4">
                     <div className="flex items-center space-x-2">
                         <img src="/logo.png" alt="Sanjiwani Health Logo" width={32} height={32} />
                         <span className="font-bold text-lg">Sanjiwani Health</span>

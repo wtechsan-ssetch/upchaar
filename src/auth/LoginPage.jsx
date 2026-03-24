@@ -93,12 +93,15 @@ export default function LoginPage() {
         try {
             const { profile } = await signIn(signInForm.email, signInForm.password);
 
+            // If user was redirected here from a protected page, send them back to it
+            const from = location.state?.from;
+
             const redirectMap = {
                 patient: '/patient/dashboard',
                 doctor: '/doctor/dashboard',
             };
 
-            const destination = redirectMap[profile.profile_type] ?? getDashboardPath(profile);
+            const destination = from || (redirectMap[profile.profile_type] ?? getDashboardPath(profile));
             navigate(destination, { replace: true });
         } catch (err) {
             console.error('[LoginPage] Sign In Error:', err);

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { SPECIALIZATIONS } from '@/lib/constants.js';
 import { useAdmin } from '../context/AdminContext.jsx';
-import { fetchDoctors, updateDoctorStatus } from '@/lib/adminApi.js';
+import { fetchDoctors, fetchPendingDoctors, updateDoctorStatus, approvePendingDoctor, rejectPendingDoctor } from '@/lib/adminApi.js';
 import {
     Search, Eye, CheckCircle, XCircle, ShieldAlert,
     ChevronLeft, ChevronRight, ExternalLink, X, FileText, Phone, Mail, Plus, Trash2
@@ -25,7 +25,6 @@ const EMPTY_DOCTOR_FORM = { fullName: '', email: '', phone: '', specialization: 
 
 export default function DoctorManagement() {
     const { isSuperAdmin, admin } = useAdmin();
-    const [doctors, setDoctors] = useState([]);
     const [dataLoading, setDataLoading] = useState(true);
     const [activeStatus, setActiveStatus] = useState('All');
     const [search, setSearch] = useState('');
@@ -40,30 +39,46 @@ export default function DoctorManagement() {
     const [approving, setApproving] = useState(null); // doctorId being approved
     const [docUrls, setDocUrls] = useState({}); // { govtId: url, licenseDoc: url, degreeCert: url }
 
+    // pendingDoctors: from pending_doctors table (Pending/Rejected applications)
+    // approvedDoctors: from doctors table (Approved/Suspended)
+    const [pendingDoctors, setPendingDoctors] = useState([]);
+    const [approvedDoctors, setApprovedDoctors] = useState([]);
+
+    // Combined view for the table — pending first, then approved/suspended
+    const doctors = useMemo(() => [
+        ...pendingDoctors.map(d => ({ ...d, _source: 'pending' })),
+        ...approvedDoctors.map(d => ({ ...d, _source: 'approved' })),
+    ], [pendingDoctors, approvedDoctors]);
+
+    const normalize = (d) => ({
+        ...d,
+        fullName: d.full_name,
+        appliedAt: d.applied_at,
+        approvedAt: d.approved_at,
+        consultationFee: d.consultation_fee,
+        consultationType: d.consultation_type,
+        clinicName: d.clinic_name,
+        clinicAddress: d.clinic_address,
+        licenseNo: d.license_no,
+        nmcNo: d.nmc_no,
+        rejectionReason: d.rejection_reason,
+        totalAppointments: d.total_appointments,
+        totalRevenue: d.total_revenue,
+        availableDays: d.available_days || [],
+        hoursFrom: d.hours_from || '09:00',
+        hoursTo: d.hours_to || '17:00',
+        additionalQualifications: d.additional_qualifications || '',
+        subSpecialization: d.sub_specialization || '',
+        passingYear: d.passing_year,
+        documents: d.metadata?.documents || {},
+    });
+
     useEffect(() => {
-        fetchDoctors()
-            .then(data => setDoctors(data.map(d => ({
-                ...d,
-                fullName: d.full_name,
-                appliedAt: d.applied_at,
-                approvedAt: d.approved_at,
-                consultationFee: d.consultation_fee,
-                consultationType: d.consultation_type,
-                clinicName: d.clinic_name,
-                clinicAddress: d.clinic_address,
-                licenseNo: d.license_no,
-                nmcNo: d.nmc_no,
-                rejectionReason: d.rejection_reason,
-                totalAppointments: d.total_appointments,
-                totalRevenue: d.total_revenue,
-                availableDays: d.available_days || [],
-                hoursFrom: d.hours_from || '09:00',
-                hoursTo: d.hours_to || '17:00',
-                additionalQualifications: d.additional_qualifications || '',
-                subSpecialization: d.sub_specialization || '',
-                passingYear: d.passing_year,
-                documents: d.metadata?.documents || {},
-            }))))
+        Promise.all([fetchPendingDoctors(), fetchDoctors()])
+            .then(([pending, approved]) => {
+                setPendingDoctors(pending.map(normalize));
+                setApprovedDoctors(approved.map(normalize));
+            })
             .catch(console.error)
             .finally(() => setDataLoading(false));
     }, []);
@@ -98,29 +113,41 @@ export default function DoctorManagement() {
     const handleApprove = async (doc) => {
         setApproving(doc.id);
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approve-doctor`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session?.access_token}`,
-                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-                    },
-                    body: JSON.stringify({
-                        doctorId: doc.id,
-                        doctorEmail: doc.email,
-                        doctorName: doc.fullName,
-                    }),
-                }
-            );
-            const result = await res.json();
-            if (!res.ok) throw new Error(result.error || 'Approval failed');
-            const approvedAt = new Date().toISOString();
-            setDoctors(prev => prev.map(d => d.id === doc.id ? { ...d, status: 'Approved', approvedAt } : d));
-            if (selectedDoc?.id === doc.id) setSelectedDoc(p => ({ ...p, status: 'Approved', approvedAt }));
-            showToast(`${doc.fullName} approved ✓ — credentials emailed`);
+            if (doc._source === 'pending') {
+                // Move from pending_doctors → doctors
+                const rawPending = pendingDoctors.find(d => d.id === doc.id);
+                const approved = await approvePendingDoctor(rawPending);
+                // Remove from pending list, add to approved list
+                setPendingDoctors(prev => prev.filter(d => d.id !== doc.id));
+                setApprovedDoctors(prev => [normalize(approved), ...prev]);
+                if (selectedDoc?.id === doc.id) setSelectedDoc(null);
+                showToast(`${doc.fullName} approved ✓ — application moved to doctors`);
+            } else {
+                // Already in doctors table — just update status (e.g. unsuspend)
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch(
+                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approve-doctor`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session?.access_token}`,
+                            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                        },
+                        body: JSON.stringify({
+                            doctorId: doc.id,
+                            doctorEmail: doc.email,
+                            doctorName: doc.fullName,
+                        }),
+                    }
+                );
+                const result = await res.json();
+                if (!res.ok) throw new Error(result.error || 'Approval failed');
+                const approvedAt = new Date().toISOString();
+                setApprovedDoctors(prev => prev.map(d => d.id === doc.id ? { ...d, status: 'Approved', approvedAt } : d));
+                if (selectedDoc?.id === doc.id) setSelectedDoc(p => ({ ...p, status: 'Approved', approvedAt }));
+                showToast(`${doc.fullName} approved ✓`);
+            }
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
@@ -128,11 +155,25 @@ export default function DoctorManagement() {
         }
     };
 
-    const handleReject = () => {
+    const handleReject = async () => {
         if (!rejectReason.trim()) return;
-        updateStatus(rejectModal.doc.id, 'Rejected', { rejectionReason: rejectReason });
-        showToast(`${rejectModal.doc.fullName} rejected`, 'error');
-        if (selectedDoc?.id === rejectModal.doc.id) setSelectedDoc(p => ({ ...p, status: 'Rejected' }));
+        const doc = rejectModal.doc;
+        try {
+            if (doc._source === 'pending') {
+                // Update status in pending_doctors
+                await rejectPendingDoctor(doc.id, rejectReason);
+                setPendingDoctors(prev => prev.map(d => d.id === doc.id
+                    ? { ...d, status: 'Rejected', rejectionReason: rejectReason }
+                    : d
+                ));
+            } else {
+                await updateStatus(doc.id, 'Rejected', { rejectionReason: rejectReason });
+            }
+            showToast(`${doc.fullName} rejected`, 'error');
+            if (selectedDoc?.id === doc.id) setSelectedDoc(p => ({ ...p, status: 'Rejected' }));
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
         setRejectModal({ open: false, doc: null });
         setRejectReason('');
     };
@@ -140,14 +181,20 @@ export default function DoctorManagement() {
     const handleSuspend = (doc) => {
         const newStatus = doc.status === 'Suspended' ? 'Approved' : 'Suspended';
         updateStatus(doc.id, newStatus);
+        setApprovedDoctors(prev => prev.map(d => d.id === doc.id ? { ...d, status: newStatus } : d));
         showToast(`${doc.fullName} ${newStatus === 'Suspended' ? 'suspended' : 'unsuspended'}`, newStatus === 'Suspended' ? 'warn' : 'success');
         if (selectedDoc?.id === doc.id) setSelectedDoc(p => ({ ...p, status: newStatus }));
     };
 
     const handleDeleteDoctor = async () => {
         try {
-            await supabase.from('doctors').delete().eq('id', deleteTarget.id);
-            setDoctors(prev => prev.filter(d => d.id !== deleteTarget.id));
+            if (deleteTarget._source === 'pending') {
+                await supabase.from('pending_doctors').delete().eq('id', deleteTarget.id);
+                setPendingDoctors(prev => prev.filter(d => d.id !== deleteTarget.id));
+            } else {
+                await supabase.from('doctors').delete().eq('id', deleteTarget.id);
+                setApprovedDoctors(prev => prev.filter(d => d.id !== deleteTarget.id));
+            }
             showToast(`${deleteTarget.fullName} deleted`, 'error');
             if (selectedDoc?.id === deleteTarget.id) setSelectedDoc(null);
         } catch (err) {

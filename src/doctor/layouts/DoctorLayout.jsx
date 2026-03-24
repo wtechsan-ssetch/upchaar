@@ -1,5 +1,6 @@
 import { NavLink, Outlet, Navigate } from 'react-router-dom';
 import { useDoctor } from '../context/DoctorContext.jsx';
+import DoctorPendingPage from '../pages/DoctorPendingPage.jsx';
 import {
     LayoutDashboard, Calendar, Users, ClipboardList,
     UserCircle, LogOut, ChevronLeft, ChevronRight, Stethoscope,
@@ -18,7 +19,7 @@ const NAV = [
 ];
 
 export default function DoctorLayout() {
-    const { doctor, logout, loading } = useDoctor();
+    const { doctor, doctorRecord, logout, loading } = useDoctor();
     const [collapsed, setCollapsed] = useState(false);
     const [isOnline, setIsOnline] = useState(true);
 
@@ -31,6 +32,11 @@ export default function DoctorLayout() {
     }
 
     if (!doctor) return <Navigate to="/doctor/login" replace />;
+
+    // Doctor is logged in but not yet approved by admin → show pending page
+    if (doctorRecord && doctorRecord.status !== 'Approved') {
+        return <DoctorPendingPage />;
+    }
 
     const initials = doctor.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'DR';
 

@@ -41,6 +41,7 @@ const STEPS = [
 const initialData = {
     // Step 1
     fullName: '', email: '', phone: '', dob: '', gender: '', photo: null,
+    password: '', confirmPassword: '',
     // Step 2
     licenseNo: '', nmcNo: '', specialization: '', subSpecialization: '',
     degree: '', passingYear: '', institution: '', additionalQualifications: '',
@@ -60,6 +61,23 @@ function validate(step, data) {
         if (!data.phone.match(/^[6-9]\d{9}$/)) errors.phone = 'Valid 10-digit mobile number required';
         if (!data.dob) errors.dob = 'Date of birth is required';
         if (!data.gender) errors.gender = 'Gender is required';
+        // Password validation
+        if (!data.password) {
+            errors.password = 'Password is required';
+        } else if (data.password.length < 8) {
+            errors.password = 'Password must be at least 8 characters';
+        } else if (!/[A-Z]/.test(data.password)) {
+            errors.password = 'Must contain at least one uppercase letter';
+        } else if (!/[0-9]/.test(data.password)) {
+            errors.password = 'Must contain at least one number';
+        } else if (!/[^A-Za-z0-9]/.test(data.password)) {
+            errors.password = 'Must contain at least one special character';
+        }
+        if (!data.confirmPassword) {
+            errors.confirmPassword = 'Please confirm your password';
+        } else if (data.password !== data.confirmPassword) {
+            errors.confirmPassword = 'Passwords do not match';
+        }
     }
     if (step === 2) {
         if (!data.licenseNo.trim()) errors.licenseNo = 'License number is required';
@@ -185,6 +203,33 @@ function Step1({ data, onChange, errors }) {
                         <><Upload className="h-5 w-5 text-muted-foreground" /><span className="text-xs text-muted-foreground">Upload profile photo (optional)</span></>
                     )}
                 </label>
+            </div>
+
+            {/* ─── Password Section ─────────────────────── */}
+            <div className="sm:col-span-2">
+                <div className="bg-muted/40 border border-border rounded-xl p-4 space-y-3">
+                    <p className="text-sm font-semibold text-foreground/80 flex items-center gap-2">
+                        <span className="inline-block h-5 w-5 rounded-full bg-primary text-white text-xs flex items-center justify-center font-bold">🔒</span>
+                        Create Your Login Password
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <FormLabel required>Password</FormLabel>
+                            <Input id="password" type="password" placeholder="Min 8 chars, A-Z, 0-9, symbol"
+                                value={data.password} onChange={e => onChange('password', e.target.value)}
+                                className={errors.password ? 'border-red-400' : ''} />
+                            <FieldError msg={errors.password} />
+                        </div>
+                        <div>
+                            <FormLabel required>Confirm Password</FormLabel>
+                            <Input id="confirmPassword" type="password" placeholder="Re-enter password"
+                                value={data.confirmPassword} onChange={e => onChange('confirmPassword', e.target.value)}
+                                className={errors.confirmPassword ? 'border-red-400' : ''} />
+                            <FieldError msg={errors.confirmPassword} />
+                        </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">You will use this password to log in after your application is approved.</p>
+                </div>
             </div>
         </div>
     );
@@ -453,55 +498,72 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
         setSubmitting(true);
         setSubmitError('');
         try {
-            const now = new Date().toISOString();
             const emailSlug = data.email.trim().replace(/[^a-z0-9]/gi, '_');
             const folder = `${emailSlug}_${Date.now()}`;
 
-            // Upload documents to Supabase Storage
+            // 1. Upload documents to Supabase Storage anonymously (bucket must allow anon uploads,
+            //    or we use a signed URL). Paths are passed to the Edge Function.
             const [govtIdPath, licenseDocPath, degreeCertPath] = await Promise.all([
                 uploadFile(data.govtId, folder, 'govt_id'),
                 uploadFile(data.licenseDoc, folder, 'license_doc'),
                 uploadFile(data.degreeCert, folder, 'degree_cert'),
             ]);
 
-            const row = {
-                full_name: data.fullName.trim(),
-                email: data.email.trim(),
-                phone: data.phone.trim(),
-                dob: data.dob || null,
-                gender: data.gender || null,
-                license_no: data.licenseNo.trim(),
-                nmc_no: data.nmcNo.trim(),
-                specialization: data.specialization,
-                sub_specialization: data.subSpecialization || null,
-                degree: data.degree.trim(),
-                passing_year: data.passingYear ? Number(data.passingYear) : null,
-                institution: data.institution.trim(),
-                additional_qualifications: data.additionalQualifications || null,
-                experience: data.experience ? Number(data.experience) : 0,
-                consultation_fee: data.consultationFee ? Number(data.consultationFee) : 0,
-                clinic_name: data.clinicName.trim(),
-                clinic_address: data.clinicAddress.trim(),
-                city: data.city.trim(),
-                state: data.state,
-                languages: data.languages,
-                available_days: data.availableDays,
-                hours_from: data.hoursFrom,
-                hours_to: data.hoursTo,
-                status: 'Pending',
-                applied_at: now,
-                updated_at: now,
-                metadata: {
-                    documents: {
-                        govtId: govtIdPath,
-                        licenseDoc: licenseDocPath,
-                        degreeCert: degreeCertPath,
+            // 2. Call the register-doctor Edge Function (service-role, bypasses RLS)
+            //    — creates auth user, profile, and pending_doctors row server-side
+            const res = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/register-doctor`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
                     },
-                    storageFolder: folder,
-                },
-            };
-            const { error } = await supabase.from('doctors').insert([row]);
-            if (error) throw new Error(error.message);
+                    body: JSON.stringify({
+                        // Auth
+                        email: data.email.trim(),
+                        password: data.password,
+                        // Personal
+                        fullName: data.fullName.trim(),
+                        phone: data.phone.trim(),
+                        dob: data.dob || null,
+                        gender: data.gender || null,
+                        // Credentials
+                        licenseNo: data.licenseNo.trim(),
+                        nmcNo: data.nmcNo.trim(),
+                        specialization: data.specialization,
+                        subSpecialization: data.subSpecialization || null,
+                        degree: data.degree.trim(),
+                        passingYear: data.passingYear || null,
+                        institution: data.institution.trim(),
+                        additionalQualifications: data.additionalQualifications || null,
+                        // Practice
+                        experience: data.experience || 0,
+                        consultationFee: data.consultationFee || 500,
+                        clinicName: data.clinicName.trim(),
+                        clinicAddress: data.clinicAddress.trim(),
+                        city: data.city.trim(),
+                        state: data.state,
+                        languages: data.languages,
+                        availableDays: data.availableDays,
+                        hoursFrom: data.hoursFrom,
+                        hoursTo: data.hoursTo,
+                        // Document paths (uploaded in step 1)
+                        metadata: {
+                            documents: {
+                                govtId: govtIdPath,
+                                licenseDoc: licenseDocPath,
+                                degreeCert: degreeCertPath,
+                            },
+                            storageFolder: folder,
+                        },
+                    }),
+                }
+            );
+
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Registration failed. Please try again.');
+
             setSubmitted(true);
         } catch (err) {
             setSubmitError(err.message || 'Something went wrong. Please try again.');

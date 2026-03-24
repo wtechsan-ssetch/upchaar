@@ -21,11 +21,35 @@ const formatUser = (user) => {
 
 export function DoctorProvider({ children }) {
     const [doctor, setDoctor] = useState(null);
+    const [doctorRecord, setDoctorRecord] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    /** Fetch the matching row from the doctors table by auth user id or email */
+    const fetchDoctorRecord = useCallback(async (userId, email) => {
+        try {
+            // Try by profile_id first, fall back to email
+            let { data } = await supabase
+                .from('doctors')
+                .select('*')
+                .eq('profile_id', userId)
+                .maybeSingle();
+            if (!data && email) {
+                ({ data } = await supabase
+                    .from('doctors')
+                    .select('*')
+                    .eq('email', email)
+                    .maybeSingle());
+            }
+            return data ?? null;
+        } catch {
+            return null;
+        }
+    }, []);
 
     const restoreDoctorSession = useCallback(async (session) => {
         if (!session?.user) {
             setDoctor(null);
+            setDoctorRecord(null);
             return;
         }
 
@@ -35,8 +59,16 @@ export function DoctorProvider({ children }) {
             .eq('id', session.user.id)
             .maybeSingle();
 
-        setDoctor(profile?.profile_type === 'doctor' ? formatUser(session.user) : null);
-    }, []);
+        if (profile?.profile_type === 'doctor') {
+            const formatted = formatUser(session.user);
+            setDoctor(formatted);
+            const rec = await fetchDoctorRecord(session.user.id, session.user.email);
+            setDoctorRecord(rec);
+        } else {
+            setDoctor(null);
+            setDoctorRecord(null);
+        }
+    }, [fetchDoctorRecord]);
 
     // ── Restore session on mount + keep in sync with auth changes ────────────
     useEffect(() => {
@@ -100,8 +132,11 @@ export function DoctorProvider({ children }) {
         }
         const formatted = formatUser(data.user);
         setDoctor(formatted);
+        // Fetch doctors table record to get approval status
+        const rec = await fetchDoctorRecord(data.user.id, data.user.email);
+        setDoctorRecord(rec);
         return formatted;
-    }, []);
+    }, [fetchDoctorRecord]);
 
     // ── Register ──────────────────────────────────────────────────────────────
     const register = useCallback(async ({ fullName, email, phone, password, specialization, city }) => {
@@ -155,6 +190,7 @@ export function DoctorProvider({ children }) {
     const logout = useCallback(async () => {
         await supabase.auth.signOut();
         setDoctor(null);
+        setDoctorRecord(null);
     }, []);
 
     // ── Update profile ────────────────────────────────────────────────────────
@@ -165,7 +201,7 @@ export function DoctorProvider({ children }) {
     }, []);
 
     return (
-        <DoctorContext.Provider value={{ doctor, login, register, logout, updateProfile, loading }}>
+        <DoctorContext.Provider value={{ doctor, doctorRecord, login, register, logout, updateProfile, loading }}>
             {children}
         </DoctorContext.Provider>
     );

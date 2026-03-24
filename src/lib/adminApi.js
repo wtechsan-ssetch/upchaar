@@ -6,8 +6,9 @@
  */
 import { supabase } from '@/lib/supabase.js';
 
-// ── Doctors ──────────────────────────────────────────────────────────────────
+// ── Doctors (approved) ───────────────────────────────────────────────────────
 
+/** Fetch all rows from the main doctors table (Approved / Suspended etc.) */
 export async function fetchDoctors() {
     const { data, error } = await supabase
         .from('doctors')
@@ -28,6 +29,102 @@ export async function updateDoctorStatus(doctorId, status, rejectionReason = '')
         .from('doctors')
         .update(updates)
         .eq('id', doctorId)
+        .select()
+        .single();
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+// ── Pending Doctors (applications awaiting review) ───────────────────────────
+
+/** Fetch all rows from the pending_doctors staging table */
+export async function fetchPendingDoctors() {
+    const { data, error } = await supabase
+        .from('pending_doctors')
+        .select('*')
+        .order('applied_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return data || [];
+}
+
+/**
+ * Approve a pending doctor:
+ * 1. Copy the row into the main `doctors` table with status = 'Approved'
+ * 2. Delete the row from `pending_doctors`
+ * 3. Update the profile status to 'active'
+ */
+export async function approvePendingDoctor(pendingDoc) {
+    const now = new Date().toISOString();
+
+    // Build snake_case doctors row explicitly from the normalized (camelCase) pendingDoc
+    const doctorRow = {
+        profile_id:                pendingDoc.profile_id,
+        full_name:                 pendingDoc.fullName   || pendingDoc.full_name,
+        email:                     pendingDoc.email,
+        phone:                     pendingDoc.phone      || null,
+        dob:                       pendingDoc.dob        || null,
+        gender:                    pendingDoc.gender     || null,
+        specialization:            pendingDoc.specialization || null,
+        sub_specialization:        pendingDoc.subSpecialization || pendingDoc.sub_specialization || null,
+        degree:                    pendingDoc.degree     || null,
+        additional_qualifications: pendingDoc.additionalQualifications || pendingDoc.additional_qualifications || null,
+        passing_year:              pendingDoc.passingYear || pendingDoc.passing_year || null,
+        institution:               pendingDoc.institution || null,
+        license_no:                pendingDoc.licenseNo  || pendingDoc.license_no || null,
+        nmc_no:                    pendingDoc.nmcNo      || pendingDoc.nmc_no || null,
+        clinic_name:               pendingDoc.clinicName || pendingDoc.clinic_name || null,
+        clinic_address:            pendingDoc.clinicAddress || pendingDoc.clinic_address || null,
+        city:                      pendingDoc.city       || null,
+        state:                     pendingDoc.state      || null,
+        languages:                 pendingDoc.languages  || [],
+        available_days:            pendingDoc.availableDays || pendingDoc.available_days || [],
+        hours_from:                pendingDoc.hoursFrom  || pendingDoc.hours_from || '09:00',
+        hours_to:                  pendingDoc.hoursTo    || pendingDoc.hours_to   || '17:00',
+        experience:                pendingDoc.experience || 0,
+        consultation_fee:          pendingDoc.consultationFee || pendingDoc.consultation_fee || 500,
+        metadata:                  pendingDoc.metadata   || {},
+        status:      'Approved',
+        approved_at: now,
+        applied_at:  pendingDoc.appliedAt || pendingDoc.applied_at || now,
+        updated_at:  now,
+    };
+
+    // 1. Insert into doctors
+    const { data: inserted, error: insertError } = await supabase
+        .from('doctors')
+        .insert([doctorRow])
+        .select()
+        .single();
+    if (insertError) throw new Error(insertError.message);
+
+    // 2. Delete from pending_doctors
+    const { error: deleteError } = await supabase
+        .from('pending_doctors')
+        .delete()
+        .eq('id', pendingDoc.id);
+    if (deleteError) throw new Error(deleteError.message);
+
+    // 3. Update profile status to active
+    if (pendingDoc.profile_id) {
+        await supabase
+            .from('profiles')
+            .update({ status: 'active', updated_at: now })
+            .eq('id', pendingDoc.profile_id);
+    }
+
+    return inserted;
+}
+
+/** Reject a pending doctor (keeps row in pending_doctors with status = 'Rejected') */
+export async function rejectPendingDoctor(pendingDocId, rejectionReason = '') {
+    const { data, error } = await supabase
+        .from('pending_doctors')
+        .update({
+            status: 'Rejected',
+            rejection_reason: rejectionReason,
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', pendingDocId)
         .select()
         .single();
     if (error) throw new Error(error.message);

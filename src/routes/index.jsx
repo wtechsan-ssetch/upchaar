@@ -31,6 +31,7 @@ import { Routes, Route } from 'react-router-dom';
 // ── Shared layout & guards (always needed, not lazy) ──
 import AppLayout from '@/layouts/AppLayout';
 import ProtectedRoute from '@/components/ProtectedRoute.jsx';
+import RequireAuth from '@/components/RequireAuth.jsx';
 
 // ── Auth ──────────────────────────────────────────────
 const LoginPage      = lazy(() => import('@/auth/LoginPage.jsx'));
@@ -134,17 +135,18 @@ export function AppRoutes() {
             {/* Home / Landing */}
             <Route path="/" element={<LandingPage />} />
 
-            {/* Patient-facing feature pages */}
-            <Route path="/doctors" element={<AppLayout><DoctorsPage /></AppLayout>} />
-            <Route path="/doctors/:id" element={<AppLayout><DoctorDetailPage /></AppLayout>} />
-            <Route path="/diagnostics" element={<AppLayout><DiagnosticsPage /></AppLayout>} />
-            <Route path="/hospitals" element={<AppLayout><HospitalsPage /></AppLayout>} />
-            <Route path="/records" element={<AppLayout><RecordsPage /></AppLayout>} />
-            <Route path="/emergency" element={<AppLayout><EmergencyPage /></AppLayout>} />
+            {/* Patient-facing feature pages — require login */}
+            <Route path="/doctors" element={<RequireAuth><AppLayout><DoctorsPage /></AppLayout></RequireAuth>} />
+            <Route path="/doctors/:id" element={<RequireAuth><AppLayout><DoctorDetailPage /></AppLayout></RequireAuth>} />
+            <Route path="/diagnostics" element={<RequireAuth><AppLayout><DiagnosticsPage /></AppLayout></RequireAuth>} />
+            <Route path="/hospitals" element={<RequireAuth><AppLayout><HospitalsPage /></AppLayout></RequireAuth>} />
+            <Route path="/records" element={<RequireAuth><AppLayout><RecordsPage /></AppLayout></RequireAuth>} />
+            {/* Emergency: public, no nav/sidebar */}
+            <Route path="/emergency" element={<EmergencyPage />} />
 
-            {/* Blog — public listing + post detail */}
-            <Route path="/blogs" element={<AppLayout><BlogsPage /></AppLayout>} />
-            <Route path="/blogs/:slug" element={<AppLayout><BlogPostPage /></AppLayout>} />
+            {/* Blog: public, no nav/sidebar */}
+            <Route path="/blogs" element={<BlogsPage />} />
+            <Route path="/blogs/:slug" element={<BlogPostPage />} />
 
 
             {/* ═══════════════════════════════════════
@@ -155,7 +157,7 @@ export function AppRoutes() {
                 ═══════════════════════════════════════ */}
             <Route path="/patient/login" element={<PatientLogin />} />
             <Route path="/patient/register" element={<PatientRegister />} />
-            <Route path="/patient/dashboard" element={<PatientDashboard />} />
+            <Route path="/patient/dashboard" element={<RequireAuth><PatientDashboard /></RequireAuth>} />
 
 
             {/* ═══════════════════════════════════════

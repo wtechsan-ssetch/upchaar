@@ -1,20 +1,32 @@
 import { useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Stethoscope, Hospital, FlaskConical, Heart } from 'lucide-react';
 import { motionVariants } from '@/lib/animations';
+import { useAuth } from '@/auth/AuthContext.jsx';
 
 export const QuickAccess = () => {
     const ref = useRef(null);
     const isInView = useInView(ref, { once: true, amount: 0.2 });
+    const navigate = useNavigate();
+    const { user, loading } = useAuth();
 
     const quickAccessItems = [
-        { icon: Stethoscope, title: 'Find Doctors', desc: 'Consult with verified specialists.', href: "/doctors" },
-        { icon: Hospital, title: 'Hospitals', desc: 'Real-time bed availability', href: "/hospitals" },
-        { icon: FlaskConical, title: 'Diagnostics', desc: 'Book lab tests & health checkups', href: "/diagnostics" },
-        { icon: Heart, title: 'Emergency', desc: '24/7 emergency services', href: "/emergency" },
+        { icon: Stethoscope, title: 'Find Doctors', desc: 'Consult with verified specialists.', href: "/doctors", requireAuth: true },
+        { icon: Hospital, title: 'Hospitals', desc: 'Real-time bed availability', href: "/hospitals", requireAuth: true },
+        { icon: FlaskConical, title: 'Diagnostics', desc: 'Book lab tests & health checkups', href: "/diagnostics", requireAuth: true },
+        { icon: Heart, title: 'Emergency', desc: '24/7 emergency services', href: "/emergency", requireAuth: false },
     ];
+
+    const handleClick = (href, requireAuth) => {
+        if (requireAuth && !loading && !user) {
+            // Not logged in → go to sign in, come back here after
+            navigate('/login', { state: { from: href } });
+            return;
+        }
+        navigate(href);
+    };
 
     return (
         <section id="quick-access" ref={ref} className="container space-y-6 py-12 md:py-24">
@@ -33,13 +45,16 @@ export const QuickAccess = () => {
             >
                 {quickAccessItems.map((item, i) => (
                     <motion.div key={i} variants={motionVariants.slideUp(0)}>
-                        <Link to={item.href} className="block h-full">
+                        <button
+                            onClick={() => handleClick(item.href, item.requireAuth)}
+                            className="block h-full w-full text-left"
+                        >
                             <motion.div
                                 whileHover="hover"
                                 variants={motionVariants.card3DHover}
                                 className="h-full"
                             >
-                                <Card className="h-full text-center p-6 flex flex-col items-center justify-center transition-shadow duration-300 shadow-lg hover:shadow-2xl hover:shadow-primary/20 rounded-2xl">
+                                <Card className="h-full text-center p-6 flex flex-col items-center justify-center transition-shadow duration-300 shadow-lg hover:shadow-2xl hover:shadow-primary/20 rounded-2xl cursor-pointer">
                                     <motion.div
                                         variants={{
                                             hover: { scale: 1.1, y: -5 },
@@ -53,7 +68,7 @@ export const QuickAccess = () => {
                                     <p className="text-muted-foreground text-sm">{item.desc}</p>
                                 </Card>
                             </motion.div>
-                        </Link>
+                        </button>
                     </motion.div>
                 ))}
             </motion.div>

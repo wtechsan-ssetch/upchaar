@@ -1,11 +1,23 @@
-import { Link, NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { motionVariants } from '@/lib/animations';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAuth } from '@/auth/AuthContext.jsx';
+
 
 
 export const Hero = () => {
+    const navigate = useNavigate();
+    const { user, loading } = useAuth();
+
+    const handleBookAppointment = () => {
+        if (!loading && !user) {
+            navigate('/login', { state: { from: '/doctors' } });
+        } else {
+            navigate('/doctors');
+        }
+    };
     return (
         <section className="container grid lg:grid-cols-2 items-center gap-8 md:gap-12 pt-8 md:pt-16 pb-12 overflow-hidden">
             <motion.div
@@ -41,8 +53,13 @@ export const Hero = () => {
                     className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
                     variants={motionVariants.slideUp(0.4)}
                 >
-                    <Button size="lg" variant="default" className="w-full sm:w-auto shadow-[0_10px_30px_hsl(var(--primary)/0.15)]" asChild>
-                        <NavLink to="/doctors">Book Appointment</NavLink>
+                    <Button
+                        size="lg"
+                        variant="default"
+                        className="w-full sm:w-auto shadow-[0_10px_30px_hsl(var(--primary)/0.15)]"
+                        onClick={handleBookAppointment}
+                    >
+                        Book Appointment
                     </Button>
                     <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
                         <NavLink to="/emergency">Find Emergency Care</NavLink>
