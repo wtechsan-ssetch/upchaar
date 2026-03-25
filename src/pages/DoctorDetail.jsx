@@ -32,6 +32,9 @@ function formatDateLabel(dateStr) {
     return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+const BOOKING_TYPE = 'Online';
+const BOOKING_STATUS = 'Confirmed';
+
 /* ─────────────────────────────────────────────────────
    ① PRE-BOOKING WARNING MODAL
    Shows before the actual booking is made.
@@ -287,22 +290,21 @@ export default function DoctorDetailPage() {
 
             const queueNumber = (count ?? 0) + 1;
 
-            // Insert using actual DB column names
             const { error: insertErr } = await supabase
                 .from('appointments')
                 .insert({
-                    patient_id: patient.id,
-                    doctor_id: id,
-                    patient_name: patient.full_name || patient.email,
-                    doctor_name: doctor.name,
-                    specialization: doctor.specialty,
-                    date: appointmentDate,
-                    time_slot: selectedSlot,
-                    queue_number: queueNumber,
-                    status: 'Confirmed',
-                    type: 'in-clinic',
-                    fee: doctor.fees,
-                    platform_revenue: 50,
+                patient_id: patient.id,
+                doctor_id: id,
+                patient_name: patient.full_name || patient.email,
+                doctor_name: doctor.name,
+                specialization: doctor.specialty,
+                date: appointmentDate,
+                time_slot: selectedSlot,
+                queue_number: queueNumber,
+                status: BOOKING_STATUS,
+                type: BOOKING_TYPE,
+                fee: doctor.fees,
+                platform_revenue: 50,
                 });
 
             if (insertErr) throw insertErr;
