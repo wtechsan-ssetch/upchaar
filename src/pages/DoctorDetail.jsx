@@ -12,17 +12,215 @@ import {
     Briefcase,
     Video,
     ArrowLeft,
-    Loader2
+    Loader2,
+    PartyPopper,
+    Hash,
+    Clock,
+    CalendarCheck2,
+    AlertTriangle,
+    X
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase.js';
+import { usePatient } from '@/patient/context/PatientContext.jsx';
+import { motion, AnimatePresence } from 'framer-motion';
 
+/* ── helpers ─────────────────────────────────────── */
+const today = () => new Date().toISOString().split('T')[0];
+
+function formatDateLabel(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/* ─────────────────────────────────────────────────────
+   ① PRE-BOOKING WARNING MODAL
+   Shows before the actual booking is made.
+   User must confirm to proceed.
+───────────────────────────────────────────────────── */
+function BookingWarningModal({ isOpen, date, time, onConfirm, onCancel, loading }) {
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                    onClick={onCancel}
+                >
+                    <motion.div
+                        initial={{ scale: 0.88, opacity: 0, y: 24 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.88, opacity: 0, y: 24 }}
+                        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                        className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-7 relative"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Close button */}
+                        <button
+                            onClick={onCancel}
+                            className="absolute top-4 right-4 h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition"
+                        >
+                            <X size={15} />
+                        </button>
+
+                        {/* Icon */}
+                        <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-amber-50 border-2 border-amber-200 flex items-center justify-center">
+                            <AlertTriangle className="h-8 w-8 text-amber-500" />
+                        </div>
+
+                        <h2 className="text-lg font-bold text-gray-900 text-center mb-2">
+                            Confirm Your Appointment
+                        </h2>
+
+                        {/* Warning message */}
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5">
+                            <p className="text-sm text-amber-800 font-semibold text-center leading-relaxed">
+                                ⚠️ You <span className="underline">cannot change</span> your selected date and time after booking.
+                            </p>
+                        </div>
+
+                        {/* Selected slot summary */}
+                        <div className="bg-slate-50 rounded-2xl p-4 space-y-2.5 mb-6">
+                            <div className="flex items-center gap-3 text-sm">
+                                <div className="h-8 w-8 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0">
+                                    <CalendarCheck2 size={15} className="text-teal-600" />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Date</p>
+                                    <p className="font-semibold text-gray-800 text-sm">
+                                        {date === today() ? `Today — ${formatDateLabel(date)}` : formatDateLabel(date)}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm">
+                                <div className="h-8 w-8 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0">
+                                    <Clock size={15} className="text-teal-600" />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Time Slot</p>
+                                    <p className="font-semibold text-gray-800 text-sm">{time}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3">
+                            <Button
+                                variant="outline"
+                                className="flex-1 h-11 border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold rounded-xl"
+                                onClick={onCancel}
+                                disabled={loading}
+                            >
+                                Go Back
+                            </Button>
+                            <Button
+                                className="flex-1 h-11 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20"
+                                onClick={onConfirm}
+                                disabled={loading}
+                            >
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                {loading ? 'Booking…' : 'Yes, Confirm'}
+                            </Button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+}
+
+/* ─────────────────────────────────────────────────────
+   ② BOOKING CONFIRMATION MODAL
+   Shows AFTER the booking is successfully created.
+───────────────────────────────────────────────────── */
+function ConfirmationModal({ booking, onClose }) {
+    return (
+        <AnimatePresence>
+            {booking && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+                    onClick={onClose}
+                >
+                    <motion.div
+                        initial={{ scale: 0.85, opacity: 0, y: 30 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.85, opacity: 0, y: 30 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                        className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Success ring */}
+                        <div className="mx-auto mb-5 h-20 w-20 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center shadow-lg shadow-teal-400/40">
+                            <PartyPopper className="h-9 w-9 text-white" />
+                        </div>
+
+                        <h2 className="text-2xl font-bold text-gray-900 mb-1">Booking Confirmed!</h2>
+                        <p className="text-sm text-gray-500 mb-6">Your appointment is all set 🎉</p>
+
+                        <div className="bg-teal-50 rounded-2xl p-5 space-y-3 text-left mb-6">
+                            <div className="flex items-center gap-3 text-sm">
+                                <CalendarCheck2 className="h-4 w-4 text-teal-600 shrink-0" />
+                                <div>
+                                    <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Date</p>
+                                    <p className="font-semibold text-gray-800">{formatDateLabel(booking.date)}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm">
+                                <Clock className="h-4 w-4 text-teal-600 shrink-0" />
+                                <div>
+                                    <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Time Slot</p>
+                                    <p className="font-semibold text-gray-800">{booking.time}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm">
+                                <Hash className="h-4 w-4 text-teal-600 shrink-0" />
+                                <div>
+                                    <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Queue Number</p>
+                                    <p className="text-3xl font-extrabold text-teal-600">#{booking.queue}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-gray-400 mb-5">
+                            Please arrive a few minutes early. Your queue number will be called at the clinic.
+                        </p>
+
+                        <Button
+                            onClick={onClose}
+                            className="w-full bg-teal-600 hover:bg-teal-700 text-white h-11 font-bold rounded-xl"
+                        >
+                            Done
+                        </Button>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+}
+
+/* ─────────────────────────────────────────────────────
+   ③ MAIN DOCTOR DETAIL PAGE
+───────────────────────────────────────────────────── */
 export default function DoctorDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { patient } = usePatient();
 
     const [doctor, setDoctor] = useState(null);
     const [loading, setLoading] = useState(true);
     const [selectedSlot, setSelectedSlot] = useState('');
+    const [selectedDate, setSelectedDate] = useState(today());
+
+    // Step 1: pre-booking warning modal
+    const [showWarning, setShowWarning] = useState(false);
+    // Step 2: post-booking confirmation modal
+    const [confirmed, setConfirmed] = useState(null);   // { date, time, queue }
+    // Booking in-progress spinner
+    const [booking, setBooking] = useState(false);
 
     useEffect(() => {
         supabase
@@ -60,6 +258,67 @@ export default function DoctorDetailPage() {
             });
     }, [id]);
 
+    /* ── Step 1: open warning modal ── */
+    const handleBookClick = () => {
+        if (!selectedSlot) return;
+        if (!patient) {
+            navigate('/patient/login');
+            return;
+        }
+        setShowWarning(true);
+    };
+
+    /* ── Step 2: user confirmed → actually save booking ── */
+    const handleConfirmBooking = async () => {
+        setBooking(true);
+        try {
+            // Build a full timestamptz from the selected date (normalize to midnight UTC)
+            const appointmentDate = new Date(selectedDate + 'T00:00:00').toISOString();
+
+            // Count existing appointments for this doctor on this date to compute queue#
+            const { count, error: countErr } = await supabase
+                .from('appointments')
+                .select('id', { count: 'exact', head: true })
+                .eq('doctor_id', id)
+                .gte('date', new Date(selectedDate + 'T00:00:00').toISOString())
+                .lt('date', new Date(selectedDate + 'T23:59:59').toISOString());
+
+            if (countErr) throw countErr;
+
+            const queueNumber = (count ?? 0) + 1;
+
+            // Insert using actual DB column names
+            const { error: insertErr } = await supabase
+                .from('appointments')
+                .insert({
+                    patient_id: patient.id,
+                    doctor_id: id,
+                    patient_name: patient.full_name || patient.email,
+                    doctor_name: doctor.name,
+                    specialization: doctor.specialty,
+                    date: appointmentDate,
+                    time_slot: selectedSlot,
+                    queue_number: queueNumber,
+                    status: 'Confirmed',
+                    type: 'in-clinic',
+                    fee: doctor.fees,
+                    platform_revenue: 50,
+                });
+
+            if (insertErr) throw insertErr;
+
+            // Close warning → open success modal
+            setShowWarning(false);
+            setConfirmed({ date: selectedDate, time: selectedSlot, queue: queueNumber });
+            setSelectedSlot('');
+        } catch (err) {
+            console.error('[DoctorDetail] booking error:', err.message);
+            alert('Booking failed: ' + err.message);
+        } finally {
+            setBooking(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-teal-50/30">
@@ -89,6 +348,20 @@ export default function DoctorDetailPage() {
 
     return (
         <div className="min-h-screen bg-teal-50/30 font-sans pb-20">
+
+            {/* ① Warning modal (before booking) */}
+            <BookingWarningModal
+                isOpen={showWarning}
+                date={selectedDate}
+                time={selectedSlot}
+                onConfirm={handleConfirmBooking}
+                onCancel={() => setShowWarning(false)}
+                loading={booking}
+            />
+
+            {/* ② Success modal (after booking) */}
+            <ConfirmationModal booking={confirmed} onClose={() => setConfirmed(null)} />
+
             <div className="container mx-auto px-4 py-8">
                 <Button variant="ghost" className="mb-6 hover:bg-teal-50 text-teal-800" onClick={() => navigate('/doctors')}>
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back to Doctors
@@ -206,9 +479,31 @@ export default function DoctorDetailPage() {
                                     <CalendarDays className="h-5 w-5" />
                                     <h3 className="tracking-tight text-lg">In-Clinic Appointment</h3>
                                 </div>
+
                                 <div className="space-y-3">
+                                    {/* ── Date picker ── */}
+                                    <div>
+                                        <label htmlFor="appt-date" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                                            Select Date
+                                        </label>
+                                        <input
+                                            id="appt-date"
+                                            type="date"
+                                            min={today()}
+                                            value={selectedDate}
+                                            onChange={e => { setSelectedDate(e.target.value); setSelectedSlot(''); }}
+                                            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition cursor-pointer"
+                                        />
+                                        {selectedDate && (
+                                            <p className="mt-1 text-xs text-teal-600 font-medium">
+                                                {selectedDate === today() ? '📅 Today' : `📅 ${formatDateLabel(selectedDate)}`}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* ── Time slots ── */}
                                     <p className="text-[13px] text-gray-500 font-semibold text-center bg-gray-50 py-1.5 rounded-full">
-                                        Select Date & Time (Today)
+                                        Select Time Slot
                                     </p>
                                     <div className="grid grid-cols-2 gap-3 mt-4">
                                         {['09:00 AM', '11:30 AM', '02:00 PM', '04:30 PM'].map((time) => (
@@ -226,9 +521,20 @@ export default function DoctorDetailPage() {
                                         ))}
                                     </div>
                                 </div>
-                                <Button className="w-full mt-2 bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-600/20 h-12 text-base font-bold transition-all">
+
+                                <Button
+                                    className="w-full mt-2 bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-600/20 h-12 text-base font-bold transition-all disabled:opacity-50"
+                                    disabled={!selectedSlot}
+                                    onClick={handleBookClick}
+                                >
                                     Book In-Clinic Visit
                                 </Button>
+
+                                {!patient && (
+                                    <p className="text-xs text-center text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                                        ⚠ Please <a href="/patient/login" className="underline font-semibold">sign in</a> to book an appointment.
+                                    </p>
+                                )}
                             </div>
 
                             {/* Video Consultation Section */}

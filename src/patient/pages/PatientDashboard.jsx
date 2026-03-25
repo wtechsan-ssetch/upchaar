@@ -2,19 +2,22 @@
  * PatientDashboard.jsx
  * ─────────────────────────────────────────────────
  * Main dashboard for authenticated patients.
- * Features: profile photo upload, quick actions, profile info card.
+ * Features: profile photo upload, quick actions, profile info card,
+ *           upcoming appointments banner with queue numbers.
  * ─────────────────────────────────────────────────
  */
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { usePatient } from '../context/PatientContext.jsx';
 import { motion } from 'framer-motion';
 import {
     Heart, User, Calendar, FileText, Pill,
-    MapPin, LogOut, ChevronRight, Activity, Shield, Camera, Loader2
+    MapPin, LogOut, ChevronRight, Activity, Shield, Camera, Loader2,
+    Hash, Clock, CalendarCheck2, Stethoscope, ChevronLeft, ChevronRight as ChevronRightIcon
 } from 'lucide-react';
 import { uploadAvatar } from '@/lib/uploadImage.js';
+import { supabase } from '@/lib/supabase.js';
 
 // ── Quick action cards shown on the dashboard ─────
 const QUICK_ACTIONS = [
@@ -24,6 +27,176 @@ const QUICK_ACTIONS = [
     { icon: MapPin, label: 'Find Nearby', desc: 'Hospitals & clinics', color: 'from-emerald-500 to-teal-500', href: '/hospitals' },
 ];
 
+/* ── Format date helper ── */
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function isToday(dateStr) {
+    return dateStr === new Date().toISOString().split('T')[0];
+}
+function isFuture(dateStr) {
+    return dateStr >= new Date().toISOString().split('T')[0];
+}
+
+/* ── Appointment Banner Card ── */
+function AppointmentBannerCard({ appt, index }) {
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.08, duration: 0.35 }}
+            className="flex-shrink-0 w-72 sm:w-80 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl p-5 shadow-lg shadow-teal-500/30 relative overflow-hidden"
+        >
+            {/* Background decoration */}
+            <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-white/10" />
+            <div className="absolute -bottom-8 -left-4 h-20 w-20 rounded-full bg-white/10" />
+
+            <div className="relative z-10">
+                {/* Queue badge */}
+                <div className="flex items-center justify-between mb-3">
+                    <span className="inline-flex items-center gap-1.5 bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur-sm">
+                        <Stethoscope size={11} /> In-Clinic
+                    </span>
+                    <div className="flex items-center gap-1.5 bg-white text-teal-600 font-extrabold text-sm px-3 py-1 rounded-full shadow-sm">
+                        <Hash size={13} />
+                        <span>Queue #{appt.queue_number ?? '—'}</span>
+                    </div>
+                </div>
+
+                {/* Doctor name */}
+                <p className="text-white font-bold text-base leading-tight line-clamp-1 mb-3">
+                    {appt.doctor_name || 'Doctor'}
+                </p>
+                {appt.specialization && (
+                    <p className="text-white/70 text-xs mb-3 -mt-2">{appt.specialization}</p>
+                )}
+
+                {/* Date & Time — DB stores date as timestamptz */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-white text-xs">
+                        <CalendarCheck2 size={13} className="text-white/70" />
+                        <span className="font-medium">
+                            {appt.date && isToday(appt.date.split('T')[0]) ? '🗓 Today' : formatDate(appt.date ? appt.date.split('T')[0] : '')}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-white text-xs">
+                        <Clock size={13} className="text-white/70" />
+                        <span className="font-medium">{appt.time_slot}</span>
+                    </div>
+                </div>
+
+                {/* Status pill */}
+                <div className="mt-4">
+                    <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize">
+                        ✓ {appt.status || 'Confirmed'}
+                    </span>
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
+/* ── Appointments Banner Section ── */
+function AppointmentsBanner({ patientId }) {
+    const [appointments, setAppointments] = useState([]);
+    const [loadingAppts, setLoadingAppts] = useState(true);
+    const scrollRef = useRef(null);
+
+    useEffect(() => {
+        if (!patientId) return;
+        const today = new Date().toISOString().split('T')[0];
+
+        // 'date' is a timestamptz — compare from start of today
+        const todayStart = new Date(today + 'T00:00:00').toISOString();
+
+        supabase
+            .from('appointments')
+            .select('*')
+            .eq('patient_id', patientId)
+            .gte('date', todayStart)
+            .order('date', { ascending: true })
+            .order('queue_number', { ascending: true })
+            .limit(10)
+            .then(({ data, error }) => {
+                if (!error && data) setAppointments(data);
+                setLoadingAppts(false);
+            });
+    }, [patientId]);
+
+    const scroll = (dir) => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollBy({ left: dir === 'left' ? -300 : 300, behavior: 'smooth' });
+        }
+    };
+
+    if (loadingAppts) {
+        return (
+            <div className="mb-8">
+                <h2 className="text-base font-semibold text-slate-700 mb-4">Upcoming Appointments</h2>
+                <div className="flex items-center gap-3 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                    <Loader2 size={18} className="animate-spin text-teal-500" />
+                    <span className="text-sm text-slate-500">Loading appointments…</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (appointments.length === 0) {
+        return (
+            <div className="mb-8">
+                <h2 className="text-base font-semibold text-slate-700 mb-4">Upcoming Appointments</h2>
+                <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-6 text-center">
+                    <Calendar size={32} className="mx-auto text-slate-300 mb-3" />
+                    <p className="text-sm text-slate-500 font-medium">No upcoming appointments</p>
+                    <p className="text-xs text-slate-400 mt-1">Book with a doctor to see your appointments here.</p>
+                    <Link
+                        to="/doctors"
+                        className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 rounded-xl bg-teal-500 text-white text-xs font-semibold hover:bg-teal-600 transition"
+                    >
+                        <Calendar size={13} /> Book Appointment
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-slate-700">Upcoming Appointments</h2>
+                <div className="flex gap-1.5">
+                    <button
+                        onClick={() => scroll('left')}
+                        className="h-8 w-8 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 hover:bg-teal-50 hover:text-teal-600 hover:border-teal-300 transition"
+                    >
+                        <ChevronLeft size={15} />
+                    </button>
+                    <button
+                        onClick={() => scroll('right')}
+                        className="h-8 w-8 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 hover:bg-teal-50 hover:text-teal-600 hover:border-teal-300 transition"
+                    >
+                        <ChevronRightIcon size={15} />
+                    </button>
+                </div>
+            </div>
+
+            <div
+                ref={scrollRef}
+                className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+                {appointments.map((appt, i) => (
+                    <AppointmentBannerCard key={appt.id} appt={appt} index={i} />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+/* ── Main Dashboard ─────────────────────────────── */
 export default function PatientDashboard() {
     const { patient, loading, signOut, updateProfile } = usePatient();
     const navigate = useNavigate();
@@ -195,6 +368,9 @@ export default function PatientDashboard() {
                         </span>
                     </div>
                 </motion.div>
+
+                {/* ── Upcoming Appointments Banner ─── */}
+                <AppointmentsBanner patientId={patient.id} />
 
                 {/* ── Quick actions grid ────────────── */}
                 <h2 className="text-base font-semibold text-slate-700 mb-4">Quick Actions</h2>
