@@ -32,9 +32,6 @@ function formatDateLabel(dateStr) {
     return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-const BOOKING_TYPE = 'Online';
-const BOOKING_STATUS = 'Confirmed';
-
 /* ─────────────────────────────────────────────────────
    ① PRE-BOOKING WARNING MODAL
    Shows before the actual booking is made.
@@ -217,6 +214,7 @@ export default function DoctorDetailPage() {
     const [loading, setLoading] = useState(true);
     const [selectedSlot, setSelectedSlot] = useState('');
     const [selectedDate, setSelectedDate] = useState(today());
+    const [bookingType, setBookingType] = useState('In-person');
 
     // Step 1: pre-booking warning modal
     const [showWarning, setShowWarning] = useState(false);
@@ -262,12 +260,13 @@ export default function DoctorDetailPage() {
     }, [id]);
 
     /* ── Step 1: open warning modal ── */
-    const handleBookClick = () => {
+    const handleBookClick = (type) => {
         if (!selectedSlot) return;
         if (!patient) {
             navigate('/patient/login');
             return;
         }
+        setBookingType(type);
         setShowWarning(true);
     };
 
@@ -301,8 +300,8 @@ export default function DoctorDetailPage() {
                 date: appointmentDate,
                 time_slot: selectedSlot,
                 queue_number: queueNumber,
-                status: BOOKING_STATUS,
-                type: BOOKING_TYPE,
+                status: 'Confirmed',
+                type: bookingType,
                 fee: doctor.fees,
                 platform_revenue: 50,
                 });
@@ -527,7 +526,7 @@ export default function DoctorDetailPage() {
                                 <Button
                                     className="w-full mt-2 bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-600/20 h-12 text-base font-bold transition-all disabled:opacity-50"
                                     disabled={!selectedSlot}
-                                    onClick={handleBookClick}
+                                    onClick={() => handleBookClick('In-person')}
                                 >
                                     Book In-Clinic Visit
                                 </Button>
@@ -546,7 +545,12 @@ export default function DoctorDetailPage() {
                                     <h3 className="tracking-tight">Video Consultation</h3>
                                 </div>
                                 <p className="text-xs text-center text-gray-500">Consult from the comfort of your home.</p>
-                                <Button variant="outline" className="w-full h-11 bg-white border-gray-200 hover:border-teal-600 hover:text-teal-700 hover:bg-teal-50 hover:shadow-sm transition-all font-semibold">
+                                <Button 
+                                    variant="outline" 
+                                    className="w-full h-11 bg-white border-gray-200 hover:border-teal-600 hover:text-teal-700 hover:bg-teal-50 hover:shadow-sm transition-all font-semibold disabled:opacity-50"
+                                    disabled={!selectedSlot}
+                                    onClick={() => handleBookClick('Online')}
+                                >
                                     Request Video Consultation
                                 </Button>
                             </div>
