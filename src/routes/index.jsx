@@ -135,14 +135,14 @@ export function AppRoutes() {
             {/* Home / Landing */}
             <Route path="/" element={<LandingPage />} />
 
-            {/* Patient-facing feature pages — require login */}
-            <Route path="/doctors" element={<RequireAuth><AppLayout><DoctorsPage /></AppLayout></RequireAuth>} />
-            <Route path="/doctors/:id" element={<RequireAuth><AppLayout><DoctorDetailPage /></AppLayout></RequireAuth>} />
-            <Route path="/diagnostics" element={<RequireAuth><AppLayout><DiagnosticsPage /></AppLayout></RequireAuth>} />
-            <Route path="/hospitals" element={<RequireAuth><AppLayout><HospitalsPage /></AppLayout></RequireAuth>} />
-            <Route path="/records" element={<RequireAuth><AppLayout><RecordsPage /></AppLayout></RequireAuth>} />
-            {/* Emergency: public, no nav/sidebar */}
-            <Route path="/emergency" element={<EmergencyPage />} />
+            {/* Patient-facing feature pages */}
+            <Route path="/dashboard" element={<ProtectedRoute><AppLayout><DashboardPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/doctors" element={<ProtectedRoute><AppLayout><DoctorsPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/doctors/:id" element={<ProtectedRoute><AppLayout><DoctorDetailPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/diagnostics" element={<AppLayout><DiagnosticsPage /></AppLayout>} />
+            <Route path="/hospitals" element={<AppLayout><HospitalsPage /></AppLayout>} />
+            <Route path="/records" element={<AppLayout><RecordsPage /></AppLayout>} />
+            <Route path="/emergency" element={<AppLayout><EmergencyPage /></AppLayout>} />
 
             {/* Blog: public, no nav/sidebar */}
             <Route path="/blogs" element={<BlogsPage />} />

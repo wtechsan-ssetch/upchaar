@@ -1,5 +1,3 @@
-import { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
 import { Hero } from '@/components/landing/Hero';
 import { TrustBadges } from '@/components/landing/trust-badges';
 import { QuickAccess } from '@/components/landing/quick-access';
@@ -13,21 +11,6 @@ import { Footer } from '@/components/landing/Footer';
 import { Header } from '@/components/landing/Header';
 
 export default function LandingPage() {
-    const location = useLocation();
-
-    useEffect(() => {
-        if (!location.hash) return;
-
-        const target = document.querySelector(location.hash);
-        if (!target) return;
-
-        const timer = setTimeout(() => {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
-
-        return () => clearTimeout(timer);
-    }, [location.hash]);
-
     return (
         <div className="flex min-h-screen flex-col text-foreground overflow-hidden">
             <div className="relative isolate">

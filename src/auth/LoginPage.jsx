@@ -97,7 +97,7 @@ export default function LoginPage() {
             const from = location.state?.from;
 
             const redirectMap = {
-                patient: '/patient/dashboard',
+                patient: '/',
                 doctor: '/doctor/dashboard',
             };
 

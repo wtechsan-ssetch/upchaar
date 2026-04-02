@@ -1,18 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Stethoscope, UserCircle, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Search, Menu, X, Stethoscope, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react';
 import { DoctorOnboardingModal } from './DoctorOnboardingModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
 import {
     NavigationMenu,
     NavigationMenuItem,
     NavigationMenuList,
     navigationMenuTriggerStyle,
 } from '@/components/ui/navigation-menu';
-
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -57,7 +54,6 @@ export const Header = () => {
     const profileRef = useRef(null);
     const isMobile = useIsMobile();
     const navigate = useNavigate();
-    const location = useLocation();
 
     const { user, profile, signOut, loading } = useAuth();
     const { signOut: patientSignOut } = usePatient();
@@ -97,27 +93,6 @@ export const Header = () => {
         navigate('/');
     };
 
-    const handleNavClick = (href) => {
-        setIsMenuOpen(false);
-
-        if (!href.startsWith('#')) return;
-
-        const scrollToTarget = () => {
-            const target = document.querySelector(href);
-            if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        };
-
-        if (location.pathname === '/') {
-            scrollToTarget();
-            return;
-        }
-
-        navigate(`/${href}`);
-        setTimeout(scrollToTarget, 150);
-    };
-
     const navLinks = [
         { href: '/', name: 'Home' },
         { href: '/patient/dashboard', name: 'My Appointments' },
@@ -129,11 +104,9 @@ export const Header = () => {
 
     // ── Profile dropdown (desktop) ─────────────────────────
     const ProfileDropdown = () => (
-        <div className="relative z-[140]" ref={profileRef}>
+        <div className="relative" ref={profileRef}>
             <button
-                type="button"
                 onClick={() => setIsProfileOpen(s => !s)}
-                onMouseDown={(e) => e.stopPropagation()}
                 className="flex items-center gap-2 rounded-full border border-primary/30 bg-card/60 px-3 py-1.5 hover:bg-primary/10 transition focus:outline-none"
             >
                 {/* Avatar circle with initials */}
@@ -153,8 +126,7 @@ export const Header = () => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.97 }}
                         transition={{ duration: 0.18 }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        className="pointer-events-auto absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 z-[160] overflow-hidden"
+                        className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden"
                     >
                         {/* User info */}
                         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/70">
@@ -167,7 +139,6 @@ export const Header = () => {
 
                         {/* Dashboard link */}
                         <button
-                            type="button"
                             onClick={() => {
                                 setIsProfileOpen(false);
                                 navigate(ROLE_DASHBOARD[profile?.profile_type] ?? '/');
@@ -180,7 +151,6 @@ export const Header = () => {
 
                         {/* Sign out */}
                         <button
-                            type="button"
                             onClick={handleSignOut}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left border-t border-slate-100"
                         >
@@ -194,10 +164,10 @@ export const Header = () => {
     );
 
     return (
-        <header className="relative z-[120] w-full">
-            <div className="relative z-[120] container mx-auto flex h-20 items-center justify-between rounded-full bg-card/80 backdrop-blur-sm px-6 shadow-md">
+        <header className="w-full">
+            <div className="container mx-auto flex h-20 items-center justify-between rounded-full bg-card/80 backdrop-blur-sm px-6 shadow-md">
                 {/* Left Section - Logo */}
-                <Link to="/" className="flex items-center gap-2">
+                <Link to="#footer" className="flex items-center gap-2">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full border border-primary/50 bg-card">
                         <img src="/logo.png" alt="Sanjiwani Health Logo" width={24} height={24} />
                     </div>
@@ -261,7 +231,6 @@ export const Header = () => {
                                             ))}
                                         </NavigationMenuList>
                                     </NavigationMenu>
-
                                     <Button onClick={() => setIsSearchOpen(true)} variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 hover:text-primary">
                                         <Search className="h-5 w-5" />
                                     </Button>
@@ -344,12 +313,7 @@ export const Header = () => {
                     >
                         <nav className="flex flex-col gap-4">
                             {navLinks.map(link => (
-                                <Link
-                                    key={link.href}
-                                    to={link.href}
-                                    className="text-foreground font-medium py-2"
-                                    onClick={() => handleNavClick(link.href)}
-                                >
+                                <Link key={link.href} to={link.href} className="text-foreground font-medium py-2" onClick={() => setIsMenuOpen(false)}>
                                     {link.name}
                                 </Link>
                             ))}

@@ -19,7 +19,7 @@ import { isStrongPassword, PASSWORD_RULE_MESSAGE, withAuthTimeout } from '@/lib/
 const AuthContext = createContext(null);
 
 export const PROFILE_TYPE_DASHBOARDS = {
-    patient: '/patient/dashboard',
+    patient: '/',
     doctor: '/doctor/dashboard',
     clinic: '/clinic/dashboard',
     medical: '/medical/dashboard',
@@ -31,22 +31,6 @@ export function AuthProvider({ children }) {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const isRegistering = useRef(false);
-
-    const buildProfilePayload = useCallback((authUser, overrides = {}) => {
-        if (!authUser?.id) return null;
-
-        const meta = authUser.user_metadata || {};
-        const profileType = overrides.profileType ?? meta.profile_type ?? 'patient';
-
-        return {
-            id: authUser.id,
-            email: overrides.email ?? authUser.email ?? '',
-            full_name: overrides.fullName ?? meta.full_name ?? meta.fullName ?? '',
-            phone: overrides.phone ?? authUser.phone ?? meta.phone ?? '',
-            profile_type: profileType,
-            status: overrides.status ?? meta.status ?? (profileType === 'doctor' ? 'pending' : 'active'),
-        };
-    }, []);
 
     const clearAuthState = useCallback(() => {
         setUser(null);
@@ -84,24 +68,6 @@ export function AuthProvider({ children }) {
             return null;
         }
     }, []);
-
-    const ensureProfile = useCallback(async (authUser, overrides = {}) => {
-        const payload = buildProfilePayload(authUser, overrides);
-        if (!payload) return null;
-
-        const { data, error } = await supabase
-            .from('profiles')
-            .upsert(payload, { onConflict: 'id' })
-            .select('*')
-            .maybeSingle();
-
-        if (error) {
-            console.warn('[Auth] ensureProfile error:', error.message);
-            return null;
-        }
-
-        return data ?? null;
-    }, [buildProfilePayload]);
 
     useEffect(() => {
         let mounted = true;
@@ -161,13 +127,10 @@ export function AuthProvider({ children }) {
                     : error.message
             );
         }
-        let p = await fetchProfile(data.user.id);
-        if (!p) {
-            p = await ensureProfile(data.user);
-        }
+        const p = await fetchProfile(data.user.id);
         if (!p) {
             await safeSignOut();
-            throw new Error('Your account exists, but the profile record is missing. Please try signing in again, or contact support if this keeps happening.');
+            throw new Error('No profile found. Please register first.');
         }
         if (p.status === 'suspended') {
             await safeSignOut();
@@ -176,7 +139,7 @@ export function AuthProvider({ children }) {
         setUser(data.user);
         setProfile(p);
         return { user: data.user, profile: p };
-    }, [ensureProfile, fetchProfile, safeSignOut]);
+    }, [fetchProfile, safeSignOut]);
 
     /** signUp — creates auth user + profile via DB trigger */
     const signUp = useCallback(async ({ fullName, email, phone, password, profileType }) => {
@@ -209,25 +172,10 @@ export function AuthProvider({ children }) {
             const userId = data.user?.id;
             if (!userId) throw new Error('Registration failed. Please try again.');
 
-            let p = await ensureProfile(data.user, {
-                fullName,
-                email: email.trim(),
-                phone: phone?.trim() || '',
-                profileType,
-                status: profileType === 'doctor' ? 'pending' : 'active',
-            });
-
-            // If a DB trigger exists, give it a short chance to finish; otherwise keep the explicit profile row.
+            // Wait for DB trigger to create the profile (faster polling)
+            let p = null;
             for (let i = 1; i <= 8; i++) {
-                p = p ?? await fetchProfile(userId);
-                if (p) break;
-                p = await ensureProfile(data.user, {
-                    fullName,
-                    email: email.trim(),
-                    phone: phone?.trim() || '',
-                    profileType,
-                    status: profileType === 'doctor' ? 'pending' : 'active',
-                });
+                p = await fetchProfile(userId);
                 if (p) break;
                 await new Promise(r => setTimeout(r, 250));
             }
@@ -252,7 +200,7 @@ export function AuthProvider({ children }) {
             await safeSignOut();
             throw err;
         }
-    }, [ensureProfile, fetchProfile, safeSignOut]);
+    }, [fetchProfile, safeSignOut]);
 
     /** signOut */
     const signOut = useCallback(async () => {
