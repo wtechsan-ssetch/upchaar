@@ -28,7 +28,7 @@ export default function DoctorPendingPage() {
             await supabase.from('profiles').delete().eq('id', doctorRecord.profile_id);
         }
         await logout();
-        navigate('/doctor/register');
+        navigate('/');
     };
 
     return (

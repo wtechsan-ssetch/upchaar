@@ -71,7 +71,6 @@ const BloggerManagement       = lazy(() => import('@/admin/pages/BloggerManageme
 // ── DOCTOR pages ──────────────────────────────────────
 const DoctorLayout       = lazy(() => import('@/doctor/layouts/DoctorLayout.jsx'));
 const DoctorLogin        = lazy(() => import('@/doctor/pages/DoctorLogin.jsx'));
-const DoctorRegister     = lazy(() => import('@/doctor/pages/DoctorRegister.jsx'));
 const DoctorDashboard    = lazy(() => import('@/doctor/pages/DoctorDashboard.jsx'));
 const DoctorAppointments = lazy(() => import('@/doctor/pages/DoctorAppointments.jsx'));
 const DoctorPatients     = lazy(() => import('@/doctor/pages/DoctorPatients.jsx'));
@@ -191,7 +190,6 @@ export function AppRoutes() {
                 Auth: Supabase Auth (DoctorContext)
                 ═══════════════════════════════════════ */}
             <Route path="/doctor/login" element={<DoctorLogin />} />
-            <Route path="/doctor/register" element={<DoctorRegister />} />
             <Route path="/doctor" element={<DoctorLayout />}>
                 <Route index element={<DoctorDashboard />} />
                 <Route path="dashboard" element={<DoctorDashboard />} />
