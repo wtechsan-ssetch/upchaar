@@ -1,40 +1,77 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, CheckCircle, XCircle, Search, ChevronDown } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Search, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const APPOINTMENTS = [
-    { id: 'APT-001', patient: 'Rahul Kumar', age: 32, phone: '9876000001', issue: 'Chest pain & breathlessness', time: '10:00 AM', date: '26 Feb 2026', status: 'Confirmed' },
-    { id: 'APT-002', patient: 'Priya Singh', age: 28, phone: '9876000002', issue: 'Follow-up checkup post surgery', time: '11:30 AM', date: '26 Feb 2026', status: 'Confirmed' },
-    { id: 'APT-003', patient: 'Mohan Das', age: 55, phone: '9876000003', issue: 'Hypertension management', time: '02:00 PM', date: '26 Feb 2026', status: 'Pending' },
-    { id: 'APT-004', patient: 'Anjali Rao', age: 42, phone: '9876000004', issue: 'Diabetes review & diet plan', time: '04:30 PM', date: '26 Feb 2026', status: 'Confirmed' },
-    { id: 'APT-005', patient: 'Suresh Nair', age: 67, phone: '9876000005', issue: 'Knee joint pain', time: '09:00 AM', date: '27 Feb 2026', status: 'Pending' },
-    { id: 'APT-006', patient: 'Divya Menon', age: 35, phone: '9876000006', issue: 'Thyroid panel review', time: '10:00 AM', date: '27 Feb 2026', status: 'Confirmed' },
-    { id: 'APT-007', patient: 'Arun Sharma', age: 48, phone: '9876000007', issue: 'ECG & cardio screening', time: '12:00 PM', date: '27 Feb 2026', status: 'Cancelled' },
-];
+import { supabase } from '@/lib/supabase.js';
+import { useDoctor } from '../context/DoctorContext.jsx';
 
 const STATUS_STYLE = {
     Confirmed: 'bg-emerald-50 text-emerald-600 border-emerald-200',
     Pending: 'bg-amber-50 text-amber-600 border-amber-200',
     Cancelled: 'bg-red-50 text-red-500 border-red-200',
+    Completed: 'bg-blue-50 text-blue-600 border-blue-200',
+    Scheduled: 'bg-slate-50 text-slate-600 border-slate-200',
 };
 
 export default function DoctorAppointments() {
+    const { doctorRecord } = useDoctor();
     const [filter, setFilter] = useState('All');
     const [search, setSearch] = useState('');
+    const [appointments, setAppointments] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const filtered = APPOINTMENTS.filter(a => {
+    useEffect(() => {
+        if (!doctorRecord?.id) {
+            setAppointments([]);
+            setLoading(false);
+            return;
+        }
+
+        const fetchAppointments = async () => {
+            setLoading(true);
+            try {
+                const { data, error } = await supabase
+                    .from('appointments')
+                    .select('*')
+                    .eq('doctor_id', doctorRecord.id)
+                    .order('date', { ascending: true })
+                    .order('time_slot', { ascending: true });
+
+                if (error) throw error;
+                setAppointments(data || []);
+            } catch (error) {
+                console.error('Failed to load doctor appointments:', error.message);
+                setAppointments([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAppointments();
+    }, [doctorRecord?.id]);
+
+    const filtered = useMemo(() => appointments.filter(a => {
+        const patientName = a.patient_name || a.patientName || a.patient || '';
         const matchFilter = filter === 'All' || a.status === filter;
-        const matchSearch = !search || a.patient.toLowerCase().includes(search.toLowerCase());
+        const matchSearch = !search || patientName.toLowerCase().includes(search.toLowerCase());
         return matchFilter && matchSearch;
-    });
+    }), [appointments, filter, search]);
+
+    const formatDate = (value) => {
+        if (!value) return '-';
+        return new Date(value).toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+        });
+    };
 
     return (
         <div className="space-y-5">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-xl font-bold text-slate-800">Appointments</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">{APPOINTMENTS.length} total appointments</p>
+                    <p className="text-sm text-slate-500 mt-0.5">{appointments.length} total appointments</p>
                 </div>
             </div>
 
@@ -45,7 +82,7 @@ export default function DoctorAppointments() {
                         className="pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/25 w-56" />
                 </div>
                 <div className="flex gap-2">
-                    {['All', 'Confirmed', 'Pending', 'Cancelled'].map(f => (
+                    {['All', 'Confirmed', 'Scheduled', 'Completed', 'Cancelled'].map(f => (
                         <button key={f} onClick={() => setFilter(f)}
                             className={cn('px-4 py-2 rounded-xl text-sm font-medium border transition', filter === f ? 'bg-primary text-white border-primary' : 'bg-white text-slate-500 border-slate-200 hover:border-primary/30')}>
                             {f}
@@ -64,28 +101,43 @@ export default function DoctorAppointments() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                        {filtered.map((apt, i) => (
+                        {loading ? (
+                            <tr>
+                                <td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">
+                                    <span className="inline-flex items-center gap-2">
+                                        <Loader2 size={16} className="animate-spin" />
+                                        Loading appointments...
+                                    </span>
+                                </td>
+                            </tr>
+                        ) : filtered.length === 0 ? (
+                            <tr>
+                                <td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">
+                                    No appointments found
+                                </td>
+                            </tr>
+                        ) : filtered.map((apt, i) => (
                             <motion.tr key={apt.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
                                 className="hover:bg-slate-50/70 transition-colors">
                                 <td className="px-4 py-3">
                                     <div>
-                                        <p className="font-medium text-slate-800">{apt.patient}</p>
-                                        <p className="text-xs text-slate-400">{apt.phone}</p>
+                                        <p className="font-medium text-slate-800">{apt.patient_name || apt.patientName || apt.patient || 'Patient'}</p>
+                                        <p className="text-xs text-slate-400">{apt.patient_phone || '-'}</p>
                                     </div>
                                 </td>
-                                <td className="px-4 py-3 text-slate-600">{apt.age} yrs</td>
-                                <td className="px-4 py-3 text-slate-600 max-w-[180px] truncate text-xs">{apt.issue}</td>
+                                <td className="px-4 py-3 text-slate-600">{apt.patient_age ? `${apt.patient_age} yrs` : '-'}</td>
+                                <td className="px-4 py-3 text-slate-600 max-w-[180px] truncate text-xs">{apt.issue || apt.specialization || 'Consultation'}</td>
                                 <td className="px-4 py-3">
-                                    <p className="text-slate-700 font-medium text-xs">{apt.date}</p>
-                                    <p className="text-slate-400 text-xs flex items-center gap-1"><Clock size={10} /> {apt.time}</p>
+                                    <p className="text-slate-700 font-medium text-xs">{formatDate(apt.date)}</p>
+                                    <p className="text-slate-400 text-xs flex items-center gap-1"><Clock size={10} /> {apt.time_slot || '-'}</p>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <span className={cn('px-2.5 py-1 rounded-full text-xs font-semibold border', STATUS_STYLE[apt.status])}>{apt.status}</span>
+                                    <span className={cn('px-2.5 py-1 rounded-full text-xs font-semibold border', STATUS_STYLE[apt.status] || STATUS_STYLE.Scheduled)}>{apt.status}</span>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <div className="flex gap-1.5">
-                                        <button className="h-8 w-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all"><CheckCircle size={14} /></button>
-                                        <button className="h-8 w-8 flex items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all"><XCircle size={14} /></button>
+                                    <div className="flex gap-1.5 opacity-60">
+                                        <button type="button" className="h-8 w-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><CheckCircle size={14} /></button>
+                                        <button type="button" className="h-8 w-8 flex items-center justify-center rounded-lg bg-red-50 text-red-500"><XCircle size={14} /></button>
                                     </div>
                                 </td>
                             </motion.tr>
