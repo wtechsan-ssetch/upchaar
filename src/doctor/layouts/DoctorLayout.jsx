@@ -4,7 +4,7 @@ import DoctorPendingPage from '../pages/DoctorPendingPage.jsx';
 import {
     LayoutDashboard, Calendar, Users, ClipboardList,
     UserCircle, LogOut, ChevronLeft, ChevronRight, Stethoscope,
-    Video, Bell, Search, MessageSquare, Menu, X, KeyRound,
+    Bell, Search, MessageSquare, Menu, X, KeyRound, Landmark,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -16,13 +16,13 @@ const NAV = [
     { to: '/doctor/appointments', icon: Calendar, label: 'Appointments' },
     { to: '/doctor/patients', icon: Users, label: 'My Patients' },
     { to: '/doctor/prescriptions', icon: ClipboardList, label: 'Prescriptions' },
+    { to: '/doctor/release', icon: Landmark, label: 'Fee Release' },
     { to: '/doctor/profile', icon: UserCircle, label: 'Profile' },
 ];
 
 export default function DoctorLayout() {
     const { doctor, doctorRecord, logout, loading } = useDoctor();
     const [collapsed, setCollapsed] = useState(false);
-    const [isOnline, setIsOnline] = useState(true);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [changePwOpen, setChangePwOpen] = useState(false);
 
@@ -269,31 +269,9 @@ export default function DoctorLayout() {
                             />
                         </div>
 
-                        {/* Hybrid Consultation Toggle */}
-                        <div className="flex items-center gap-3 bg-white/80 border border-slate-200/60 px-2 py-1.5 rounded-full shadow-sm">
-                            <span className="text-xs font-semibold text-slate-600 pl-2">Online Consult</span>
-                            <button
-                                onClick={() => setIsOnline(!isOnline)}
-                                className={cn("relative w-12 h-6 rounded-full transition-colors flex items-center px-0.5", isOnline ? "bg-teal-500" : "bg-slate-300")}
-                            >
-                                <motion.div
-                                    layout
-                                    className="w-5 h-5 bg-white rounded-full shadow flex items-center justify-center relative"
-                                    animate={{
-                                        x: isOnline ? 24 : 0,
-                                        scale: isOnline ? 0.9 : 1
-                                    }}
-                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                >
-                                    {isOnline && (
-                                        <>
-                                            <Video size={10} className="text-teal-600" />
-                                            {/* Pulse ring for "Live" */}
-                                            <span className="absolute inset-0 rounded-full border border-teal-500 animate-ping opacity-75"></span>
-                                        </>
-                                    )}
-                                </motion.div>
-                            </button>
+                        <div className="flex items-center gap-2 bg-white/80 border border-slate-200/60 px-4 py-2 rounded-full shadow-sm">
+                            <span className="h-2.5 w-2.5 rounded-full bg-slate-500" />
+                            <span className="text-xs font-semibold text-slate-600">Offline Consult</span>
                         </div>
 
                         {/* Notifications */}

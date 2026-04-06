@@ -10,6 +10,7 @@ const STATUS_STYLE = {
     Pending: 'bg-amber-50 text-amber-600 border-amber-200',
     Cancelled: 'bg-red-50 text-red-500 border-red-200',
     Completed: 'bg-blue-50 text-blue-600 border-blue-200',
+    'In-Progress': 'bg-violet-50 text-violet-600 border-violet-200',
     Scheduled: 'bg-slate-50 text-slate-600 border-slate-200',
 };
 
@@ -107,7 +108,7 @@ export default function DoctorAppointments() {
                     />
                 </div>
                 <div className="flex gap-2">
-                    {['All', 'Pending', 'Confirmed', 'Scheduled', 'Completed', 'Cancelled'].map(f => (
+                    {['All', 'Pending', 'Confirmed', 'In-Progress', 'Scheduled', 'Completed', 'Cancelled'].map(f => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}

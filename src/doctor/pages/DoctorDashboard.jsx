@@ -1,37 +1,39 @@
-import { useState, useEffect } from 'react';
-import { useDoctor } from '../context/DoctorContext.jsx';
-import { supabase } from '@/lib/supabase.js';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-    Users, TrendingUp, Clock, FileText,
-    Video, MapPin, ChevronRight, Star, AlertCircle
+    Building2, CalendarDays, Clock3, IndianRupee, Users, ChevronRight, AlertCircle
 } from 'lucide-react';
-import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+import { supabase } from '@/lib/supabase.js';
+import { useDoctor } from '../context/DoctorContext.jsx';
 import { cn } from '@/lib/utils';
-import Patient360Drawer from '../components/Patient360Drawer.jsx';
 
-const REVENUE_DATA = [
-    { name: 'Mon', total: 4000 }, { name: 'Tue', total: 3000 },
-    { name: 'Wed', total: 5500 }, { name: 'Thu', total: 4500 },
-    { name: 'Fri', total: 6000 }, { name: 'Sat', total: 7500 },
-    { name: 'Sun', total: 4200 },
-];
+const parseClinics = (clinicValue) => {
+    if (!clinicValue) return [];
+    return [...new Set(
+        clinicValue
+            .split(/\r?\n|,|;/)
+            .map(item => item.trim())
+            .filter(Boolean)
+    )];
+};
 
-const REVIEWS = [
-    { id: 1, author: 'P. Singh', rating: 5, text: 'Very patient and explained everything clearly.', time: '2 hours ago' },
-    { id: 2, author: 'R. Kumar', rating: 5, text: 'Excellent diagnosis and friendly staff.', time: '4 hours ago' },
-    { id: 3, author: 'A. Rao', rating: 5, text: 'The teleconsultation was smooth and very helpful.', time: '1 day ago' },
-];
+const FIXED_AVAILABLE_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const FIXED_HOURS_FROM = '09:00';
+const FIXED_HOURS_TO = '20:00';
 
-const STATUS_CONFIG = {
-    'In-Progress': { color: 'text-indigo-600', bg: 'bg-indigo-50', dot: 'bg-indigo-500 animate-pulse' },
-    'Checked-in': { color: 'text-emerald-700', bg: 'bg-emerald-50', dot: 'bg-emerald-500' },
-    Upcoming: { color: 'text-slate-600', bg: 'bg-slate-50', dot: 'bg-slate-400' },
+const formatDate = (value) => {
+    if (!value) return '-';
+    return new Date(value).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    });
 };
 
 export default function DoctorDashboard() {
+    const navigate = useNavigate();
     const { doctor, doctorRecord } = useDoctor();
-    const [selectedApt, setSelectedApt] = useState(null);
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -42,7 +44,8 @@ export default function DoctorDashboard() {
             return;
         }
 
-        const fetchApts = async () => {
+        const fetchAppointments = async () => {
+            setLoading(true);
             try {
                 const { data, error } = await supabase
                     .from('appointments')
@@ -53,25 +56,48 @@ export default function DoctorDashboard() {
 
                 if (error) throw error;
                 setAppointments(data || []);
-            } catch (err) {
-                console.error('Failed to load doctor appointments:', err.message);
+            } catch (error) {
+                console.error('Failed to load doctor appointments:', error.message);
                 setAppointments([]);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchApts();
+        fetchAppointments();
     }, [doctorRecord?.id]);
 
+    const clinics = useMemo(() => parseClinics(doctorRecord?.clinic_name || doctor?.clinicName), [doctorRecord?.clinic_name, doctor?.clinicName]);
     const today = new Date().toISOString().slice(0, 10);
-    const todayAppointments = appointments.filter(a => String(a.date || '').slice(0, 10) === today);
-    const completedCount = todayAppointments.filter(a => a.status === 'Completed').length;
-    const totalToday = todayAppointments.length;
-    const progressPercent = totalToday === 0 ? 0 : Math.round((completedCount / totalToday) * 100);
+    const todayAppointments = appointments.filter(item => String(item.date || '').slice(0, 10) === today);
+
+    const clinicCards = useMemo(() => {
+        if (!clinics.length) return [];
+
+        return clinics.map(clinicName => {
+            const relatedAppointments = appointments.filter(apt => {
+                if (!apt.clinic_name) return clinics.length === 1;
+                return apt.clinic_name === clinicName || String(apt.clinic_name).includes(clinicName);
+            });
+
+            return {
+                clinicName,
+                totalPatients: relatedAppointments.length,
+                todayPatients: relatedAppointments.filter(apt => String(apt.date || '').slice(0, 10) === today).length,
+                upcoming: relatedAppointments.find(apt => String(apt.date || '').slice(0, 10) >= today) || null,
+            };
+        });
+    }, [appointments, clinics, today]);
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto pb-8">
+            <div className="flex flex-col gap-2">
+                <h1 className="text-2xl font-bold text-slate-800">Doctor Dashboard</h1>
+                <p className="text-sm text-slate-500">
+                    View your registered clinics, today&apos;s patients, and consultation activity.
+                </p>
+            </div>
+
             {doctorRecord?.status === 'Pending' && (
                 <motion.div
                     initial={{ opacity: 0, y: -8 }}
@@ -86,211 +112,114 @@ export default function DoctorDashboard() {
                 </motion.div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.02)] flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <Clock size={16} className="text-teal-500" />
-                            <h3 className="font-bold text-slate-800 text-sm tracking-tight">Today's Schedule</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {[
+                    { label: 'Registered Clinics', value: clinics.length || 0, icon: Building2, tone: 'text-teal-600 bg-teal-50' },
+                    { label: 'Today Appointments', value: todayAppointments.length, icon: CalendarDays, tone: 'text-blue-600 bg-blue-50' },
+                    { label: 'Completed Today', value: todayAppointments.filter(item => item.status === 'Completed').length, icon: Clock3, tone: 'text-emerald-600 bg-emerald-50' },
+                    { label: 'Total Revenue', value: `Rs. ${(doctorRecord?.total_revenue || doctor?.totalRevenue || 0).toLocaleString()}`, icon: IndianRupee, tone: 'text-amber-600 bg-amber-50' },
+                ].map(card => (
+                    <div key={card.label} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
+                        <div className={cn('h-11 w-11 rounded-2xl flex items-center justify-center mb-4', card.tone)}>
+                            <card.icon size={20} />
                         </div>
-                        <p className="text-xs text-slate-500 font-medium">{completedCount} of {totalToday} patients seen</p>
+                        <p className="text-sm text-slate-500">{card.label}</p>
+                        <p className="text-2xl font-bold text-slate-800 mt-1">{card.value}</p>
                     </div>
-                    <div className="mt-6">
-                        <div className="flex justify-between text-xs font-bold mb-2">
-                            <span className="text-slate-700">Progress</span>
-                            <span className="text-teal-600">{progressPercent}%</span>
-                        </div>
-                        <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: `${progressPercent}%` }}
-                                transition={{ duration: 1, delay: 0.2 }}
-                                className="h-full bg-gradient-to-r from-teal-400 to-teal-500 rounded-full"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.02)] flex flex-col justify-between">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <TrendingUp size={16} className="text-blue-500" />
-                                <h3 className="font-bold text-slate-800 text-sm tracking-tight">Earnings Tracker</h3>
-                            </div>
-                            <p className="text-2xl font-black text-slate-800 tracking-tight mt-2">
-                                Rs. {(doctorRecord?.total_revenue || doctor?.totalRevenue || 45200).toLocaleString()}
-                            </p>
-                            <p className="text-xs text-emerald-500 font-bold mt-1 bg-emerald-50 inline-block px-2 py-0.5 rounded-md">+14% vs last week</p>
-                        </div>
-                    </div>
-                    <div className="h-16 w-full mt-4 -ml-2">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={REVENUE_DATA}>
-                                <defs>
-                                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <Tooltip cursor={false} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }} />
-                                <Area type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-3xl p-6 border border-indigo-100/50 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.02)] flex flex-col relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <div>
-                            <h3 className="font-bold text-indigo-900 text-sm tracking-tight">Latest Feedback</h3>
-                            <div className="flex items-center gap-1 mt-1">
-                                {[1, 2, 3, 4, 5].map(i => <Star key={i} size={12} className="fill-amber-400 text-amber-400" />)}
-                                <span className="text-xs font-bold text-indigo-800 ml-1">4.9/5</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 overflow-hidden relative z-10">
-                        <div className="space-y-3">
-                            {REVIEWS.slice(0, 2).map(r => (
-                                <div key={r.id} className="bg-white/60 backdrop-blur-sm rounded-2xl p-3 border border-white">
-                                    <p className="text-xs text-indigo-900/80 font-medium italic line-clamp-2">"{r.text}"</p>
-                                    <div className="flex justify-between items-center mt-2">
-                                        <span className="text-[10px] font-bold text-indigo-900">{r.author}</span>
-                                        <span className="text-[10px] font-semibold text-indigo-400">{r.time}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col">
-                    <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white/50 backdrop-blur-md sticky top-0 z-10">
+                <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+                    <div className="flex items-center justify-between mb-5">
                         <div>
-                            <h2 className="font-bold text-slate-800 tracking-tight">Appointment Timeline</h2>
-                            <p className="text-xs text-slate-500 font-medium mt-0.5">Click any appointment to open patient details</p>
-                        </div>
-                        <button className="text-xs font-bold text-teal-600 bg-teal-50 px-3 py-1.5 rounded-lg hover:bg-teal-100 transition-colors">
-                            Block Time
-                        </button>
-                    </div>
-
-                    <div className="p-6">
-                        <div className="relative border-l-2 border-slate-100 ml-3 space-y-6 min-h-[300px]">
-                            {loading ? (
-                                <p className="text-sm text-slate-500 py-10 text-center">Loading appointments...</p>
-                            ) : appointments.length === 0 ? (
-                                <p className="text-sm text-slate-500 py-10 text-center">No appointments found.</p>
-                            ) : appointments.map((apt, i) => {
-                                const cfg = STATUS_CONFIG[apt.status] || STATUS_CONFIG.Upcoming;
-                                const consultationType = apt.type || apt.consultation_type || 'Online';
-                                const patientName = apt.patient_name || apt.patientName || apt.patient || 'Patient';
-                                return (
-                                    <motion.div
-                                        key={apt.id}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: i * 0.1 }}
-                                        className="relative pl-6 sm:pl-8 group"
-                                    >
-                                        <div className="absolute left-[-5px] top-6 w-2.5 h-2.5 rounded-full ring-4 ring-white bg-slate-300">
-                                            <div className={cn('absolute inset-0 rounded-full', cfg.dot)} />
-                                        </div>
-
-                                        <div className="absolute left-[-60px] top-5 w-12 text-right hidden sm:block">
-                                            <span className="text-xs font-bold text-slate-500">{apt.time_slot ? apt.time_slot.split(' ')[0] : '10:00'}</span>
-                                            <span className="text-[10px] font-semibold text-slate-400 block">{apt.time_slot ? apt.time_slot.split(' ')[1] : 'AM'}</span>
-                                        </div>
-
-                                        <button
-                                            onClick={() => setSelectedApt(apt)}
-                                            className="w-full text-left bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-slate-200 transition-all group-hover:-translate-y-0.5"
-                                        >
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-                                                <div className="flex items-center gap-3">
-                                                    <span className={cn('px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wide uppercase', cfg.bg, cfg.color)}>
-                                                        {apt.status === 'Scheduled' ? 'Upcoming' : apt.status}
-                                                    </span>
-                                                    <span className="flex items-center gap-1 text-[11px] font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-lg">
-                                                        {consultationType === 'Online' || consultationType === 'Virtual'
-                                                            ? <Video size={10} className="text-blue-500" />
-                                                            : <MapPin size={10} className="text-emerald-500" />}
-                                                        {consultationType}
-                                                    </span>
-                                                    {apt.duration && (
-                                                        <span className="text-[11px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg hidden sm:inline-flex">
-                                                            <Clock size={10} /> {apt.duration}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="sm:hidden text-xs font-bold text-slate-500">
-                                                    {apt.time_slot || apt.time || '10:00 AM'}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <h4 className="font-bold text-slate-800 text-base tracking-tight">{patientName}</h4>
-                                                    <p className="text-xs font-medium text-slate-500 mt-1">{apt.issue || 'Consultation'}</p>
-                                                </div>
-                                                <div className="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors shrink-0">
-                                                    <ChevronRight size={16} />
-                                                </div>
-                                            </div>
-                                        </button>
-                                    </motion.div>
-                                );
-                            })}
+                            <h2 className="font-bold text-slate-800 text-lg">My Clinics / Medicals</h2>
+                            <p className="text-sm text-slate-500 mt-1">Click a clinic to see booked patients and start consultations.</p>
                         </div>
                     </div>
+
+                    {clinicCards.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+                            <Building2 size={28} className="mx-auto text-slate-300 mb-3" />
+                            <p className="text-sm font-medium text-slate-500">No clinic added yet.</p>
+                            <p className="text-xs text-slate-400 mt-1">Add your clinic name and timing from the profile page.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {clinicCards.map((clinic, index) => (
+                                <motion.button
+                                    key={clinic.clinicName}
+                                    initial={{ opacity: 0, y: 12 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: index * 0.06 }}
+                                    onClick={() => navigate(`/doctor/clinics/${encodeURIComponent(clinic.clinicName)}`)}
+                                    className="text-left rounded-3xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-teal-300 hover:shadow-md transition-all p-5"
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="h-12 w-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                                            <Building2 size={20} />
+                                        </div>
+                                        <ChevronRight size={18} className="text-slate-400" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-800 text-base">{clinic.clinicName}</h3>
+                                    <div className="flex flex-wrap gap-2 mt-4">
+                                        <span className="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-xs font-medium text-slate-600">
+                                            {clinic.totalPatients} total patients
+                                        </span>
+                                        <span className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-100 text-xs font-medium text-teal-700">
+                                            {clinic.todayPatients} today
+                                        </span>
+                                    </div>
+                                    {clinic.upcoming && (
+                                        <p className="mt-4 text-xs text-slate-500">
+                                            Next booking: {clinic.upcoming.patient_name || clinic.upcoming.patient || 'Patient'} on {formatDate(clinic.upcoming.date)} at {clinic.upcoming.time_slot || '-'}
+                                        </p>
+                                    )}
+                                </motion.button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-6">
-                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden group hover:shadow-2xl hover:shadow-teal-900/20 transition-all cursor-pointer">
-                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-teal-500/20 rounded-full blur-2xl group-hover:bg-teal-500/30 transition-colors" />
-                        <FileText size={24} className="text-teal-400 mb-4" />
-                        <h3 className="font-bold text-lg tracking-tight mb-1">Quick Prescription</h3>
-                        <p className="text-sm text-slate-400 font-medium mb-6">Write and send digital Rx securely to your patients instantly.</p>
-                        <button className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl text-sm font-bold backdrop-blur-md transition-colors flex items-center justify-center gap-2">
-                            Create New Rx <ChevronRight size={14} />
-                        </button>
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+                        <h2 className="font-bold text-slate-800 text-lg mb-4">Consultation Window</h2>
+                        <div className="space-y-3 text-sm text-slate-600">
+                            <div className="flex items-center justify-between">
+                                <span>Available Days</span>
+                                <span className="font-semibold text-slate-800">{FIXED_AVAILABLE_DAYS.join(', ')}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span>Start Time</span>
+                                <span className="font-semibold text-slate-800">{FIXED_HOURS_FROM}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span>End Time</span>
+                                <span className="font-semibold text-slate-800">{FIXED_HOURS_TO}</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.02)] p-6">
-                        <h3 className="font-bold text-slate-800 tracking-tight flex items-center gap-2 mb-4">
-                            <Users size={16} className="text-slate-400" /> Walk-in Queue
-                        </h3>
-                        <div className="space-y-4">
-                            {[1, 2].map((i) => (
-                                <div key={i} className="flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-400 text-xs">
-                                        #{i}
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="h-3 w-24 bg-slate-100 rounded-full mb-1.5" />
-                                        <div className="h-2 w-16 bg-slate-50 rounded-full" />
-                                    </div>
-                                </div>
-                            ))}
-                            <button className="w-full py-2.5 border-2 border-dashed border-slate-200 rounded-2xl text-xs font-bold text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-colors">
-                                + Add Walk-in Patient
-                            </button>
+                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-6 text-white shadow-xl">
+                        <div className="flex items-center gap-3 mb-3">
+                            <Users size={18} className="text-teal-300" />
+                            <h2 className="font-bold text-lg">Patient Snapshot</h2>
                         </div>
+                        <p className="text-sm text-slate-300">All booked patients for your selected clinic will appear on the clinic page with Start and End consultation controls.</p>
+                        <button
+                            onClick={() => clinics[0] && navigate(`/doctor/clinics/${encodeURIComponent(clinics[0])}`)}
+                            disabled={!clinics[0]}
+                            className="mt-5 w-full py-3 rounded-2xl bg-white/10 hover:bg-white/20 disabled:opacity-40 text-sm font-semibold transition"
+                        >
+                            Open Patient List
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <Patient360Drawer
-                isOpen={!!selectedApt}
-                onClose={() => setSelectedApt(null)}
-                appointment={selectedApt}
-            />
+            {loading && (
+                <div className="text-sm text-slate-400">Loading appointments...</div>
+            )}
         </div>
     );
 }

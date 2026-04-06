@@ -77,6 +77,8 @@ const DoctorAppointments = lazy(() => import('@/doctor/pages/DoctorAppointments.
 const DoctorPatients     = lazy(() => import('@/doctor/pages/DoctorPatients.jsx'));
 const DoctorPrescriptions = lazy(() => import('@/doctor/pages/DoctorPrescriptions.jsx'));
 const DoctorProfile      = lazy(() => import('@/doctor/pages/DoctorProfile.jsx'));
+const DoctorClinicPatients = lazy(() => import('@/doctor/pages/DoctorClinicPatients.jsx'));
+const DoctorReleaseRequests = lazy(() => import('@/doctor/pages/DoctorReleaseRequests.jsx'));
 
 // ── BLOGGER pages ─────────────────────────────────────
 const BloggerLayout   = lazy(() => import('@/blog/layouts/BloggerLayout.jsx'));
@@ -197,6 +199,8 @@ export function AppRoutes() {
                 <Route path="appointments" element={<DoctorAppointments />} />
                 <Route path="patients" element={<DoctorPatients />} />
                 <Route path="prescriptions" element={<DoctorPrescriptions />} />
+                <Route path="clinics/:clinicName" element={<DoctorClinicPatients />} />
+                <Route path="release" element={<DoctorReleaseRequests />} />
                 <Route path="profile" element={<DoctorProfile />} />
             </Route>
 

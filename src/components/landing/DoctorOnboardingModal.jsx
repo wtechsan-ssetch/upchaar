@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase.js';
+import { withAuthTimeout } from '@/lib/auth.js';
 
 /* ─── constants ─────────────────────────────────────────── */
 const SPECIALIZATIONS = [
@@ -543,6 +544,119 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
         return path;
     };
 
+    const savePendingDoctorApplication = async ({ folder, govtIdPath, licenseDocPath, degreeCertPath }) => {
+        const { data: existingSessionData } = await supabase.auth.getSession();
+        const existingSession = existingSessionData.session;
+        try {
+            const { data: signUpData, error: signUpError } = await withAuthTimeout(
+                supabase.auth.signUp({
+                    email: data.email.trim(),
+                    password: data.password,
+                    options: {
+                        data: {
+                            full_name: data.fullName.trim(),
+                            phone: data.phone.trim(),
+                            profile_type: 'doctor',
+                        },
+                    },
+                }),
+                'Sign up is taking too long. Please check your connection and try again.'
+            );
+
+            if (signUpError) {
+                const message = signUpError.message || 'Unable to create doctor account.';
+                if (message.toLowerCase().includes('already registered')) {
+                    throw new Error('An account with this email already exists.');
+                }
+                throw new Error(message);
+            }
+
+            const userId = signUpData.user?.id;
+            if (!userId) {
+                throw new Error('Registration failed. Please try again.');
+            }
+
+            const primaryClinic = data.clinics[0] || {};
+            const now = new Date().toISOString();
+
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .upsert({
+                    id: userId,
+                    email: data.email.trim(),
+                    full_name: data.fullName.trim(),
+                    phone: data.phone.trim(),
+                    profile_type: 'doctor',
+                    status: 'pending',
+                    updated_at: now,
+                }, {
+                    onConflict: 'id',
+                });
+
+            if (profileError) {
+                throw new Error(`Failed to create profile: ${profileError.message}`);
+            }
+
+            const { error: pendingDoctorError } = await supabase
+                .from('pending_doctors')
+                .insert({
+                    profile_id: userId,
+                    full_name: data.fullName.trim(),
+                    email: data.email.trim(),
+                    phone: data.phone.trim(),
+                    dob: data.dob || null,
+                    gender: data.gender || null,
+                    specialization: data.specialization || null,
+                    sub_specialization: data.subSpecialization || null,
+                    degree: data.degree.trim(),
+                    additional_qualifications: data.additionalQualifications || null,
+                    passing_year: data.passingYear ? Number(data.passingYear) : null,
+                    institution: data.institution.trim(),
+                    license_no: data.licenseNo.trim(),
+                    nmc_no: data.nmcNo.trim(),
+                    clinic_name: primaryClinic.name?.trim() || null,
+                    clinic_address: primaryClinic.address?.trim() || null,
+                    city: primaryClinic.city?.trim() || null,
+                    state: primaryClinic.state || null,
+                    languages: data.languages,
+                    available_days: primaryClinic.availableDays || [],
+                    hours_from: primaryClinic.hoursFrom || null,
+                    hours_to: primaryClinic.hoursTo || null,
+                    experience: data.experience ? Number(data.experience) : 0,
+                    consultation_fee: data.consultationFee ? Number(data.consultationFee) : 500,
+                    status: 'Pending',
+                    applied_at: now,
+                    metadata: {
+                        clinics: data.clinics,
+                        documents: {
+                            govtId: govtIdPath,
+                            licenseDoc: licenseDocPath,
+                            degreeCert: degreeCertPath,
+                        },
+                        storageFolder: folder,
+                        source: 'landing-modal',
+                    },
+                });
+
+            if (pendingDoctorError) {
+                throw new Error(`Failed to save application: ${pendingDoctorError.message}`);
+            }
+        } finally {
+            await supabase.auth.signOut();
+
+            if (existingSession?.access_token && existingSession?.refresh_token) {
+                const { error: restoreError } = await supabase.auth.setSession({
+                    access_token: existingSession.access_token,
+                    refresh_token: existingSession.refresh_token,
+                });
+
+                if (restoreError) {
+                    console.warn('Could not restore previous session after doctor application submit:', restoreError.message);
+                }
+            }
+        }
+    };
+
     const handleSubmit = async () => {
         setSubmitting(true);
         setSubmitError('');
@@ -560,52 +674,66 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
 
             // 2. Call the register-doctor Edge Function (service-role, bypasses RLS)
             //    — creates auth user, profile, and pending_doctors row server-side
-            const res = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/register-doctor`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            const payload = {
+                email: data.email.trim(),
+                password: data.password,
+                fullName: data.fullName.trim(),
+                phone: data.phone.trim(),
+                dob: data.dob || null,
+                gender: data.gender || null,
+                licenseNo: data.licenseNo.trim(),
+                nmcNo: data.nmcNo.trim(),
+                specialization: data.specialization,
+                subSpecialization: data.subSpecialization || null,
+                degree: data.degree.trim(),
+                passingYear: data.passingYear || null,
+                institution: data.institution.trim(),
+                additionalQualifications: data.additionalQualifications || null,
+                experience: data.experience || 0,
+                consultationFee: data.consultationFee || 500,
+                languages: data.languages,
+                clinics: data.clinics,
+                metadata: {
+                    documents: {
+                        govtId: govtIdPath,
+                        licenseDoc: licenseDocPath,
+                        degreeCert: degreeCertPath,
                     },
-                    body: JSON.stringify({
-                        // Auth
-                        email: data.email.trim(),
-                        password: data.password,
-                        // Personal
-                        fullName: data.fullName.trim(),
-                        phone: data.phone.trim(),
-                        dob: data.dob || null,
-                        gender: data.gender || null,
-                        // Credentials
-                        licenseNo: data.licenseNo.trim(),
-                        nmcNo: data.nmcNo.trim(),
-                        specialization: data.specialization,
-                        subSpecialization: data.subSpecialization || null,
-                        degree: data.degree.trim(),
-                        passingYear: data.passingYear || null,
-                        institution: data.institution.trim(),
-                        additionalQualifications: data.additionalQualifications || null,
-                        // Practice
-                        experience: data.experience || 0,
-                        consultationFee: data.consultationFee || 500,
-                        languages: data.languages,
-                        clinics: data.clinics,
-                        // Document paths (uploaded in step 1)
-                        metadata: {
-                            documents: {
-                                govtId: govtIdPath,
-                                licenseDoc: licenseDocPath,
-                                degreeCert: degreeCertPath,
-                            },
-                            storageFolder: folder,
-                        },
-                    }),
-                }
-            );
+                    storageFolder: folder,
+                },
+            };
 
-            const result = await res.json();
-            if (!res.ok) throw new Error(result.error || 'Registration failed. Please try again.');
+            try {
+                const res = await fetch(
+                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/register-doctor`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                        },
+                        body: JSON.stringify(payload),
+                    }
+                );
+
+                const result = await res.json();
+                if (!res.ok) throw new Error(result.error || 'Registration failed. Please try again.');
+            } catch (edgeFunctionError) {
+                const message = edgeFunctionError.message?.toLowerCase?.() || '';
+                const shouldFallback = ['failed to fetch', 'fetch failed', 'networkerror', 'load failed']
+                    .some(pattern => message.includes(pattern));
+
+                if (!shouldFallback) {
+                    throw edgeFunctionError;
+                }
+
+                await savePendingDoctorApplication({
+                    folder,
+                    govtIdPath,
+                    licenseDocPath,
+                    degreeCertPath,
+                });
+            }
 
             setSubmitted(true);
         } catch (err) {

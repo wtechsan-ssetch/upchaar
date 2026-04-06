@@ -27,6 +27,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 /* ── helpers ─────────────────────────────────────── */
 const today = () => new Date().toISOString().split('T')[0];
 
+const parseClinicNames = (clinicValue) => {
+    if (!clinicValue) return [];
+    return [...new Set(
+        String(clinicValue)
+            .split(/\r?\n|,|;/)
+            .map(item => item.trim())
+            .filter(Boolean)
+    )];
+};
+
 function formatDateLabel(dateStr) {
     const d = new Date(dateStr + 'T00:00:00');
     return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -215,6 +225,7 @@ export default function DoctorDetailPage() {
     const [selectedSlot, setSelectedSlot] = useState('');
     const [selectedDate, setSelectedDate] = useState(today());
     const [bookingType, setBookingType] = useState('In-person');
+    const [selectedClinic, setSelectedClinic] = useState('');
 
     // Step 1: pre-booking warning modal
     const [showWarning, setShowWarning] = useState(false);
@@ -244,6 +255,8 @@ export default function DoctorDetailPage() {
                         reviews: data.total_appointments || 0,
                         verified: true,
                         fees: data.consultation_fee || 0,
+                        clinicName: data.clinic_name || '',
+                        clinicNames: parseClinicNames(data.clinic_name),
                         languages: data.languages || [],
                         availableDays: data.available_days || [],
                         hoursFrom: data.hours_from || '09:00',
@@ -258,6 +271,14 @@ export default function DoctorDetailPage() {
                 setLoading(false);
             });
     }, [id]);
+
+    useEffect(() => {
+        if (doctor?.clinicNames?.length) {
+            setSelectedClinic(prev => prev || doctor.clinicNames[0]);
+        } else if (doctor?.clinicName) {
+            setSelectedClinic(prev => prev || doctor.clinicName);
+        }
+    }, [doctor]);
 
     /* ── Step 1: open warning modal ── */
     const handleBookClick = (type) => {
@@ -289,9 +310,7 @@ export default function DoctorDetailPage() {
 
             const queueNumber = (count ?? 0) + 1;
 
-            const { error: insertErr } = await supabase
-                .from('appointments')
-                .insert({
+            const appointmentPayload = {
                 patient_id: patient.id,
                 doctor_id: id,
                 patient_name: patient.full_name || patient.email,
@@ -302,9 +321,21 @@ export default function DoctorDetailPage() {
                 queue_number: queueNumber,
                 status: 'Confirmed',
                 type: bookingType,
+                clinic_name: selectedClinic || doctor.clinicName || null,
                 fee: doctor.fees,
                 platform_revenue: 50,
-                });
+            };
+
+            let { error: insertErr } = await supabase
+                .from('appointments')
+                .insert(appointmentPayload);
+
+            if (insertErr?.message?.includes("Could not find the 'clinic_name' column")) {
+                const { clinic_name, ...fallbackPayload } = appointmentPayload;
+                ({ error: insertErr } = await supabase
+                    .from('appointments')
+                    .insert(fallbackPayload));
+            }
 
             if (insertErr) throw insertErr;
 
