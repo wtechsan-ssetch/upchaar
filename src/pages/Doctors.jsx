@@ -32,7 +32,7 @@ export default function DoctorsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [location, setLocation] = useState('all');
     const [selectedSpecialty, setSelectedSpecialty] = useState('All');
-    const [priceRange, setPriceRange] = useState([0, 5000]);
+    const [maxPrice, setMaxPrice] = useState(5000);
 
     useEffect(() => {
         supabase
@@ -69,7 +69,7 @@ export default function DoctorsPage() {
             doctor.specialty.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesLocation = location === 'all' || doctor.city.includes(location);
         const matchesSpecialty = selectedSpecialty === 'All' || doctor.specialty === selectedSpecialty;
-        const matchesPrice = doctor.fees >= priceRange[0] && doctor.fees <= priceRange[1];
+        const matchesPrice = doctor.fees <= maxPrice;
         return matchesSearch && matchesLocation && matchesSpecialty && matchesPrice;
     });
 
@@ -201,11 +201,11 @@ export default function DoctorsPage() {
                                 </div>
                             </div>
                             <div className="space-y-3">
-                                <label className="text-sm font-medium">Consultation Fee</label>
-                                <Slider defaultValue={[0, 5000]} max={5000} step={100} className="py-4" onValueChange={setPriceRange} />
+                                <label className="text-sm font-medium">Max Consultation Fee</label>
+                                <Slider value={[maxPrice]} max={5000} step={100} className="py-4" onValueChange={(val) => setMaxPrice(val[0])} />
                                 <div className="flex justify-between text-xs text-muted-foreground">
-                                    <span>₹{priceRange[0]}</span>
-                                    <span>₹{priceRange[1]}+</span>
+                                    <span>₹0</span>
+                                    <span>₹{maxPrice}{maxPrice === 5000 ? '+' : ''}</span>
                                 </div>
                             </div>
                             <div className="space-y-3">
@@ -256,7 +256,7 @@ export default function DoctorsPage() {
                                         </div>
                                         <h3 className="text-lg font-semibold">No doctors found</h3>
                                         <p className="text-muted-foreground">Try adjusting your search or filters.</p>
-                                        <Button variant="link" onClick={() => { setSearchTerm(''); setLocation('all'); }} className="mt-2 text-primary">
+                                        <Button variant="link" onClick={() => { setSearchTerm(''); setLocation('all'); setSelectedSpecialty('All'); setMaxPrice(5000); }} className="mt-2 text-primary">
                                             Clear all filters
                                         </Button>
                                     </motion.div>

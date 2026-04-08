@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Stethoscope, FlaskConical, Hospital,
     FileText, LogOut, X, Menu, ChevronLeft, ChevronRight, HeartPulse,
@@ -34,6 +34,8 @@ export default function AppLayout({ children }) {
     const initials = user?.user_metadata?.full_name
         ?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'PA';
 
+    const location = useLocation();
+
     // Shared sidebar nav content
     const SidebarContent = ({ onClose }) => (
         <div className="flex flex-col h-full">
@@ -63,28 +65,40 @@ export default function AppLayout({ children }) {
 
             {/* Nav links */}
             <nav className="flex flex-col gap-1 p-3 flex-1 overflow-y-auto">
-                {NAV.map(({ to, icon: Icon, label }) => (
-                    <NavLink key={to} to={to} onClick={() => onClose?.()}
-                        className={({ isActive }) => cn(
-                            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group',
-                            isActive
-                                ? 'bg-primary text-white shadow-md shadow-primary/25'
-                                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                        )}>
-                        {({ isActive }) => (
-                            <>
-                                <Icon size={17} className={cn('flex-shrink-0', isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600')} />
-                                <AnimatePresence>
-                                    {(!collapsed || onClose) && (
-                                        <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="whitespace-nowrap">
-                                            {label}
-                                        </motion.span>
-                                    )}
-                                </AnimatePresence>
-                            </>
-                        )}
-                    </NavLink>
-                ))}
+                {NAV.map(({ to, icon: Icon, label }) => {
+                    // Check if active: standard check OR if it's the dashboard link and we are on a portal dashboard
+                    const isDashboard = to === '/dashboard';
+                    const active = isDashboard
+                        ? location.pathname === '/dashboard' || location.pathname.includes('/dashboard')
+                        : location.pathname === to;
+
+                    return (
+                        <NavLink key={to} to={to} onClick={() => onClose?.()}
+                            className={cn(
+                                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group',
+                                active
+                                    ? 'bg-primary text-white shadow-md shadow-primary/25'
+                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                            )}>
+                            {({ isActive }) => {
+                                // Fallback to our custom logic if NavLink's isActive is false for the dashboard
+                                const effectiveActive = active || isActive;
+                                return (
+                                    <>
+                                        <Icon size={17} className={cn('flex-shrink-0', effectiveActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600')} />
+                                        <AnimatePresence>
+                                            {(!collapsed || onClose) && (
+                                                <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="whitespace-nowrap">
+                                                    {label}
+                                                </motion.span>
+                                            )}
+                                        </AnimatePresence>
+                                    </>
+                                );
+                            }}
+                        </NavLink>
+                    );
+                })}
             </nav>
 
             {/* Bottom */}
