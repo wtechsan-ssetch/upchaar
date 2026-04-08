@@ -202,6 +202,25 @@ export function AuthProvider({ children }) {
                 }).select().maybeSingle();
             }
 
+            // Seed medicals or clinics table
+            if (profileType === 'medical') {
+                await supabase.from('medicals').insert({
+                    profile_id: userId,
+                    name: fullName.trim(),
+                    email: email.trim(),
+                    phone: phone?.trim() || '',
+                    status: 'Pending',
+                });
+            } else if (profileType === 'clinic') {
+                await supabase.from('clinics').insert({
+                    profile_id: userId,
+                    name: fullName.trim(),
+                    email: email.trim(),
+                    phone: phone?.trim() || '',
+                    status: 'Pending',
+                });
+            }
+
             // Clear the temporary session without letting sign-out block the UI.
             await safeSignOut();
             isRegistering.current = false;

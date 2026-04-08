@@ -88,6 +88,10 @@ const PostEditor      = lazy(() => import('@/blog/pages/PostEditor.jsx'));
 const MyPosts         = lazy(() => import('@/blog/pages/MyPosts.jsx'));
 const BloggerProfile  = lazy(() => import('@/blog/pages/BloggerProfile.jsx'));
 
+// ── MEDICAL & CLINIC pages ───────────
+const MedicalDashboard = lazy(() => import('@/medical/pages/MedicalDashboard.jsx'));
+const ClinicDashboard = lazy(() => import('@/clinic/pages/ClinicDashboard.jsx'));
+
 // ── Minimal loading fallback ───────────────────────────
 const PageLoader = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
@@ -221,6 +225,12 @@ export function AppRoutes() {
                 <Route path="posts" element={<MyPosts />} />
                 <Route path="profile" element={<BloggerProfile />} />
             </Route>
+
+            {/* ═══════════════════════════════════════
+                MEDICAL & CLINIC ROUTES
+                ═══════════════════════════════════════ */}
+            <Route path="/medical/dashboard" element={<RequireAuth><MedicalDashboard /></RequireAuth>} />
+            <Route path="/clinic/dashboard" element={<RequireAuth><ClinicDashboard /></RequireAuth>} />
 
         </Routes>
         </Suspense>
