@@ -176,48 +176,48 @@ export const Header = () => {
 
     return (
         <header className="relative z-[90] w-full px-4 pt-4">
-            <div className="relative z-[90] container mx-auto flex h-16 sm:h-20 items-center justify-between rounded-full bg-white/90 backdrop-blur-md px-3 sm:px-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-200/50 transition-all duration-300">
+            <div className="relative z-[90] w-full max-w-[1360px] mx-auto flex h-16 sm:h-20 items-center justify-between rounded-full bg-white/90 backdrop-blur-md px-3 sm:px-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-200/50 transition-all duration-300">
                 {/* Left Section - Logo */}
-                <Link to="/" className="flex items-center gap-2 flex-shrink-0 overflow-hidden">
-                    <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-teal-200 bg-white shadow-sm ring-4 ring-teal-50/50">
-                        <img src="/logo.png" alt="Upchaar Logo" className="w-6 h-6 sm:w-8 sm:h-8" />
+                <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
+                    <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-teal-200 bg-white shadow-sm ring-4 ring-teal-50/50 group-hover:ring-teal-100/50 transition-all">
+                        <img src="/logo.png" alt="Upchaar Logo" className="w-6 h-6 sm:w-7 sm:h-7" />
                     </div>
                     <div className="flex flex-col sm:flex-row sm:gap-1 tracking-tight">
-                        <span className="font-extrabold text-base sm:text-xl text-teal-600">
+                        <span className="font-extrabold text-base sm:text-lg lg:text-xl text-teal-600 leading-tight">
                             Upchaar
                         </span>
-                        <span className='font-bold text-xs sm:text-xl text-slate-400 sm:text-red-600'>Health</span>
+                        <span className='font-bold text-xs sm:text-lg lg:text-xl text-slate-400 sm:text-red-600 hidden md:block lg:hidden xl:block'>Health</span>
                     </div>
                 </Link>
 
                 {/* Center/Right Section Logic */}
-                <div className="flex flex-1 justify-end md:justify-center items-center gap-2">
-                    {/* --- Desktop/Tablet Navigation Pill --- */}
+                <div className="flex-1 flex justify-end md:justify-center items-center px-2 lg:px-4">
+                    {/* --- Desktop Navigation --- */}
                     <div className={cn(
-                        "hidden md:flex items-center gap-2 rounded-full border border-primary/30 bg-card/50 p-1 transition-all duration-300 ease-in-out",
-                        isSearchOpen ? 'w-full max-w-md' : 'w-auto'
+                        "hidden md:flex items-center gap-1 transition-all duration-300 ease-in-out w-full justify-center",
+                        isSearchOpen ? 'max-w-md' : 'max-w-max'
                     )}>
                         <AnimatePresence initial={false}>
                             {isSearchOpen ? (
                                 <motion.div
                                     key="search"
-                                    initial={{ opacity: 0, width: '0%' }}
-                                    animate={{ opacity: 1, width: '100%' }}
-                                    exit={{ opacity: 0, width: '0%' }}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
                                     transition={searchTransition}
-                                    className="relative flex w-full items-center"
+                                    className="relative flex w-full items-center bg-slate-50/80 rounded-full border border-primary/20 p-1"
                                 >
-                                    <Search className="absolute left-3 h-5 w-5 text-primary" />
+                                    <Search className="absolute left-3 h-4 w-4 text-primary" />
                                     <Input
                                         ref={searchInputRef}
-                                        placeholder="Search doctors, hospitals, services…"
-                                        className="w-full rounded-full border-none bg-transparent pl-10 pr-10 text-primary placeholder:text-primary/70 focus:ring-2 focus:ring-primary/50 focus:ring-offset-0"
+                                        placeholder="Search doctors..."
+                                        className="w-full rounded-full border-none bg-transparent pl-10 pr-10 text-primary placeholder:text-primary/70 focus:ring-0 h-9 text-xs sm:text-sm"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Escape') setIsSearchOpen(false)
                                         }}
                                     />
-                                    <Button onClick={() => setIsSearchOpen(false)} variant="ghost" size="icon" className="absolute right-1 rounded-full text-primary hover:bg-primary/10 hover:text-primary">
-                                        <X className="h-5 w-5" />
+                                    <Button onClick={() => setIsSearchOpen(false)} variant="ghost" size="icon" className="absolute right-1 rounded-full text-primary hover:bg-primary/10 h-7 w-7">
+                                        <X className="h-4 w-4" />
                                     </Button>
                                 </motion.div>
                             ) : (
@@ -227,15 +227,15 @@ export const Header = () => {
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="flex items-center"
+                                    className="flex items-center gap-0.5"
                                 >
                                     <NavigationMenu>
-                                        <NavigationMenuList>
+                                        <NavigationMenuList className="gap-0 border-none bg-transparent">
                                             {navLinks.map(link => (
                                                 <NavigationMenuItem key={link.name}>
                                                     <Link
                                                         to={link.href}
-                                                        className={cn(navigationMenuTriggerStyle(), "bg-transparent text-foreground hover:bg-primary/10 rounded-full font-medium")}
+                                                        className={cn(navigationMenuTriggerStyle(), "bg-transparent text-slate-600 hover:text-teal-600 hover:bg-teal-50/50 rounded-full font-bold px-3 lg:px-5 text-[11px] lg:text-sm transition-all")}
                                                     >
                                                         {link.name}
                                                     </Link>
@@ -243,50 +243,56 @@ export const Header = () => {
                                             ))}
                                         </NavigationMenuList>
                                     </NavigationMenu>
-                                    <Button onClick={() => setIsSearchOpen(true)} variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 hover:text-primary">
-                                        <Search className="h-5 w-5" />
+                                    <Button onClick={() => setIsSearchOpen(true)} variant="ghost" size="icon" className="rounded-full text-slate-400 hover:bg-slate-100 hover:text-teal-600 transition-colors h-9 w-9">
+                                        <Search className="h-4 w-4" />
                                     </Button>
                                 </motion.div>
                             )}
                         </AnimatePresence>
                     </div>
 
-                    {/* --- Mobile Controls & Direct Links --- */}
+                    {/* --- Mobile Controls --- */}
                     <div className="flex md:hidden items-center gap-2">
-                        <Link to="/blogs" className="text-[11px] font-bold text-slate-500 uppercase hover:text-teal-600 transition px-3">Blog</Link>
-                        
+                        <Button
+                            onClick={() => setIsSearchOpen(true)}
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-full bg-slate-50 text-slate-600 h-9 w-9 border border-slate-100"
+                        >
+                            <Search size={18} />
+                        </Button>
                         <button
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100 transition shadow-sm border border-slate-100 active:scale-95"
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100 transition shadow-sm border border-slate-100 active:scale-95"
                         >
-                            {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                            {isMenuOpen ? <X size={18} /> : <Menu size={18} />}
                         </button>
                     </div>
                 </div>
 
                 {/* Desktop Auth Buttons / Profile Icon */}
-                <div className="hidden md:flex items-center gap-2 ml-4">
+                <div className="hidden md:flex items-center gap-2 flex-shrink-0">
                     {isLoggedIn ? (
                         /* ── Logged-in: profile avatar dropdown ── */
                         <ProfileDropdown />
                     ) : (
                         /* ── Logged-out: Sign In + Sign Up buttons ── */
-                        <>
+                        <div className="flex items-center gap-1 lg:gap-2">
                             <Button
                                 variant="outline"
                                 onClick={() => setIsDoctorModalOpen(true)}
-                                className="rounded-full border-primary/60 text-primary hover:bg-primary/10 hover:text-primary gap-1.5 text-sm"
+                                className="hidden xl:flex rounded-full border-teal-200 text-teal-600 hover:bg-teal-50 hover:border-teal-300 gap-1.5 text-xs lg:text-sm h-8 lg:h-10 transition-all font-bold"
                             >
-                                <Stethoscope className="h-4 w-4" />
-                                Join as a Doctor
+                                <Stethoscope className="h-3 w-3 lg:h-4 lg:w-4" />
+                                Doctors
                             </Button>
-                            <Button variant="outline" className="rounded-full border-primary text-primary hover:bg-primary/10 hover:text-primary" asChild>
+                            <Button variant="ghost" className="rounded-full text-slate-600 hover:text-teal-600 hover:bg-teal-50 px-2 lg:px-4 text-[11px] lg:text-sm h-8 lg:h-10 font-bold" asChild>
                                 <Link to="/login">Sign In</Link>
                             </Button>
-                            <Button className="rounded-full hover:bg-primary/90 shadow-[0_10px_30px_hsl(var(--primary)/0.15)]" asChild>
+                            <Button className="rounded-full bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-500/10 px-3 lg:px-6 text-[11px] lg:text-sm h-8 lg:h-10 transition-all font-bold" asChild>
                                 <Link to="/register">Sign Up</Link>
                             </Button>
-                        </>
+                        </div>
                     )}
                 </div>
             </div>
