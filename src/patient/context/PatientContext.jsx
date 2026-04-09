@@ -20,7 +20,7 @@
  * ─────────────────────────────────────────────────
  */
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase.js';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE, withAuthTimeout } from '@/lib/auth.js';
 
@@ -249,15 +249,12 @@ export function PatientProvider({ children }) {
         return data;
     }, [patient]);
 
+    const contextValue = useMemo(() => ({
+        patient, loading, signIn, signUp, signOut, updateProfile,
+    }), [patient, loading, signIn, signUp, signOut, updateProfile]);
+
     return (
-        <PatientContext.Provider value={{
-            patient,
-            loading,
-            signIn,
-            signUp,
-            signOut,
-            updateProfile,
-        }}>
+        <PatientContext.Provider value={contextValue}>
             {/* Render children immediately — PatientDashboard handles its own null-patient guard */}
             {children}
         </PatientContext.Provider>

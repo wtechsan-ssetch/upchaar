@@ -6,7 +6,7 @@ import {
     UserCircle, LogOut, ChevronLeft, ChevronRight, Stethoscope,
     Bell, Search, MessageSquare, Menu, X, KeyRound, Landmark,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import ChangePasswordModal from '@/components/ChangePasswordModal.jsx';
@@ -26,6 +26,16 @@ export default function DoctorLayout() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [changePwOpen, setChangePwOpen] = useState(false);
 
+    const initials = useMemo(() =>
+        doctor?.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'DR'
+    , [doctor?.fullName]);
+
+    const handleLogout = useCallback(() => { logout(); }, [logout]);
+
+    const dateString = useMemo(() =>
+        new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    , []);
+
     if (loading) {
         return (
             <div className="flex h-screen items-center justify-center bg-slate-50">
@@ -41,11 +51,7 @@ export default function DoctorLayout() {
         return <DoctorPendingPage />;
     }
 
-    const initials = doctor.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'DR';
 
-    const handleLogout = () => {
-        logout();
-    };
 
     return (
         <>
@@ -255,7 +261,7 @@ export default function DoctorLayout() {
                     <div className="hidden sm:block">
                         <h2 className="font-bold text-slate-800 text-lg tracking-tight">Welcome, Dr. {doctor.fullName?.split(' ')[1] || doctor.fullName?.split(' ')[0]}</h2>
                         <p className="text-xs font-medium text-slate-500 mt-0.5 tracking-wide uppercase">
-                            {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                            {dateString}
                         </p>
                     </div>
 

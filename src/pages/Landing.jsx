@@ -1,3 +1,4 @@
+import React from 'react';
 import { Hero } from '@/components/landing/Hero';
 import { TrustBadges } from '@/components/landing/trust-badges';
 import { QuickAccess } from '@/components/landing/quick-access';
@@ -11,7 +12,7 @@ import { FeedbackForm } from '@/components/landing/feedback-form';
 import { Footer } from '@/components/landing/Footer';
 import { Header } from '@/components/landing/Header';
 
-export default function LandingPage() {
+const LandingPage = React.memo(function LandingPage() {
     return (
         <div className="flex min-h-screen flex-col text-foreground overflow-hidden">
             <div className="relative isolate">
@@ -55,5 +56,6 @@ export default function LandingPage() {
             <Footer />
         </div>
     );
-}
-     
+});
+
+export default LandingPage;

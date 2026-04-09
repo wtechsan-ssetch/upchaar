@@ -6,6 +6,7 @@ import { Search, Heart, Eye, Clock, ChevronRight, Rss, TrendingUp, User } from '
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+import { Skeleton } from 'boneyard-js/react';
 
 /* ── Safe date helper ─────────────────────────────────── */
 function safeDate(val) {
@@ -256,13 +257,6 @@ export default function Blogs() {
             {/* ── Content ─────────────────────────────────── */}
             <div className="max-w-4xl mx-auto px-4 py-10 space-y-6">
 
-                {/* Loading */}
-                {postsLoading && (
-                    <div className="flex justify-center py-20">
-                        <div className="h-8 w-8 rounded-full border-4 border-slate-200 border-t-primary animate-spin" />
-                    </div>
-                )}
-
                 {/* Search result info */}
                 {search && !postsLoading && (
                     <p className="text-sm text-slate-500">
@@ -281,13 +275,13 @@ export default function Blogs() {
                 )}
 
                 {/* Vertical list */}
-                {!postsLoading && (
+                <Skeleton name="blog-card" loading={postsLoading}>
                     <div className="space-y-4">
                         {(search ? rest : paged).map((post, i) => (
                             <PostCard key={post.id} post={post} index={i} />
                         ))}
                     </div>
-                )}
+                </Skeleton>
 
                 {/* Empty */}
                 {!postsLoading && filtered.length === 0 && (

@@ -7,7 +7,7 @@
  * with Supabase auth state changes.
  * ─────────────────────────────────────────────────
  */
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase.js';
 import { withAuthTimeout } from '@/lib/auth.js';
 
@@ -141,8 +141,12 @@ export function AdminProvider({ children }) {
 
     const isSuperAdmin = admin?.role === 'super_admin';
 
+    const contextValue = useMemo(() => ({
+        admin, login, logout, isSuperAdmin, loading,
+    }), [admin, login, logout, isSuperAdmin, loading]);
+
     return (
-        <AdminContext.Provider value={{ admin, login, logout, isSuperAdmin, loading }}>
+        <AdminContext.Provider value={contextValue}>
             {children}
         </AdminContext.Provider>
     );

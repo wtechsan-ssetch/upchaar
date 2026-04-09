@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '@/auth/AuthContext.jsx';
 import { supabase } from '@/lib/supabase.js';
 import { useNavigate } from 'react-router-dom';
+import { Skeleton } from 'boneyard-js/react';
 
 const NAV_ITEMS = [
   { icon: 'dashboard', label: 'Dashboard' },
@@ -36,8 +37,8 @@ export default function ClinicDashboard() {
   const sidebarRef = useRef(null);
   const [newClinic, setNewClinic] = useState({ name: '', email: '', phone: '', clinic_id_no: '', address: '', city: '', state: '' });
 
-  const stats = { branches: 3, patients: 450, todayVisits: 12, revenue: '1,20,000' };
-  const circumference = 2 * Math.PI * 54;
+  const stats = useMemo(() => ({ branches: 3, patients: 450, todayVisits: 12, revenue: '1,20,000' }), []);
+  const circumference = useMemo(() => 2 * Math.PI * 54, []);
 
   // Handle mobile resize
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function ClinicDashboard() {
 
   useEffect(() => { fetchClinics(); }, []);
 
-  const fetchClinics = async () => {
+  const fetchClinics = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('clinics').select('*').order('created_at', { ascending: false });
       if (error) throw error;
@@ -77,9 +78,9 @@ export default function ClinicDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleAddClinic = async (e) => {
+  const handleAddClinic = useCallback(async (e) => {
     e.preventDefault();
     try {
       const { error } = await supabase.from('clinics').insert([{ ...newClinic, profile_id: profile?.id }]);
@@ -90,23 +91,23 @@ export default function ClinicDashboard() {
     } catch (err) {
       alert(err.message);
     }
-  };
+  }, [newClinic, profile?.id, fetchClinics]);
 
-  const handleSignOut = async () => { await signOut(); navigate('/login'); };
-  const handleNavClick = (label) => {
+  const handleSignOut = useCallback(async () => { await signOut(); navigate('/login'); }, [signOut, navigate]);
+  const handleNavClick = useCallback((label) => {
     setActiveNav(label);
     if (window.innerWidth < 1024) setSidebarOpen(false);
-  };
+  }, []);
 
-  const displayName = profile?.full_name || 'Clinic Admin';
+  const displayName = useMemo(() => profile?.full_name || 'Clinic Admin', [profile?.full_name]);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
 
-  const STAT_CARDS = [
+  const STAT_CARDS = useMemo(() => [
     { color: 'teal', icon: 'apartment', label: 'Clinic Branches', value: stats.branches },
     { color: 'cyan', icon: 'personal_injury', label: 'Total Patients', value: stats.patients },
     { color: 'emerald', icon: 'event_available', label: "Today's Visits", value: stats.todayVisits },
     { color: 'amber', icon: 'payments', label: 'Total Revenue', value: `Rs. ${stats.revenue}` },
-  ];
+  ], [stats]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-800" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -218,22 +219,23 @@ export default function ClinicDashboard() {
         {/* Page Body */}
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-            {STAT_CARDS.map((s) => (
-              <div key={s.label}
-                className={`bg-white p-4 sm:p-6 rounded-2xl border-l-4 border-${s.color}-500 flex items-center gap-3 sm:gap-4`}
-                style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05),0 2px 4px -2px rgb(0 0 0/0.05)' }}>
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-${s.color}-50 rounded-xl flex items-center justify-center text-${s.color}-600 flex-shrink-0`}>
-                  <span className="material-symbols-outlined text-2xl sm:text-3xl">{s.icon}</span>
+          <Skeleton name="clinic-stats" loading={loading}>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+              {STAT_CARDS.map((s) => (
+                <div key={s.label}
+                  className={`bg-white p-4 sm:p-6 rounded-2xl border-l-4 border-${s.color}-500 flex items-center gap-3 sm:gap-4`}
+                  style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05),0 2px 4px -2px rgb(0 0 0/0.05)' }}>
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-${s.color}-50 rounded-xl flex items-center justify-center text-${s.color}-600 flex-shrink-0`}>
+                    <span className="material-symbols-outlined text-2xl sm:text-3xl">{s.icon}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-500 font-medium truncate">{s.label}</p>
+                    <h3 className="text-lg sm:text-2xl font-bold truncate">{s.value}</h3>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-gray-500 font-medium truncate">{s.label}</p>
-                  <h3 className="text-lg sm:text-2xl font-bold truncate">{s.value}</h3>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </Skeleton>
 
           {/* Main Grid */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8">
@@ -250,62 +252,72 @@ export default function ClinicDashboard() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                {MOCK_BRANCHES.map((branch) => (
-                  <div key={branch.id}
-                    className="bg-white p-5 sm:p-6 rounded-2xl text-center flex flex-col items-center group cursor-pointer hover:shadow-md transition-shadow"
-                    style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05),0 2px 4px -2px rgb(0 0 0/0.05)' }}>
-                    <div className="relative mb-4">
-                      <div className="w-20 h-20 rounded-full border-4 border-teal-50 bg-teal-100 flex items-center justify-center text-teal-600">
-                        <span className="material-symbols-outlined text-4xl">local_hospital</span>
+              <Skeleton name="clinic-branches" loading={loading}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                  {MOCK_BRANCHES.map((branch) => (
+                    <div key={branch.id}
+                      className="bg-white p-5 sm:p-6 rounded-2xl text-center flex flex-col items-center group cursor-pointer hover:shadow-md transition-shadow"
+                      style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05),0 2px 4px -2px rgb(0 0 0/0.05)' }}>
+                      <div className="relative mb-4">
+                        <div className="w-20 h-20 rounded-full border-4 border-teal-50 bg-teal-100 flex items-center justify-center text-teal-600">
+                          <span className="material-symbols-outlined text-4xl">local_hospital</span>
+                        </div>
+                        <span className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-white ${branch.online ? 'bg-green-500' : 'bg-gray-300'}`} />
                       </div>
-                      <span className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-white ${branch.online ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <h4 className="font-bold text-gray-900">{branch.name}</h4>
+                      <p className="text-sm text-teal-600 font-medium mb-1">{branch.specialty}</p>
+                      <p className="text-xs text-gray-500 mb-4">{branch.patients} patients</p>
+                      <button className="w-full py-2 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors mt-auto">
+                        View Details
+                      </button>
                     </div>
-                    <h4 className="font-bold text-gray-900">{branch.name}</h4>
-                    <p className="text-sm text-teal-600 font-medium mb-1">{branch.specialty}</p>
-                    <p className="text-xs text-gray-500 mb-4">{branch.patients} patients</p>
-                    <button className="w-full py-2 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors mt-auto">
-                      View Details
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {clinics.length > 0 && (
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold flex items-center gap-2 mb-4 text-gray-700">
-                    <span className="material-symbols-outlined text-teal-600">table_view</span> Registered Nodes
-                  </h3>
-                  <div className="bg-white rounded-2xl overflow-x-auto" style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
-                    <table className="w-full text-sm min-w-[480px]">
-                      <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
-                        <tr>
-                          <th className="px-4 sm:px-6 py-3 text-left font-semibold">Branch</th>
-                          <th className="px-4 sm:px-6 py-3 text-left font-semibold">City</th>
-                          <th className="px-4 sm:px-6 py-3 text-left font-semibold">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {clinics.map((clinic) => (
-                          <tr key={clinic.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-4 sm:px-6 py-4">
-                              <p className="font-semibold text-gray-900">{clinic.name}</p>
-                              <p className="text-xs text-gray-500">{clinic.email}</p>
-                            </td>
-                            <td className="px-4 sm:px-6 py-4 text-gray-600">{clinic.city || '—'}</td>
-                            <td className="px-4 sm:px-6 py-4">
-                              <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                                clinic.status === 'Approved' ? 'bg-teal-50 text-teal-700' :
-                                clinic.status === 'Rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
-                              }`}>{clinic.status}</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  ))}
                 </div>
-              )}
+              </Skeleton>
+
+                <Skeleton name="clinic-nodes" loading={loading}>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold flex items-center gap-2 mb-4 text-gray-700">
+                      <span className="material-symbols-outlined text-teal-600">table_view</span> Registered Nodes
+                    </h3>
+                    <div className="bg-white rounded-2xl overflow-x-auto" style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
+                      <table className="w-full text-sm min-w-[480px]">
+                        <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+                          <tr>
+                            <th className="px-4 sm:px-6 py-3 text-left font-semibold">Branch</th>
+                            <th className="px-4 sm:px-6 py-3 text-left font-semibold">City</th>
+                            <th className="px-4 sm:px-6 py-3 text-left font-semibold">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {clinics.length > 0 ? (
+                            clinics.map((clinic) => (
+                              <tr key={clinic.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-4 sm:px-6 py-4">
+                                  <p className="font-semibold text-gray-900">{clinic.name}</p>
+                                  <p className="text-xs text-gray-500">{clinic.email}</p>
+                                </td>
+                                <td className="px-4 sm:px-6 py-4 text-gray-600">{clinic.city || '—'}</td>
+                                <td className="px-4 sm:px-6 py-4">
+                                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                                    clinic.status === 'Approved' ? 'bg-teal-50 text-teal-700' :
+                                    clinic.status === 'Rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                                  }`}>{clinic.status}</span>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="3" className="px-4 sm:px-6 py-8 text-center text-gray-500">
+                                No registered nodes yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </Skeleton>
             </div>
 
             <div className="xl:col-span-4 space-y-6">

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase.js';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE, withAuthTimeout } from '@/lib/auth.js';
 
@@ -355,8 +355,12 @@ export function DoctorProvider({ children }) {
         return nextDoctor;
     }, [doctor?.id, doctorRecord?.id]);
 
+    const contextValue = useMemo(() => ({
+        doctor, doctorRecord, login, register, logout, updateProfile, loading,
+    }), [doctor, doctorRecord, login, register, logout, updateProfile, loading]);
+
     return (
-        <DoctorContext.Provider value={{ doctor, doctorRecord, login, register, logout, updateProfile, loading }}>
+        <DoctorContext.Provider value={contextValue}>
             {children}
         </DoctorContext.Provider>
     );

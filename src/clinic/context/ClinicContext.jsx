@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase.js';
 
 const ClinicContext = createContext(null);
@@ -23,8 +23,12 @@ export function ClinicProvider({ children }) {
         }
     }, []);
 
+    const contextValue = useMemo(() => ({
+        clinic, loading,
+    }), [clinic, loading]);
+
     return (
-        <ClinicContext.Provider value={{ clinic, loading }}>
+        <ClinicContext.Provider value={contextValue}>
             {children}
         </ClinicContext.Provider>
     );

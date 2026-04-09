@@ -175,8 +175,8 @@ export const Header = () => {
     );
 
     return (
-        <header className="relative z-[90] w-full px-4 pt-4">
-            <div className="relative z-[90] w-full max-w-[1360px] mx-auto flex h-16 sm:h-20 items-center justify-between rounded-full bg-white/90 backdrop-blur-md px-3 sm:px-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-200/50 transition-all duration-300">
+        <header className="relative z-50 w-full px-4 pt-4">
+            <div className="relative z-50 w-full max-w-[1360px] mx-auto flex h-16 sm:h-20 items-center justify-between rounded-full bg-white/90 backdrop-blur-md px-3 sm:px-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-200/50 transition-all duration-300">
                 {/* Left Section - Logo */}
                 <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
                     <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-teal-200 bg-white shadow-sm ring-4 ring-teal-50/50 group-hover:ring-teal-100/50 transition-all">
@@ -231,16 +231,38 @@ export const Header = () => {
                                 >
                                     <NavigationMenu>
                                         <NavigationMenuList className="gap-0 border-none bg-transparent">
-                                            {navLinks.map(link => (
-                                                <NavigationMenuItem key={link.name}>
-                                                    <Link
-                                                        to={link.href}
-                                                        className={cn(navigationMenuTriggerStyle(), "bg-transparent text-slate-600 hover:text-teal-600 hover:bg-teal-50/50 rounded-full font-bold px-3 lg:px-5 text-[11px] lg:text-sm transition-all")}
-                                                    >
-                                                        {link.name}
-                                                    </Link>
-                                                </NavigationMenuItem>
-                                            ))}
+                                            {navLinks.map(link => {
+                                                if (link.href.startsWith('#')) {
+                                                    return (
+                                                        <NavigationMenuItem key={link.name}>
+                                                            <a
+                                                                href={link.href}
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    const target = document.querySelector(link.href);
+                                                                    if (target) {
+                                                                        target.scrollIntoView({ behavior: 'smooth' });
+                                                                    }
+                                                                    setIsMenuOpen(false);
+                                                                }}
+                                                                className={cn(navigationMenuTriggerStyle(), "bg-transparent text-slate-600 hover:text-teal-600 hover:bg-teal-50/50 rounded-full font-bold px-3 lg:px-5 text-[11px] lg:text-sm transition-all")}
+                                                            >
+                                                                {link.name}
+                                                            </a>
+                                                        </NavigationMenuItem>
+                                                    );
+                                                }
+                                                return (
+                                                    <NavigationMenuItem key={link.name}>
+                                                        <Link
+                                                            to={link.href}
+                                                            className={cn(navigationMenuTriggerStyle(), "bg-transparent text-slate-600 hover:text-teal-600 hover:bg-teal-50/50 rounded-full font-bold px-3 lg:px-5 text-[11px] lg:text-sm transition-all")}
+                                                        >
+                                                            {link.name}
+                                                        </Link>
+                                                    </NavigationMenuItem>
+                                                );
+                                            })}
                                         </NavigationMenuList>
                                     </NavigationMenu>
                                     <Button onClick={() => setIsSearchOpen(true)} variant="ghost" size="icon" className="rounded-full text-slate-400 hover:bg-slate-100 hover:text-teal-600 transition-colors h-9 w-9">
@@ -281,10 +303,10 @@ export const Header = () => {
                             <Button
                                 variant="outline"
                                 onClick={() => setIsDoctorModalOpen(true)}
-                                className="hidden xl:flex rounded-full border-teal-200 text-teal-600 hover:bg-teal-50 hover:border-teal-300 gap-1.5 text-xs lg:text-sm h-8 lg:h-10 transition-all font-bold"
+                                className="hidden lg:flex rounded-full border-teal-200 text-teal-600 hover:bg-teal-50 hover:border-teal-300 gap-1.5 text-xs lg:text-sm h-8 lg:h-10 transition-all font-bold"
                             >
                                 <Stethoscope className="h-3 w-3 lg:h-4 lg:w-4" />
-                                Doctors
+                                Join as a Doctor
                             </Button>
                             <Button variant="ghost" className="rounded-full text-slate-600 hover:text-teal-600 hover:bg-teal-50 px-2 lg:px-4 text-[11px] lg:text-sm h-8 lg:h-10 font-bold" asChild>
                                 <Link to="/login">Sign In</Link>
@@ -332,11 +354,32 @@ export const Header = () => {
                         className="md:hidden mt-2 p-4 bg-card rounded-lg shadow-lg"
                     >
                         <nav className="flex flex-col gap-4">
-                            {navLinks.map(link => (
-                                <Link key={link.href} to={link.href} className="text-foreground font-medium py-2" onClick={() => setIsMenuOpen(false)}>
-                                    {link.name}
-                                </Link>
-                            ))}
+                            {navLinks.map(link => {
+                                if (link.href.startsWith('#')) {
+                                    return (
+                                        <a 
+                                            key={link.href} 
+                                            href={link.href} 
+                                            className="text-foreground font-medium py-2" 
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                const target = document.querySelector(link.href);
+                                                if (target) {
+                                                    target.scrollIntoView({ behavior: 'smooth' });
+                                                }
+                                                setIsMenuOpen(false);
+                                            }}
+                                        >
+                                            {link.name}
+                                        </a>
+                                    );
+                                }
+                                return (
+                                    <Link key={link.href} to={link.href} className="text-foreground font-medium py-2" onClick={() => setIsMenuOpen(false)}>
+                                        {link.name}
+                                    </Link>
+                                );
+                            })}
                             <div className="border-t border-border pt-4 flex flex-col gap-3">
                                 {isLoggedIn ? (
                                     /* ── Logged-in mobile menu ── */

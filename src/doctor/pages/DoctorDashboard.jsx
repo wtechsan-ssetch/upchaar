@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -7,6 +7,7 @@ import {
 import { supabase } from '@/lib/supabase.js';
 import { useDoctor } from '../context/DoctorContext.jsx';
 import { cn } from '@/lib/utils';
+import { Skeleton } from 'boneyard-js/react';
 
 const parseClinics = (clinicValue) => {
     if (!clinicValue) return [];
@@ -69,7 +70,14 @@ export default function DoctorDashboard() {
 
     const clinics = useMemo(() => parseClinics(doctorRecord?.clinic_name || doctor?.clinicName), [doctorRecord?.clinic_name, doctor?.clinicName]);
     const today = new Date().toISOString().slice(0, 10);
-    const todayAppointments = appointments.filter(item => String(item.date || '').slice(0, 10) === today);
+    const todayAppointments = useMemo(() => appointments.filter(item => String(item.date || '').slice(0, 10) === today), [appointments, today]);
+
+    const statCards = useMemo(() => [
+        { label: 'Registered Clinics', value: clinics.length || 0, icon: Building2, tone: 'text-teal-600 bg-teal-50' },
+        { label: 'Today Appointments', value: todayAppointments.length, icon: CalendarDays, tone: 'text-blue-600 bg-blue-50' },
+        { label: 'Completed Today', value: todayAppointments.filter(item => item.status === 'Completed').length, icon: Clock3, tone: 'text-emerald-600 bg-emerald-50' },
+        { label: 'Total Revenue', value: `Rs. ${(doctorRecord?.total_revenue || doctor?.totalRevenue || 0).toLocaleString()}`, icon: IndianRupee, tone: 'text-amber-600 bg-amber-50' },
+    ], [clinics.length, todayAppointments, doctorRecord?.total_revenue, doctor?.totalRevenue]);
 
     const clinicCards = useMemo(() => {
         if (!clinics.length) return [];
@@ -113,12 +121,7 @@ export default function DoctorDashboard() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {[
-                    { label: 'Registered Clinics', value: clinics.length || 0, icon: Building2, tone: 'text-teal-600 bg-teal-50' },
-                    { label: 'Today Appointments', value: todayAppointments.length, icon: CalendarDays, tone: 'text-blue-600 bg-blue-50' },
-                    { label: 'Completed Today', value: todayAppointments.filter(item => item.status === 'Completed').length, icon: Clock3, tone: 'text-emerald-600 bg-emerald-50' },
-                    { label: 'Total Revenue', value: `Rs. ${(doctorRecord?.total_revenue || doctor?.totalRevenue || 0).toLocaleString()}`, icon: IndianRupee, tone: 'text-amber-600 bg-amber-50' },
-                ].map(card => (
+                {statCards.map(card => (
                     <div key={card.label} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
                         <div className={cn('h-11 w-11 rounded-2xl flex items-center justify-center mb-4', card.tone)}>
                             <card.icon size={20} />
@@ -217,9 +220,9 @@ export default function DoctorDashboard() {
                 </div>
             </div>
 
-            {loading && (
-                <div className="text-sm text-slate-400">Loading appointments...</div>
-            )}
+            <Skeleton name="appointments" loading={loading}>
+                <div className="text-sm text-slate-400">Appointments ready.</div>
+            </Skeleton>
         </div>
     );
 }

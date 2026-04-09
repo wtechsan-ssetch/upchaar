@@ -9,7 +9,7 @@ export const InnovationAwardSection = () => {
     const isInView = useInView(ref, { once: true, amount: 0.3 });
 
     return (
-        <section ref={ref} className="w-full bg-secondary/50 py-16 md:py-24">
+        <section ref={ref} className="w-full bg-teal-50/50 py-16 md:py-24">
             <div className="container grid md:grid-cols-2 gap-12 items-center">
                 <motion.div
                     variants={motionVariants.slideInLeft}

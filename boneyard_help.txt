@@ -1,0 +1,80 @@
+
+  boneyard build [url] [options]
+
+  Visits your app in a headless browser, captures all named <Skeleton>
+  components, and writes .bones.json files + a registry to disk.
+
+  Auto-detects your dev server if no URL is given (scans ports 3000, 5173, etc.).
+
+  Options:
+    --out <dir>          Output directory             (default: ./src/bones)
+    --breakpoints <bp>   Comma-separated px widths    (default: 375,768,1280)
+    --wait <ms>          Extra wait after page load   (default: 800)
+    --env-file <path>    Load env vars from file      (useful for Bun runtime)
+    --force              Recapture all skeletons      (skip incremental cache)
+    --no-scan            Skip filesystem route scanning (only crawl links)
+    --watch              Re-capture when your app changes (listens for HMR)
+    --cdp <port>         Connect to existing Chrome via debug port instead
+                         of launching Playwright (reuses cookies, auth, state).
+                         Launch Chrome with: --remote-debugging-port=<port>
+    --native             React Native mode — captures bones from a running
+                         native app on device/simulator (no browser needed).
+                         Registry imports from boneyard-js/native.
+
+  Config file:
+    Create boneyard.config.json in your project root to set defaults:
+
+    {
+      "breakpoints": [375, 768, 1280],
+      "out": "./src/bones",
+      "wait": 800
+    }
+
+    CLI flags override config file values.
+
+  Authentication (for pages requiring login):
+    {
+      "resolveEnvVars": true,
+      "auth": {
+        "cookies": [{ "name": "session", "value": "env[SESSION_TOKEN]" }],
+        "headers": { "Authorization": "Bearer env[TOKEN]" }
+      }
+    }
+
+    Use env[VAR_NAME] syntax to reference environment variables.
+    Set resolveEnvVars: true to enable env var resolution.
+    Note: env var resolution is only supported for auth config (cookies and headers).
+    Use --env-file .env.local if env vars aren't in your shell (e.g. Bun runtime).
+
+  Examples:
+    npx boneyard-js build
+    npx boneyard-js build http://localhost:5173
+    npx boneyard-js build --watch
+    npx boneyard-js build --native --out ./bones
+
+  Web setup:
+    1. Wrap your component:
+       <Skeleton name="blog-card" loading={isLoading}>
+         <BlogCard />
+       </Skeleton>
+
+    2. Run: npx boneyard-js build
+
+    3. Import the registry once in your app entry:
+       import './bones/registry'
+
+  React Native setup:
+    1. Wrap your component:
+       import { Skeleton } from 'boneyard-js/native'
+       <Skeleton name="blog-card" loading={isLoading}>
+         <BlogCard />
+       </Skeleton>
+
+    2. Run: npx boneyard-js build --native
+       Then open your app on device — bones capture automatically.
+
+    3. Import the registry once in your app entry:
+       import './bones/registry'
+
+    Done. Every <Skeleton name="..."> auto-resolves its bones.
+

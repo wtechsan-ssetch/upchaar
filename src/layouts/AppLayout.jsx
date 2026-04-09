@@ -3,7 +3,7 @@ import {
     LayoutDashboard, Stethoscope, FlaskConical, Hospital,
     FileText, LogOut, X, Menu, ChevronLeft, ChevronRight, HeartPulse,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/auth/AuthContext.jsx';
@@ -23,16 +23,15 @@ export default function AppLayout({ children }) {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
 
-    // Close mobile drawer on route change
-    useEffect(() => { setMobileOpen(false); }, []);
-
-    const handleSignOut = async () => {
+    const handleSignOut = useCallback(async () => {
         await signOut();
         navigate('/');
-    };
+    }, [signOut, navigate]);
 
-    const initials = user?.user_metadata?.full_name
-        ?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'PA';
+    const initials = useMemo(() =>
+        user?.user_metadata?.full_name
+            ?.trim().split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'PA'
+    , [user?.user_metadata?.full_name]);
 
     const location = useLocation();
 

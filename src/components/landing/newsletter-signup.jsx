@@ -21,7 +21,7 @@ export const NewsletterSignUp = () => {
     };
 
     return (
-        <section id="signup" className="bg-secondary/50">
+        <section id="signup" className="bg-teal-50/50">
             <div className="container py-12 md:py-24">
                 <div className="mx-auto max-w-2xl text-center">
                     <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl font-headline">Stay Updated on Your Health</h2>

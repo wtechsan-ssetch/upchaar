@@ -46,7 +46,7 @@ export default function AdminLayout() {
 
     if (!admin) return <Navigate to="/admin/login" replace />;
 
-    const navItems = isSuperAdmin ? [...BASE_NAV, ...SUPER_ADMIN_NAV] : BASE_NAV;
+
 
     return (
         <div className="flex h-screen bg-[#f1f5f9] overflow-hidden">

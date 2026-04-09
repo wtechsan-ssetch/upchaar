@@ -12,7 +12,7 @@
  * ─────────────────────────────────────────────────
  */
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase.js';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE, withAuthTimeout } from '@/lib/auth.js';
 
@@ -241,8 +241,12 @@ export function AuthProvider({ children }) {
         return PROFILE_TYPE_DASHBOARDS[p?.profile_type] || '/';
     }, []);
 
+    const contextValue = useMemo(() => ({
+        user, profile, loading, signIn, signUp, signOut, getDashboardPath,
+    }), [user, profile, loading, signIn, signUp, signOut, getDashboardPath]);
+
     return (
-        <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, getDashboardPath }}>
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );
