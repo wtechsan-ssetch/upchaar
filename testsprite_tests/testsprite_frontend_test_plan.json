@@ -1,0 +1,334 @@
+[
+  {
+    "id": "TC001",
+    "title": "Patient login routes to patient dashboard and renders analytics",
+    "description": "Verifies a patient can log in, is routed to the patient dashboard, and sees analytics content rendered after the initial loading state.",
+    "category": "Dashboard Analytics (Patient, Doctor, Clinic, Medical)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the dashboard to finish initial loading"
+      },
+      {
+        "type": "action",
+        "description": "Click the quick action entry point for upcoming appointments"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the patient dashboard analytics (charts and stats) are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the upcoming appointments view is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Doctor login routes to doctor dashboard and provides access to schedule/consultations",
+    "description": "Verifies a doctor can log in, is routed to the doctor dashboard, and can access schedule or consultation items after analytics render.",
+    "category": "Dashboard Analytics (Patient, Doctor, Clinic, Medical)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the dashboard to finish initial loading"
+      },
+      {
+        "type": "action",
+        "description": "Click the entry point to view schedule or consultations"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the doctor dashboard analytics (charts and stats) are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify schedule or consultation items are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Clinic admin login routes to clinic dashboard and shows branch metrics",
+    "description": "Verifies a clinic admin can log in, is routed to the clinic dashboard, and can view branch performance metrics after analytics render.",
+    "category": "Dashboard Analytics (Patient, Doctor, Clinic, Medical)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the dashboard to finish initial loading"
+      },
+      {
+        "type": "action",
+        "description": "Click the entry point to review branch performance metrics"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the clinic dashboard analytics (charts and stats) are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify branch performance metrics are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Medical store admin login routes to medical dashboard and shows inventory/registrations summary",
+    "description": "Verifies a medical store admin can log in, is routed to the medical dashboard, and can view pending registrations or inventory summary after analytics render.",
+    "category": "Dashboard Analytics (Patient, Doctor, Clinic, Medical)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the dashboard to finish initial loading"
+      },
+      {
+        "type": "action",
+        "description": "Click the entry point to review pending registrations or inventory summary"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the medical dashboard analytics (charts and stats) are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify inventory summary or pending registrations are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Submit doctor onboarding application and see Pending status",
+    "description": "Verifies a visitor can complete the full multi-step doctor onboarding flow including document uploads and sees a confirmation with Pending status after submission.",
+    "category": "Doctor Onboarding",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Click the header entry point to join as a doctor"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the personal information fields with valid details"
+      },
+      {
+        "type": "action",
+        "description": "Proceed to the next step of the onboarding form"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the credentials fields with valid license and specialization details"
+      },
+      {
+        "type": "action",
+        "description": "Proceed to the next step of the onboarding form"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the practice details and availability with valid selections"
+      },
+      {
+        "type": "action",
+        "description": "Proceed to the document upload step"
+      },
+      {
+        "type": "action",
+        "description": "Upload a valid medical license document"
+      },
+      {
+        "type": "action",
+        "description": "Upload a valid government ID document"
+      },
+      {
+        "type": "action",
+        "description": "Submit the onboarding application"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a submission confirmation is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the application status is shown as pending review"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Search blogs with keyword and category and read an article",
+    "description": "Verifies a visitor can search by keyword, apply a category filter, open a result, and read the full blog article content.",
+    "category": "Health Blog Search",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /blogs"
+      },
+      {
+        "type": "action",
+        "description": "Fill a relevant keyword into the blog search field"
+      },
+      {
+        "type": "action",
+        "description": "Select a category filter pill"
+      },
+      {
+        "type": "action",
+        "description": "Click a blog post from the filtered results list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the full blog article content is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the opened article corresponds to a result from the filtered list"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC007",
+    "title": "Filter blogs by category only and read an article",
+    "description": "Verifies a visitor can apply a category filter without a keyword, open a result, and read the full blog article content.",
+    "category": "Health Blog Search",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /blogs"
+      },
+      {
+        "type": "action",
+        "description": "Select a category filter pill"
+      },
+      {
+        "type": "action",
+        "description": "Click a blog post from the filtered results list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the full blog article content is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the opened article is consistent with the selected category filter"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC008",
+    "title": "Doctor onboarding required-field validation blocks submission",
+    "description": "Verifies leaving a required field blank in doctor onboarding shows an inline validation error and prevents completing the submission.",
+    "category": "Doctor Onboarding",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Click the header entry point to join as a doctor"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the personal information fields while leaving one required field empty"
+      },
+      {
+        "type": "action",
+        "description": "Proceed through the remaining steps by filling valid credentials and practice details"
+      },
+      {
+        "type": "action",
+        "description": "Upload a valid medical license document"
+      },
+      {
+        "type": "action",
+        "description": "Upload a valid government ID document"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to submit the onboarding application"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a required-field validation error is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the application is not submitted and the user remains in the onboarding flow"
+      }
+    ],
+    "priority": "Low"
+  }
+]

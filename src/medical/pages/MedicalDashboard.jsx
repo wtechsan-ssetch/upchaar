@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/auth/AuthContext.jsx';
 import { supabase } from '@/lib/supabase.js';
 import { useNavigate } from 'react-router-dom';
+import { Skeleton } from 'boneyard-js/react';
 
 const MOCK_DOCTORS = [
   { id: 1, name: 'Dr. Anjali Sharma', specialty: 'Cardiologist', fee: 'Rs. 800', online: true,
@@ -190,21 +191,23 @@ export default function MedicalDashboard() {
         {/* Page Body */}
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
           {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-            {STAT_CARDS.map((s) => (
-              <div key={s.label}
-                className={`bg-white p-4 sm:p-6 rounded-2xl border-l-4 border-${s.color}-500 flex items-center gap-3 sm:gap-4`}
-                style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-${s.color}-50 rounded-xl flex items-center justify-center text-${s.color}-600 flex-shrink-0`}>
-                  <span className="material-symbols-outlined text-2xl sm:text-3xl">{s.icon}</span>
+          <Skeleton name="medical-stats" loading={loading}>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+              {STAT_CARDS.map((s) => (
+                <div key={s.label}
+                  className={`bg-white p-4 sm:p-6 rounded-2xl border-l-4 border-${s.color}-500 flex items-center gap-3 sm:gap-4`}
+                  style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-${s.color}-50 rounded-xl flex items-center justify-center text-${s.color}-600 flex-shrink-0`}>
+                    <span className="material-symbols-outlined text-2xl sm:text-3xl">{s.icon}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-500 font-medium truncate">{s.label}</p>
+                    <h3 className="text-lg sm:text-2xl font-bold truncate">{s.value}</h3>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-gray-500 font-medium truncate">{s.label}</p>
-                  <h3 className="text-lg sm:text-2xl font-bold truncate">{s.value}</h3>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </Skeleton>
 
           {/* Grid */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8">
@@ -217,56 +220,66 @@ export default function MedicalDashboard() {
                   <span className="material-symbols-outlined text-sm">add</span> New
                 </button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                {MOCK_DOCTORS.map((doc) => (
-                  <div key={doc.id}
-                    className="bg-white p-5 sm:p-6 rounded-2xl text-center flex flex-col items-center"
-                    style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
-                    <div className="relative mb-4">
-                      <img src={doc.avatar} alt={doc.name} className="w-20 h-20 rounded-full border-4 border-teal-50 object-cover" />
-                      <span className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-white ${doc.online ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <Skeleton name="medical-doctors" loading={loading}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                  {MOCK_DOCTORS.map((doc) => (
+                    <div key={doc.id}
+                      className="bg-white p-5 sm:p-6 rounded-2xl text-center flex flex-col items-center"
+                      style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
+                      <div className="relative mb-4">
+                        <img src={doc.avatar} alt={doc.name} className="w-20 h-20 rounded-full border-4 border-teal-50 object-cover" />
+                        <span className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-white ${doc.online ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      </div>
+                      <h4 className="font-bold text-gray-900">{doc.name}</h4>
+                      <p className="text-sm text-teal-600 font-medium mb-1">{doc.specialty}</p>
+                      <button className="w-full py-2 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors mt-auto">
+                        Profile
+                      </button>
                     </div>
-                    <h4 className="font-bold text-gray-900">{doc.name}</h4>
-                    <p className="text-sm text-teal-600 font-medium mb-1">{doc.specialty}</p>
-                    <button className="w-full py-2 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors mt-auto">
-                      Profile
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {medicals.length > 0 && (
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold flex items-center gap-2 mb-4">
-                    <span className="material-symbols-outlined text-teal-600">local_pharmacy</span> Partner Stores
-                  </h3>
-                  <div className="bg-white rounded-2xl overflow-x-auto" style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
-                    <table className="w-full text-sm min-w-[480px]">
-                      <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
-                        <tr>
-                          <th className="px-4 sm:px-6 py-3 text-left font-semibold">Store</th>
-                          <th className="px-4 sm:px-6 py-3 text-left font-semibold">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {medicals.map((med) => (
-                          <tr key={med.id} className="hover:bg-gray-50">
-                            <td className="px-4 sm:px-6 py-4">
-                              <p className="font-semibold text-gray-900">{med.name}</p>
-                              <p className="text-xs text-gray-500">{med.email}</p>
-                            </td>
-                            <td className="px-4 sm:px-6 py-4">
-                              <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                                med.status === 'Approved' ? 'bg-teal-50 text-teal-700' : 'bg-amber-50 text-amber-700'
-                              }`}>{med.status}</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  ))}
                 </div>
-              )}
+              </Skeleton>
+
+                <Skeleton name="medical-stores" loading={loading}>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold flex items-center gap-2 mb-4">
+                      <span className="material-symbols-outlined text-teal-600">local_pharmacy</span> Partner Stores
+                    </h3>
+                    <div className="bg-white rounded-2xl overflow-x-auto" style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
+                      <table className="w-full text-sm min-w-[480px]">
+                        <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+                          <tr>
+                            <th className="px-4 sm:px-6 py-3 text-left font-semibold">Store</th>
+                            <th className="px-4 sm:px-6 py-3 text-left font-semibold">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {medicals.length > 0 ? (
+                            medicals.map((med) => (
+                              <tr key={med.id} className="hover:bg-gray-50">
+                                <td className="px-4 sm:px-6 py-4">
+                                  <p className="font-semibold text-gray-900">{med.name}</p>
+                                  <p className="text-xs text-gray-500">{med.email}</p>
+                                </td>
+                                <td className="px-4 sm:px-6 py-4">
+                                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                                    med.status === 'Approved' ? 'bg-teal-50 text-teal-700' : 'bg-amber-50 text-amber-700'
+                                  }`}>{med.status}</span>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="2" className="px-4 sm:px-6 py-8 text-center text-gray-500">
+                                No partner stores linked yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </Skeleton>
             </div>
 
             <div className="xl:col-span-4 space-y-6">
@@ -308,20 +321,22 @@ export default function MedicalDashboard() {
               <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
                 <span className="material-symbols-outlined text-teal-600">history</span> Activity
               </h3>
-              <div className="bg-white rounded-2xl p-5 sm:p-6" style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
-                {MOCK_ACTIVITY.map((item) => (
-                  <div key={item.id} className="flex gap-4 mb-6 last:mb-0">
-                    <div className="relative flex-shrink-0">
-                      {!item.isLast && <div className="w-0.5 bg-teal-100 absolute left-1.5 top-4 bottom-0" />}
-                      <div className="w-3 h-3 bg-teal-500 rounded-full border-2 border-white relative z-10 mt-0.5" />
+              <Skeleton name="medical-activity" loading={loading}>
+                <div className="bg-white rounded-2xl p-5 sm:p-6" style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
+                  {MOCK_ACTIVITY.map((item) => (
+                    <div key={item.id} className="flex gap-4 mb-6 last:mb-0">
+                      <div className="relative flex-shrink-0">
+                        {!item.isLast && <div className="w-0.5 bg-teal-100 absolute left-1.5 top-4 bottom-0" />}
+                        <div className="w-3 h-3 bg-teal-500 rounded-full border-2 border-white relative z-10 mt-0.5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-800">{item.title}</p>
+                        <p className="text-xs text-teal-600 mt-1">{item.time}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-800">{item.title}</p>
-                      <p className="text-xs text-teal-600 mt-1">{item.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </Skeleton>
             </div>
           </div>
         </div>

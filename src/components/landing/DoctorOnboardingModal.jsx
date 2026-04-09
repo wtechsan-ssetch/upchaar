@@ -532,6 +532,16 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
         setErrors(prev => { const e = { ...prev }; delete e[field]; return e; });
     }, []);
 
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen]);
+
     // Upload a single file to storage, returns the storage path or null
     const uploadFile = async (file, folder, fieldName) => {
         if (!file) return null;
@@ -787,7 +797,7 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={handleClose}
-                        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+                        className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-md"
                     />
 
                     {/* Panel */}
@@ -797,7 +807,7 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 40, scale: 0.97 }}
                         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+                        className="fixed inset-0 z-[200] flex items-center justify-center p-4 pointer-events-none"
                     >
                         <div className="relative w-full max-w-2xl max-h-[90vh] bg-card rounded-3xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto">
 

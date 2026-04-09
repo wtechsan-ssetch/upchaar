@@ -1,5 +1,5 @@
 {
-  "name": "upchaar-health-react",
+  "name": "upchaar-health",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -36,6 +36,7 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "@supabase/supabase-js": "^2.97.0",
     "@vis.gl/react-google-maps": "^1.1.0",
+    "boneyard-js": "^1.7.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",

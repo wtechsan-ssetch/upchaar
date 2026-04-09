@@ -7,6 +7,7 @@ import {
 import { supabase } from '@/lib/supabase.js';
 import { useDoctor } from '../context/DoctorContext.jsx';
 import { cn } from '@/lib/utils';
+import { Skeleton } from 'boneyard-js/react';
 
 const parseClinics = (clinicValue) => {
     if (!clinicValue) return [];
@@ -217,9 +218,9 @@ export default function DoctorDashboard() {
                 </div>
             </div>
 
-            {loading && (
-                <div className="text-sm text-slate-400">Loading appointments...</div>
-            )}
+            <Skeleton name="appointments" loading={loading}>
+                <div className="text-sm text-slate-400">Appointments ready.</div>
+            </Skeleton>
         </div>
     );
 }

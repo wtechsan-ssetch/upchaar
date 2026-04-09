@@ -15,7 +15,7 @@ export const Features = () => {
     ];
 
     return (
-        <section id="features" ref={ref} className="container space-y-6 bg-secondary/50 py-12 md:py-24 rounded-lg">
+        <section id="features" ref={ref} className="container space-y-6 bg-teal-50/50 py-12 md:py-24 rounded-lg">
             <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
                 <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl font-headline">Everything You Need for Better Health</h2>
                 <p className="mt-2 max-w-xl text-muted-foreground">

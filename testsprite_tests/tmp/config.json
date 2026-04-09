@@ -1,0 +1,27 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:5173",
+  "executionArgs": {
+    "projectName": "upchaar",
+    "projectPath": "c:\\Users\\Hp\\OneDrive\\Desktop\\upchaar\\upchaar",
+    "testIds": [
+      "TC001",
+      "TC002",
+      "TC003",
+      "TC004",
+      "TC005",
+      "TC006",
+      "TC007",
+      "TC008"
+    ],
+    "additionalInstruction": "Perform the 8 identified test cases (TC001-TC008) and add 2 more: \n9. Verify that clicking 'Our Services' in the navbar smooth scrolls to the features section.\n10. Verify that the 'Join as a Doctor' modal correctly overlays the landing page header without transparency issues.",
+    "serverMode": "development",
+    "envs": {
+      "API_KEY": "sk-user-80mWBH1hO2qgyk3IAeF_zowzhr3mXexd6L_-q6_a5lJeF23WEsN0Vc3eMQBpGrIHdGaassQ99wqghDBCh2OO3cTdDAwI7CKmS1fOHaw17deuXgTxBHpwMFsCJJ1Mu0-2MyM"
+    }
+  },
+  "serverPort": 58063,
+  "proxy": "http://d10fb4bd-29fa-4ac8-8035-8af23f59db0d:CUuMVGy2svUK9lBTVvyp9Bhtwt8AfNVy@tun.testsprite.com:8080"
+}

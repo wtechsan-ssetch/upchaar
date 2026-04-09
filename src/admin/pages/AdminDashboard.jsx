@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { fetchDashboardStats, fetchDoctors, fetchAppointments } from '@/lib/adminApi.js';
 import { format } from 'date-fns';
+import { Skeleton } from 'boneyard-js/react';
 
 const STATUS_PIE_COLORS = {
     Completed: '#10b981',
@@ -97,9 +98,7 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
                     <h2 className="font-semibold text-slate-800 mb-4">Appointment Status Overview</h2>
-                    {loading ? (
-                        <div className="flex items-center justify-center h-32 text-slate-400 text-sm">Loading…</div>
-                    ) : (
+                    <Skeleton name="appointment-overview" loading={loading}>
                         <div className="grid grid-cols-3 gap-4">
                             {Object.entries({ Completed: '#10b981', Pending: '#f59e0b', Cancelled: '#ef4444' }).map(([label, color]) => {
                                 const count = recentAppointments.filter(a => a.status === label).length;
@@ -112,7 +111,7 @@ export default function AdminDashboard() {
                                 );
                             })}
                         </div>
-                    )}
+                    </Skeleton>
                 </div>
 
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -149,26 +148,26 @@ export default function AdminDashboard() {
                             View all <ArrowUpRight size={11} />
                         </a>
                     </div>
-                    <div className="space-y-3">
-                        {loading ? (
-                            <p className="text-sm text-slate-400 text-center py-4">Loading…</p>
-                        ) : pendingDoctors.length === 0 ? (
-                            <p className="text-sm text-slate-400 text-center py-4">No pending applications</p>
-                        ) : pendingDoctors.map(doc => (
-                            <div key={doc.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm flex-shrink-0">
-                                    {(doc.full_name || doc.fullName || '?').replace('Dr. ', '')[0]}
+                    <Skeleton name="pending-doctors" loading={loading}>
+                        <div className="space-y-3">
+                            {pendingDoctors.length === 0 ? (
+                                <p className="text-sm text-slate-400 text-center py-4">No pending applications</p>
+                            ) : pendingDoctors.map(doc => (
+                                <div key={doc.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm flex-shrink-0">
+                                        {(doc.full_name || doc.fullName || '?').replace('Dr. ', '')[0]}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-slate-800 truncate">{doc.full_name || doc.fullName}</p>
+                                        <p className="text-xs text-slate-500">{doc.specialization}</p>
+                                    </div>
+                                    <span className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-amber-50 text-amber-600">
+                                        <AlertCircle size={10} /> Pending
+                                    </span>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-slate-800 truncate">{doc.full_name || doc.fullName}</p>
-                                    <p className="text-xs text-slate-500">{doc.specialization}</p>
-                                </div>
-                                <span className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-amber-50 text-amber-600">
-                                    <AlertCircle size={10} /> Pending
-                                </span>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    </Skeleton>
                 </div>
 
                 {/* Recent Appointments */}
@@ -179,30 +178,30 @@ export default function AdminDashboard() {
                             View all <ArrowUpRight size={11} />
                         </a>
                     </div>
-                    <div className="space-y-3">
-                        {loading ? (
-                            <p className="text-sm text-slate-400 text-center py-4">Loading…</p>
-                        ) : recentAppointments.length === 0 ? (
-                            <p className="text-sm text-slate-400 text-center py-4">No appointments yet</p>
-                        ) : recentAppointments.map(apt => {
-                            const { icon: Icon, cls } = STATUS_CONFIG[apt.status] || STATUS_CONFIG.Pending;
-                            return (
-                                <div key={apt.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                                    <div className={cn('h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0', cls)}>
-                                        <Icon size={14} />
+                    <Skeleton name="recent-appointments" loading={loading}>
+                        <div className="space-y-3">
+                            {recentAppointments.length === 0 ? (
+                                <p className="text-sm text-slate-400 text-center py-4">No appointments yet</p>
+                            ) : recentAppointments.map(apt => {
+                                const { icon: Icon, cls } = STATUS_CONFIG[apt.status] || STATUS_CONFIG.Pending;
+                                return (
+                                    <div key={apt.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                                        <div className={cn('h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0', cls)}>
+                                            <Icon size={14} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-slate-800 truncate">{apt.patient_name || apt.patientName}</p>
+                                            <p className="text-xs text-slate-500">{apt.doctor_name || apt.doctorName} · {apt.specialization}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-semibold text-slate-700">₹{apt.fee}</p>
+                                            <p className="text-[10px] text-slate-400">{apt.date ? format(new Date(apt.date), 'dd MMM') : ''}</p>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-slate-800 truncate">{apt.patient_name || apt.patientName}</p>
-                                        <p className="text-xs text-slate-500">{apt.doctor_name || apt.doctorName} · {apt.specialization}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-semibold text-slate-700">₹{apt.fee}</p>
-                                        <p className="text-[10px] text-slate-400">{apt.date ? format(new Date(apt.date), 'dd MMM') : ''}</p>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                );
+                            })}
+                        </div>
+                    </Skeleton>
                 </div>
             </div>
         </div>
