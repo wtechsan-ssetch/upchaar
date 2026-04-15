@@ -47,8 +47,8 @@ const initialData = {
     licenseNo: '', nmcNo: '', specialization: '', subSpecialization: '',
     degree: '', passingYear: '', institution: '', additionalQualifications: '',
     // Step 3
-    experience: '', consultationFee: '', languages: [],
-    clinics: [{ name: '', address: '', city: '', state: '', availableDays: [], hoursFrom: '', hoursTo: '' }],
+    experience: '', languages: [],
+    clinics: [{ name: '', address: '', city: '', state: '', fee: '', availableDays: [], hoursFrom: '', hoursTo: '' }],
     // Step 4
     govtId: null, licenseDoc: null, degreeCert: null,
     acceptTerms: false, declaration: false,
@@ -92,13 +92,13 @@ function validate(step, data) {
     }
     if (step === 3) {
         if (!data.experience || data.experience < 0) errors.experience = 'Years of experience is required';
-        if (!data.consultationFee || data.consultationFee < 0) errors.consultationFee = 'Consultation fee is required';
         if (data.languages.length === 0) errors.languages = 'Select at least one language';
         data.clinics.forEach((clinic, index) => {
-            if (!clinic.name.trim()) errors[`clinicName_${index}`] = 'Clinic/Hospital name is required';
+            if (!clinic.name.trim()) errors[`clinicName_${index}`] = 'Medical/Clinic name is required';
             if (!clinic.address.trim()) errors[`clinicAddress_${index}`] = 'Address is required';
             if (!clinic.city.trim()) errors[`clinicCity_${index}`] = 'City is required';
             if (!clinic.state) errors[`clinicState_${index}`] = 'State is required';
+            if (!clinic.fee || clinic.fee < 0) errors[`clinicFee_${index}`] = 'Consultation fee is required';
             if (clinic.availableDays.length === 0) errors[`clinicDays_${index}`] = 'Select at least one available day';
             if (!clinic.hoursFrom) errors[`clinicHoursFrom_${index}`] = 'Start time is required';
             if (!clinic.hoursTo) errors[`clinicHoursTo_${index}`] = 'End time is required';
@@ -327,17 +327,11 @@ function Step3({ data, onChange, errors }) {
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
+                <div className="sm:col-span-2">
                     <FormLabel required>Years of Experience</FormLabel>
                     <Input id="experience" type="number" placeholder="5" min="0" max="60" value={data.experience}
                         onChange={e => onChange('experience', e.target.value)} className={errors.experience ? 'border-red-400' : ''} />
                     <FieldError msg={errors.experience} />
-                </div>
-                <div>
-                    <FormLabel required>Consultation Fee (₹)</FormLabel>
-                    <Input id="consultationFee" type="number" placeholder="500" min="0" value={data.consultationFee}
-                        onChange={e => onChange('consultationFee', e.target.value)} className={errors.consultationFee ? 'border-red-400' : ''} />
-                    <FieldError msg={errors.consultationFee} />
                 </div>
 
                 {/* Languages */}
@@ -361,7 +355,7 @@ function Step3({ data, onChange, errors }) {
 
             <div className="space-y-4">
                 <div className="flex items-center justify-between border-b pb-2">
-                    <h3 className="font-semibold text-foreground/90">Clinic/Medical Details</h3>
+                    <h3 className="font-semibold text-foreground/90">Medical/Clinic Details</h3>
                     <Button type="button" onClick={addClinic} variant="outline" size="sm" className="h-8">
                         + Add More
                     </Button>
@@ -377,10 +371,16 @@ function Step3({ data, onChange, errors }) {
                         )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="sm:col-span-2">
-                                <FormLabel required>Clinic / Hospital Name</FormLabel>
+                                <FormLabel required>Medical/Clinic Name</FormLabel>
                                 <Input placeholder="Apollo Clinic" value={clinic.name}
                                     onChange={e => updateClinic(index, 'name', e.target.value)} className={errors[`clinicName_${index}`] ? 'border-red-400' : ''} />
                                 <FieldError msg={errors[`clinicName_${index}`]} />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <FormLabel required>Consultation Fee (₹)</FormLabel>
+                                <Input type="number" placeholder="500" min="0" value={clinic.fee}
+                                    onChange={e => updateClinic(index, 'fee', e.target.value)} className={errors[`clinicFee_${index}`] ? 'border-red-400' : ''} />
+                                <FieldError msg={errors[`clinicFee_${index}`]} />
                             </div>
                             <div className="sm:col-span-2">
                                 <FormLabel required>Clinic Address</FormLabel>

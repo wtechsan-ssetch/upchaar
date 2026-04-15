@@ -24,7 +24,6 @@ import DoctorLayout from '@/doctor/layouts/DoctorLayout.jsx';
 
 // ── Auth pages ────────────────────────────────────
 import DoctorLogin from '@/doctor/pages/DoctorLogin.jsx';
-import DoctorRegister from '@/doctor/pages/DoctorRegister.jsx';
 
 // ── Dashboard pages ───────────────────────────────
 import DoctorDashboard from '@/doctor/pages/DoctorDashboard.jsx';
@@ -45,7 +44,6 @@ export function DoctorRoutes() {
         <>
             {/* Standalone auth pages (no layout wrapper) */}
             <Route path="/doctor/login" element={<DoctorLogin />} />
-            <Route path="/doctor/register" element={<DoctorRegister />} />
 
             {/* Protected doctor routes — all share DoctorLayout */}
             <Route path="/doctor" element={<DoctorLayout />}>
