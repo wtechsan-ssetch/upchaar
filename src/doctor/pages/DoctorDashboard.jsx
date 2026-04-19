@@ -116,6 +116,42 @@ export default function DoctorDashboard() {
         }
     };
 
+    const canEndConsultation = () => {
+        const now = new Date();
+        const currentDay = now.toLocaleDateString('en-US', { weekday: 'short' });
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const endMinutes = parseTimeMinutes(hoursTo);
+        const allowedDay = !availableDays.length || availableDays.some(day => normalizeDay(day) === normalizeDay(currentDay));
+        return allowedDay && currentMinutes >= endMinutes;
+    };
+
+    const handleEnd = async (appointmentId) => {
+        if (!canEndConsultation()) {
+            window.alert(`You can end the consultation at ${hoursTo}.`);
+            return;
+        }
+
+        setUpdatingId(appointmentId);
+        try {
+            const { error } = await supabase
+                .from('appointments')
+                .update({ status: 'Completed', ended_at: new Date().toISOString() })
+                .eq('id', appointmentId);
+
+            if (error) throw error;
+
+            setAppointments(prev => prev.map(apt => (
+                apt.id === appointmentId ? { ...apt, status: 'Completed', ended_at: new Date().toISOString() } : apt
+            )));
+            window.alert('Consultation ended successfully!');
+        } catch (error) {
+            console.error('Failed to end consultation:', error.message);
+            window.alert('Failed to end consultation. Please try again.');
+        } finally {
+            setUpdatingId(null);
+        }
+    };
+
     useEffect(() => {
         if (!doctorRecord?.id) {
             setAppointments([]);
@@ -360,6 +396,15 @@ export default function DoctorDashboard() {
                                                             className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors whitespace-nowrap disabled:opacity-50"
                                                         >
                                                             {updatingId === apt.id ? 'Starting...' : 'Start'}
+                                                        </button>
+                                                    )}
+                                                    {apt.status === 'In-Progress' && (
+                                                        <button
+                                                            onClick={() => handleEnd(apt.id)}
+                                                            disabled={updatingId === apt.id}
+                                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors whitespace-nowrap disabled:opacity-50"
+                                                        >
+                                                            {updatingId === apt.id ? 'Ending...' : 'End'}
                                                         </button>
                                                     )}
                                                     <button
