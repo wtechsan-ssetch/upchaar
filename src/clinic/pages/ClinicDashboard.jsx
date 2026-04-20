@@ -103,6 +103,21 @@ export default function ClinicDashboard() {
     }
   }, [profile?.id]);
 
+  const fetchClinics = useCallback(async () => {
+    if (!profile?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('facilities')
+        .select('*')
+        .eq('type', 'clinic')
+        .limit(10);
+      if (error) throw error;
+      setClinics(data || []);
+    } catch (err) {
+      console.error('Error fetching clinics:', err.message);
+    }
+  }, [profile?.id]);
+
   const handleAddDoctor = useCallback(async (e) => {
     e.preventDefault();
     if (!doctorSecretKey.trim()) return;

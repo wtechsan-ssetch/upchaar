@@ -24,7 +24,7 @@ import QueueStatusCard from '@/components/QueueStatusCard.jsx';
 import { toast, Toaster } from 'sonner';
 // ── Quick action cards shown on the dashboard ─────
 const QUICK_ACTIONS = [
-    { icon: Calendar, label: 'Book Appointment', desc: 'Schedule with a doctor', color: 'from-blue-500 to-indigo-500', href: '/appointment-options' },
+    { icon: Calendar, label: 'Book Appointment', desc: 'Schedule with a doctor', color: 'from-blue-500 to-indigo-500', href: '/doctors' },
     { icon: FileText, label: 'Medical Records', desc: 'View your health history', color: 'from-violet-500 to-purple-500', href: '/records' },
     { icon: Pill, label: 'Prescriptions', desc: 'Your current medications', color: 'from-orange-500 to-amber-500', href: '/records' },
     { icon: MapPin, label: 'Find Nearby', desc: 'Hospitals & clinics', color: 'from-emerald-500 to-teal-500', href: '/hospitals' },
@@ -152,7 +152,7 @@ const AppointmentsBanner = React.memo(function AppointmentsBanner({ patientId })
                     <p className="text-sm text-slate-500 font-medium">No upcoming appointments</p>
                     <p className="text-xs text-slate-400 mt-1">Book with a doctor to see your appointments here.</p>
                     <Link
-                        to="/appointment-options"
+                        to="/doctors"
                         className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 rounded-xl bg-teal-500 text-white text-xs font-semibold hover:bg-teal-600 transition"
                     >
                         <Calendar size={13} /> Book Appointment

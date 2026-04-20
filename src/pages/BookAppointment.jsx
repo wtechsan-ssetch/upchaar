@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Search, MapPin, Calendar as CalendarIcon, Clock, 
@@ -20,6 +20,7 @@ import { useAuth } from '@/auth/AuthContext.jsx';
 
 export default function BookAppointment() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { user } = useAuth();
     
     // ── Search & Filter State ────────────────────────
@@ -147,6 +148,17 @@ export default function BookAppointment() {
         };
         fetchDoctors();
     }, [selectedState, selectedCity]);
+
+    // ── Handle Deep Link Doctor ──────────────────────
+    useEffect(() => {
+        const doctorId = searchParams.get('doctorId');
+        if (doctorId && doctors.length > 0) {
+            const doc = doctors.find(d => d.id === doctorId);
+            if (doc && !selectedDoctor) {
+                handleSelectDoctor(doc);
+            }
+        }
+    }, [searchParams, doctors, selectedDoctor]);
 
     // ── Fetch Clinics for Selected Doctor ────────────
     const handleSelectDoctor = async (doc) => {

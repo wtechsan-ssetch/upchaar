@@ -93,9 +93,23 @@ export default function MedicalDashboard() {
       setStaffDoctors(data || []);
     } catch (err) {
       console.error('Error fetching staff:', err.message);
-      // alert('Could not load staff list: ' + err.message);
     } finally {
       setLoading(false);
+    }
+  }, [profile?.id]);
+
+  const fetchMedicals = useCallback(async () => {
+    if (!profile?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('facilities')
+        .select('*')
+        .eq('type', 'medical')
+        .limit(10);
+      if (error) throw error;
+      setMedicals(data || []);
+    } catch (err) {
+      console.error('Error fetching medicals:', err.message);
     }
   }, [profile?.id]);
 
