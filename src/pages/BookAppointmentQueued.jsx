@@ -18,11 +18,18 @@ import { useAuth } from '@/auth/AuthContext.jsx';
 // ── Static Data ──────────────────────────────────────
 // Constants will be fetched dynamically
 
-export default function BookAppointment() {
+export default function BookAppointmentQueued() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     
+    useEffect(() => {
+        if (!authLoading && !user) {
+            navigate('/login', { state: { from: '/book-appointment-queued' } });
+            toast.error("You must be logged in to book a queued appointment.");
+        }
+    }, [user, authLoading, navigate]);
+
     // ── Search & Filter State ────────────────────────
     const [selectedState, setSelectedState] = useState('');
     const [selectedCity, setSelectedCity] = useState('');
@@ -250,8 +257,8 @@ export default function BookAppointment() {
             status: 'Confirmed',
             type: 'In-person',
             fee: selectedDoctor.fees || 500,
+            queue_number: Math.floor(Math.random() * 20) + 1, // Mock queue number
             specialization: selectedDoctor.specialization
-            // NO queue_number because this is Without Queue Based
         };
 
         const { error } = await supabase.from('appointments').insert([appointmentData]);

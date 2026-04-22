@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Stethoscope, FlaskConical, Hospital,
-    FileText, LogOut, X, Menu, ChevronLeft, ChevronRight, HeartPulse, User
+    FileText, LogOut, X, Menu, ChevronLeft, ChevronRight, HeartPulse, User, Store
 } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ const NAV = [
     { to: '/doctors',     icon: Stethoscope,     label: 'Find Doctors' },
     { to: '/diagnostics', icon: FlaskConical,     label: 'Diagnostics' },
     { to: '/hospitals',   icon: Hospital,         label: 'Hospitals' },
+    { to: '/medicals',    icon: Store,            label: 'Medicals/Clinics' },
     { to: '/records',     icon: FileText,         label: 'Health Records' },
 ];
 

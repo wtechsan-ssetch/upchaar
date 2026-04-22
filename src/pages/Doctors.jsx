@@ -25,7 +25,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { select } from 'framer-motion/client';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/auth/AuthContext.jsx';
 import { supabase } from '@/lib/supabase.js';
 import Skeleton from 'react-loading-skeleton';
 
@@ -161,10 +163,19 @@ export default function DoctorsPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="lg:col-span-2">
-                                    <Button className="w-full h-14 text-base font-bold bg-slate-900 hover:bg-emerald-600 shadow-xl shadow-slate-900/10 rounded-2xl transition-all">
+                                <div className="lg:col-span-2 flex flex-col gap-2 justify-end">
+                                    <Button className="w-full h-12 text-base font-bold bg-slate-900 hover:bg-emerald-600 shadow-xl shadow-slate-900/10 rounded-2xl transition-all">
                                         Search
                                     </Button>
+                                    {(searchTerm || location !== 'all' || selectedSpecialty !== 'All' || maxPrice < 5000) && (
+                                        <Button 
+                                            variant="ghost" 
+                                            className="w-full h-10 text-sm font-bold text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl"
+                                            onClick={() => { setSearchTerm(''); setLocation('all'); setSelectedSpecialty('All'); setMaxPrice(5000); }}
+                                        >
+                                            Clear Filters
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
                         </CardContent>
@@ -307,7 +318,16 @@ export default function DoctorsPage() {
 
 function DoctorCard({ doctor }) {
     const navigate = useNavigate();
+    const { user, loading: authLoading } = useAuth();
     const initials = (doctor.name || '').replace(/Dr\.\s?/, '').charAt(0).toUpperCase();
+
+    const handleSelectDoctor = () => {
+        if (!authLoading && user) {
+            navigate(`/book-appointment-queued?doctorId=${doctor.id}`);
+        } else {
+            navigate(`/appointment-options?doctorId=${doctor.id}`);
+        }
+    };
 
     return (
         <Card className="overflow-hidden border-slate-100 hover:border-emerald-500/20 shadow-sm hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] transition-all duration-500 group rounded-[2.5rem] bg-white flex flex-col h-full">
@@ -386,7 +406,7 @@ function DoctorCard({ doctor }) {
                 <div className="p-6 md:p-8 pt-0 mt-auto">
                     <Button 
                         className="w-full h-14 rounded-2xl bg-slate-900 hover:bg-emerald-600 text-white font-bold group/btn flex items-center justify-between px-8 shadow-xl shadow-slate-900/5 transition-all"
-                        onClick={() => navigate(`/book-appointment?doctorId=${doctor.id}`)}
+                        onClick={handleSelectDoctor}
                     >
                         <span className="flex items-center gap-2">
                             <Calendar className="w-5 h-5 opacity-50" />

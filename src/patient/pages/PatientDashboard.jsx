@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Calendar, FileText, Pill,
     MapPin, ChevronRight, Activity, Camera, Loader2,
-    Hash, Clock, CalendarCheck2, Stethoscope, ChevronLeft, ChevronRight as ChevronRightIcon
+    Hash, Clock, CalendarCheck2, Stethoscope, ChevronLeft, ChevronRight as ChevronRightIcon, Store
 } from 'lucide-react';
 import { uploadAvatar } from '@/lib/uploadImage.js';
 import { supabase } from '@/lib/supabase.js';
@@ -24,7 +24,8 @@ import QueueStatusCard from '@/components/QueueStatusCard.jsx';
 import { toast, Toaster } from 'sonner';
 // ── Quick action cards shown on the dashboard ─────
 const QUICK_ACTIONS = [
-    { icon: Calendar, label: 'Book Appointment', desc: 'Schedule with a doctor', color: 'from-blue-500 to-indigo-500', href: '/doctors' },
+    { icon: Calendar, label: 'Doctors', desc: 'Schedule with a doctor', color: 'from-blue-500 to-indigo-500', href: '/doctors' },
+    { icon: Store, label: 'Medical / Clinics', desc: 'Find nearby medicals', color: 'from-pink-500 to-rose-500', href: '/medicals' },
     { icon: FileText, label: 'Medical Records', desc: 'View your health history', color: 'from-violet-500 to-purple-500', href: '/records' },
     { icon: Pill, label: 'Prescriptions', desc: 'Your current medications', color: 'from-orange-500 to-amber-500', href: '/records' },
     { icon: MapPin, label: 'Find Nearby', desc: 'Hospitals & clinics', color: 'from-emerald-500 to-teal-500', href: '/hospitals' },
@@ -347,6 +348,9 @@ export default function PatientDashboard() {
                                 <p className="text-white/70 text-sm">Welcome back,</p>
                                 <h1 className="text-2xl font-bold">{patient.full_name || 'Patient'}</h1>
                                 <p className="text-white/70 text-sm mt-0.5">{patient.email}</p>
+                                <p className="text-white/70 text-sm mt-0.5">
+                                    {patient.phone ? `📱 ${patient.phone}` : '📱 Add phone number'}
+                                </p>
                             </div>
                         </div>
 
@@ -362,11 +366,6 @@ export default function PatientDashboard() {
                             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-xs font-medium">
                                 <Activity size={12} /> Status: {patient.status ?? 'Active'}
                             </span>
-                            {patient.phone && (
-                                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-xs font-medium">
-                                    📱 {patient.phone}
-                                </span>
-                            )}
                             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-xs font-medium">
                                 <User size={12} /> Patient Account
                             </span>
@@ -399,7 +398,7 @@ export default function PatientDashboard() {
 
                 {/* ── Quick actions grid ────────────── */}
                 <h2 className="text-base font-semibold text-slate-700 mb-4">Quick Actions</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 mb-8">
                         {QUICK_ACTIONS.map(({ icon: Icon, label, desc, color, href }, i) => (
                             <motion.div
                                 key={label}
@@ -409,16 +408,15 @@ export default function PatientDashboard() {
                             >
                                 <Link
                                     to={href}
-                                    className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group"
+                                    className="flex flex-col items-center justify-center text-center p-4 bg-white rounded-[1.25rem] border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group aspect-square"
                                 >
-                                    <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center shadow-md flex-shrink-0`}>
-                                        <Icon size={22} className="text-white" />
+                                    <div className={`h-12 w-12 rounded-[0.9rem] flex-shrink-0 bg-gradient-to-br ${color} flex items-center justify-center shadow-md mb-3`}>
+                                        <Icon size={24} className="text-white" />
                                     </div>
-                                    <div className="flex-1">
-                                        <p className="font-semibold text-slate-800 text-sm">{label}</p>
-                                        <p className="text-slate-500 text-xs mt-0.5">{desc}</p>
+                                    <div className="flex flex-col items-center justify-center flex-1 overflow-hidden w-full">
+                                        <p className="font-bold text-slate-800 text-[13px] sm:text-sm leading-tight line-clamp-2 break-normal p-0.5 w-full">{label}</p>
+                                        <p className="text-slate-500 text-[10px] mt-1 leading-tight line-clamp-2 break-normal w-full group-hover:text-slate-700 transition-colors">{desc}</p>
                                     </div>
-                                    <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500 transition" />
                                 </Link>
                             </motion.div>
                         ))}

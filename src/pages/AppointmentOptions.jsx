@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, Calendar, ArrowRight, MapPin, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,18 +7,26 @@ import { useAuth } from '@/auth/AuthContext.jsx';
 
 export default function AppointmentOptions() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { user, loading } = useAuth();
+    
+    const doctorId = searchParams.get('doctorId');
 
     const handleQueueBased = () => {
+        let route = '/book-appointment-queued';
+        if (doctorId) route += `?doctorId=${doctorId}`;
+        
         if (!loading && !user) {
-            navigate('/login', { state: { from: '/patient/dashboard' } });
+            navigate('/login', { state: { from: route } });
         } else {
-            navigate('/patient/dashboard');
+            navigate(route);
         }
     };
 
     const handleNonQueueBased = () => {
-        navigate('/book-appointment');
+        let route = '/book-appointment';
+        if (doctorId) route += `?doctorId=${doctorId}`;
+        navigate(route);
     };
 
     return (
