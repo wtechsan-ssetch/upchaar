@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Phone, CheckCircle, AlertCircle, Loader2, Mail, FileText, Camera, Upload } from 'lucide-react';
 import { uploadAvatar } from '@/lib/uploadImage.js';
+import ImageCropperModal from '@/components/ImageCropperModal.jsx';
 
 export default function EditProfileModal({ isOpen, onClose, profile }) {
     const [fullName, setFullName] = useState('');
@@ -11,6 +12,9 @@ export default function EditProfileModal({ isOpen, onClose, profile }) {
     const [bio, setBio] = useState('');
     const [avatarFile, setAvatarFile] = useState(null);
     const [avatarPreview, setAvatarPreview] = useState(null);
+
+    const [cropperOpen, setCropperOpen] = useState(false);
+    const [cropImageSrc, setCropImageSrc] = useState(null);
 
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [stream, setStream] = useState(null);
@@ -86,28 +90,35 @@ export default function EditProfileModal({ isOpen, onClose, profile }) {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            canvas.toBlob((blob) => {
-                if (blob) {
-                    const file = new File([blob], "camera-capture.png", { type: "image/png" });
-                    setAvatarFile(file);
-                    setAvatarPreview(URL.createObjectURL(file));
-                    closeCamera();
-                }
-            }, 'image/png');
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            setCropImageSrc(dataUrl);
+            setCropperOpen(true);
+            closeCamera();
         }
     };
 
     const handleFileChange = (e) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-                setError("Image must be less than 2MB");
+            if (file.size > 10 * 1024 * 1024) {
+                setError("Image must be less than 10MB");
                 return;
             }
-            setAvatarFile(file);
-            setAvatarPreview(URL.createObjectURL(file));
+            const reader = new FileReader();
+            reader.addEventListener('load', () => {
+                setCropImageSrc(reader.result);
+                setCropperOpen(true);
+            });
+            reader.readAsDataURL(file);
             setError('');
         }
+        e.target.value = '';
+    };
+
+    const handleCropDone = (croppedFile, previewUrl) => {
+        setAvatarFile(croppedFile);
+        setAvatarPreview(previewUrl);
+        setCropperOpen(false);
     };
 
     const handleSubmit = async (e) => {
@@ -319,6 +330,14 @@ export default function EditProfileModal({ isOpen, onClose, profile }) {
                             </div>
                         </div>
                     </motion.div>
+
+                    {/* Image Cropper Modal (Rendered on top of Edit Profile Modal) */}
+                    <ImageCropperModal
+                        isOpen={cropperOpen}
+                        onClose={() => setCropperOpen(false)}
+                        imageSrc={cropImageSrc}
+                        onCropDone={handleCropDone}
+                    />
                 </>
             )}
         </AnimatePresence>

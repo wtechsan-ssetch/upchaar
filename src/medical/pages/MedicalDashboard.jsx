@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import DoctorAppointmentsModal from '@/components/dashboard/DoctorAppointmentsModal';
 import EditProfileModal from '@/components/EditProfileModal.jsx';
 import ChangePasswordModal from '@/components/ChangePasswordModal.jsx';
+import ImageCropperModal from '@/components/ImageCropperModal.jsx';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { uploadAvatar } from '@/lib/uploadImage.js';
@@ -37,6 +38,8 @@ export default function MedicalDashboard() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState(null);
   const [doctorSecretKey, setDoctorSecretKey] = useState('');
   const [addingDoctor, setAddingDoctor] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -51,13 +54,24 @@ export default function MedicalDashboard() {
   const handleQuickAvatarChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Image must be less than 2MB");
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Image must be less than 10MB");
       return;
     }
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      setCropImageSrc(reader.result);
+      setCropperOpen(true);
+    });
+    reader.readAsDataURL(file);
+    e.target.value = ''; // Reset input value so re-selecting same works
+  };
+
+  const handleCropDone = async (croppedFile) => {
+    setCropperOpen(false);
     try {
       setLoading(true);
-      const avatarUrl = await uploadAvatar(file, profile.id);
+      const avatarUrl = await uploadAvatar(croppedFile, profile.id);
       const { error: authErr } = await supabase.auth.updateUser({
         data: { avatar_url: avatarUrl }
       });
@@ -390,8 +404,12 @@ export default function MedicalDashboard() {
                 <p className="text-sm font-semibold leading-tight">{displayName}</p>
                 <p className="text-xs text-gray-500">Medical</p>
               </div>
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-teal-100 bg-teal-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                {displayName.charAt(0).toUpperCase()}
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl aspect-square overflow-hidden border-2 border-teal-100 bg-teal-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  displayName.charAt(0).toUpperCase()
+                )}
               </div>
             </div>
           </div>
@@ -951,6 +969,9 @@ export default function MedicalDashboard() {
 
       {/* Change Password Modal */}
       <ChangePasswordModal isOpen={isChangePasswordOpen} onClose={() => setIsChangePasswordOpen(false)} userEmail={profile?.email} />
+
+      {/* Image Cropper Modal */}
+      <ImageCropperModal isOpen={cropperOpen} onClose={() => setCropperOpen(false)} imageSrc={cropImageSrc} onCropDone={handleCropDone} />
 
       {/* Doctor Appointments Modal */}
       {selectedDoctorForAppointments && (
