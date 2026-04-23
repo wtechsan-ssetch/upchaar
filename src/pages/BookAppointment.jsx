@@ -39,6 +39,8 @@ export default function BookAppointment() {
     const [selectedSlot, setSelectedSlot] = useState('');
     const [availableStates, setAvailableStates] = useState([]);
     const [availableCities, setAvailableCities] = useState([]);
+    const [doctorTimetables, setDoctorTimetables] = useState([]);
+    const [availableScheduleDays, setAvailableScheduleDays] = useState([]);
     
     // ── UI Flow State ────────────────────────────────
     const [step, setStep] = useState(1); // 1: Search, 2: Clinic/Slot, 3: Details & OTP, 4: Payment, 5: Confirmation
@@ -136,7 +138,6 @@ export default function BookAppointment() {
     useEffect(() => {
         const fetchDoctors = async () => {
             setLoading(true);
-            // Use 'Approved' (capital A) to match DB
             let query = supabase.from('doctors').select('*').eq('status', 'Approved');
             
             if (selectedState && selectedState !== '') query = query.ilike('state', `%${selectedState}%`);
@@ -149,6 +150,7 @@ export default function BookAppointment() {
         fetchDoctors();
     }, [selectedState, selectedCity]);
 
+    // ── Fetch Clinics & Timetables for Selected Doctor ────────────
     // ── Handle Deep Link Doctor ──────────────────────
     useEffect(() => {
         const doctorId = searchParams.get('doctorId');
@@ -164,23 +166,44 @@ export default function BookAppointment() {
     const handleSelectDoctor = async (doc) => {
         setSelectedDoctor(doc);
         setLoading(true);
+        setSelectedClinic(null);
+        setSelectedDate('');
+        setSelectedSlot('');
         
         // Fetch linked clinics via staff_links
-        const { data, error } = await supabase
+        const { data: staffData, error: staffError } = await supabase
             .from('staff_links')
-            .select(`
-                *,
-                clinics:organization_id (id, name, address, metadata),
-                medicals:organization_id (id, name, address, metadata)
-            `)
+            .select('organization_id, organization_type')
             .eq('doctor_id', doc.id);
 
-        if (!error && data) {
-            const list = data.map(item => item.clinics || item.medicals).filter(Boolean);
+        if (!staffError && staffData && staffData.length > 0) {
+            const orgPromises = staffData.map(async (link) => {
+                const table = link.organization_type === 'medical' ? 'medicals' : 'clinics';
+                const { data } = await supabase
+                    .from(table)
+                    .select('id, name, address, metadata, profile_id')
+                    .eq('profile_id', link.organization_id)
+                    .maybeSingle();
+                return data ? { ...data, organization_type: link.organization_type } : null;
+            });
+            const list = (await Promise.all(orgPromises)).filter(Boolean);
             setClinics(list);
             if (list.length > 0) setSelectedClinic(list[0]);
+        } else {
+            setClinics([]);
         }
-        
+
+        // Fetch doctor timetables for all linked orgs
+        const { data: ttData, error: ttError } = await supabase
+            .from('doctor_timetables')
+            .select('*')
+            .eq('doctor_id', doc.id)
+            .eq('is_active', true);
+
+        if (!ttError) {
+            setDoctorTimetables(ttData || []);
+        }
+
         setLoading(false);
         setStep(2);
     };
@@ -209,7 +232,8 @@ export default function BookAppointment() {
             patient_name: patientInfo.name,
             doctor_id: selectedDoctor.id,
             doctor_name: selectedDoctor.full_name,
-            organization_id: selectedClinic?.id,
+            organization_id: selectedClinic?.profile_id || selectedClinic?.id,
+            organization_type: selectedClinic?.organization_type || 'clinic',
             date: selectedDate,
             time_slot: selectedSlot,
             status: 'Confirmed',
@@ -242,6 +266,41 @@ export default function BookAppointment() {
             d.specialization?.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [doctors, searchTerm]);
+
+    // Calculate slots for the currently selected date and clinic
+    const availableSlots = useMemo(() => {
+        if (!selectedClinic || !selectedDate) return [];
+        const dStr = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' }); // e.g. "Monday"
+        
+        // Find which timetables match clinic and day
+        const matched = doctorTimetables.filter(t => t.org_id === selectedClinic.id && t.day === dStr);
+        if (matched.length === 0) return [];
+        
+        // Convert ranges like '09:00' to '12:00' into 30m slots
+        const slots = [];
+        matched.forEach(t => {
+            let [h1, m1] = t.time_from.split(':').map(Number);
+            let [h2, m2] = t.time_to.split(':').map(Number);
+            let start = h1 * 60 + m1;
+            let end = h2 * 60 + m2;
+            
+            for (let min = start; min < end; min += 30) {
+                let hh = Math.floor(min / 60);
+                let mm = min % 60;
+                let ampm = hh >= 12 ? 'PM' : 'AM';
+                let dh = hh % 12 || 12;
+                slots.push(`${dh.toString().padStart(2,'0')}:${mm.toString().padStart(2,'0')} ${ampm}`);
+            }
+        });
+        
+        return [...new Set(slots)];
+    }, [selectedClinic, selectedDate, doctorTimetables]);
+
+    // Which days has at least one active slot in that clinic?
+    const daysWithSlots = useMemo(() => {
+        if (!selectedClinic) return new Set();
+        return new Set(doctorTimetables.filter(t => t.org_id === selectedClinic.id).map(t => t.day));
+    }, [selectedClinic, doctorTimetables]);
 
     return (
         <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-8">
@@ -489,47 +548,71 @@ export default function BookAppointment() {
                                                 <label className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
                                                     <CalendarIcon size={16} /> Select Date
                                                 </label>
-                                                <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                                                    {[0,1,2,3,4,5,6].map(offset => {
-                                                        const d = new Date();
-                                                        d.setDate(d.getDate() + offset);
-                                                        const dateStr = d.toISOString().split('T')[0];
-                                                        const isSelected = selectedDate === dateStr;
-                                                        return (
-                                                            <div 
-                                                                key={dateStr}
-                                                                onClick={() => setSelectedDate(dateStr)}
-                                                                className={`flex-shrink-0 w-16 h-20 rounded-2xl border-2 flex flex-col items-center justify-center transition-all cursor-pointer ${
-                                                                    isSelected ? 'border-primary bg-primary text-white shadow-lg shadow-primary/20' : 'border-slate-100 hover:border-slate-300'
-                                                                }`}
-                                                            >
-                                                                <span className="text-[10px] font-bold uppercase opacity-80">{d.toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                                                                <span className="text-xl font-bold">{d.getDate()}</span>
-                                                                <span className="text-[10px] font-medium opacity-80">{d.toLocaleDateString('en-US', { month: 'short' })}</span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                                {daysWithSlots.size === 0 ? (
+                                                    <div className="text-sm text-amber-600 bg-amber-50 p-4 rounded-xl flex items-center gap-2 font-medium">
+                                                        <AlertCircle size={16} /> No schedule available for this clinic.
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                                                        {Array.from({length: 14}).map((_, offset) => {
+                                                            const d = new Date();
+                                                            d.setDate(d.getDate() + offset);
+                                                            const dayShort = d.toLocaleDateString('en-US', { weekday: 'short' });
+                                                            // Only show if the doctor works that day
+                                                            if (!daysWithSlots.has(dayShort)) return null;
+
+                                                            const dateStr = d.toISOString().split('T')[0];
+                                                            const isSelected = selectedDate === dateStr;
+
+                                                            return (
+                                                                <div 
+                                                                    key={dateStr}
+                                                                    onClick={() => { setSelectedDate(dateStr); setSelectedSlot(''); }}
+                                                                    className={`flex-shrink-0 w-16 h-20 rounded-2xl border-2 flex flex-col items-center justify-center transition-all cursor-pointer select-none ${
+                                                                        isSelected ? 'border-primary bg-primary text-white shadow-lg shadow-primary/20' : 'border-slate-100 hover:border-slate-300 bg-white'
+                                                                    }`}
+                                                                >
+                                                                    <span className="text-[10px] font-bold uppercase opacity-80">{dayShort}</span>
+                                                                    <span className="text-xl font-bold">{d.getDate()}</span>
+                                                                    <span className="text-[10px] font-medium opacity-80">{d.toLocaleDateString('en-US', { month: 'short' })}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Time Slot Selection */}
-                                            <div className="space-y-4">
-                                                <label className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
-                                                    <Clock size={16} /> Select Time Slot
-                                                </label>
-                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                                    {['10:00 AM', '11:00 AM', '12:00 PM', '04:00 PM', '05:00 PM', '06:00 PM'].map(slot => (
-                                                        <Button
-                                                            key={slot}
-                                                            variant={selectedSlot === slot ? 'default' : 'outline'}
-                                                            className={`h-12 rounded-xl border-2 transition-all ${selectedSlot === slot ? 'shadow-md scale-105' : 'border-slate-100'}`}
-                                                            onClick={() => setSelectedSlot(slot)}
-                                                        >
-                                                            {slot}
-                                                        </Button>
-                                                    ))}
-                                                </div>
-                                            </div>
+                                            {selectedDate && (
+                                                <motion.div 
+                                                    initial={{ opacity: 0, height: 0 }} 
+                                                    animate={{ opacity: 1, height: 'auto' }} 
+                                                    className="space-y-4 overflow-hidden"
+                                                >
+                                                    <label className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
+                                                        <Clock size={16} /> Select Time Slot
+                                                    </label>
+                                                    
+                                                    {availableSlots.length > 0 ? (
+                                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                            {availableSlots.map(slot => (
+                                                                <Button
+                                                                    key={slot}
+                                                                    variant={selectedSlot === slot ? 'default' : 'outline'}
+                                                                    className={`h-12 rounded-xl border-2 transition-all ${selectedSlot === slot ? 'shadow-md scale-105' : 'border-slate-100 bg-white hover:border-primary/50'}`}
+                                                                    onClick={() => setSelectedSlot(slot)}
+                                                                >
+                                                                    {slot}
+                                                                </Button>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-sm text-slate-500 italic p-4 bg-slate-50 rounded-xl">
+                                                            No empty slots available for this day.
+                                                        </div>
+                                                    )}
+                                                </motion.div>
+                                            )}
 
                                             {/* Confirm Button */}
                                             <Button 

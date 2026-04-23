@@ -2,11 +2,12 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Building2, CalendarDays, Clock3, IndianRupee, Users, ChevronRight, AlertCircle
+    Building2, CalendarDays, Clock3, IndianRupee, Users, ChevronRight, AlertCircle, MapPin
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase.js';
 import { useDoctor } from '../context/DoctorContext.jsx';
 import { cn } from '@/lib/utils';
+import DoctorAppointmentsModal from '@/components/dashboard/DoctorAppointmentsModal';
 import Skeleton from 'react-loading-skeleton';
 
 const parseClinics = (clinicValue) => {
@@ -72,7 +73,9 @@ export default function DoctorDashboard() {
     const navigate = useNavigate();
     const { doctor, doctorRecord } = useDoctor();
     const [appointments, setAppointments] = useState([]);
+    const [linkedOrgs, setLinkedOrgs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedOrgForAppointments, setSelectedOrgForAppointments] = useState(null);
     const [updatingId, setUpdatingId] = useState(null);
 
     const availableDays = doctor?.availableDays || doctorRecord?.available_days || FIXED_AVAILABLE_DAYS;
@@ -155,31 +158,63 @@ export default function DoctorDashboard() {
     useEffect(() => {
         if (!doctorRecord?.id) {
             setAppointments([]);
+            setLinkedOrgs([]);
             setLoading(false);
             return;
         }
 
-        const fetchAppointments = async () => {
+        const fetchData = async () => {
             setLoading(true);
             try {
-                const { data, error } = await supabase
+                // 1. Fetch appointments
+                const { data: aptData, error: aptError } = await supabase
                     .from('appointments')
                     .select('*')
                     .eq('doctor_id', doctorRecord.id)
                     .order('date', { ascending: true })
                     .order('time_slot', { ascending: true });
 
-                if (error) throw error;
-                setAppointments(data || []);
+                if (aptError) throw aptError;
+                setAppointments(aptData || []);
+
+                // 2. Fetch linked organizations
+                const { data: staffLinks, error: staffError } = await supabase
+                    .from('staff_links')
+                    .select('*, organization:organization_id(id, full_name, clinics(*), medicals(*))')
+                    .eq('doctor_id', doctorRecord.id);
+
+                if (staffError) throw staffError;
+
+                const orgs = (staffLinks || []).map(link => {
+                    const profile = link.organization;
+                    if (!profile) return null;
+
+                    // A profile can have one clinic or one medical store
+                    const orgDetails = (profile.clinics && profile.clinics[0]) || (profile.medicals && profile.medicals[0]);
+                    
+                    if (!orgDetails) return null;
+
+                    return {
+                        ...orgDetails,
+                        id: orgDetails.id, // Entry ID for timetables
+                        profile_id: profile.id, // Profile ID for appointments
+                        type: link.organization_type,
+                        displayName: orgDetails.name || profile.full_name
+                    };
+                }).filter(Boolean);
+
+                setLinkedOrgs(orgs);
+
             } catch (error) {
-                console.error('Failed to load doctor appointments:', error.message);
+                console.error('Failed to load dashboard data:', error.message);
                 setAppointments([]);
+                setLinkedOrgs([]);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchAppointments();
+        fetchData();
     }, [doctorRecord?.id]);
 
     const clinics = useMemo(() => parseClinics(doctorRecord?.clinic_name || doctor?.clinicName), [doctorRecord?.clinic_name, doctor?.clinicName]);
@@ -187,11 +222,11 @@ export default function DoctorDashboard() {
     const todayAppointments = useMemo(() => appointments.filter(item => String(item.date || '').slice(0, 10) === today), [appointments, today]);
 
     const statCards = useMemo(() => [
-        { label: 'Registered Clinics', value: clinics.length || 0, icon: Building2, tone: 'text-teal-600 bg-teal-50' },
+        { label: 'Linked Organizations', value: linkedOrgs.length || 0, icon: Building2, tone: 'text-teal-600 bg-teal-50' },
         { label: 'Today Appointments', value: todayAppointments.length, icon: CalendarDays, tone: 'text-blue-600 bg-blue-50' },
         { label: 'Completed Today', value: todayAppointments.filter(item => item.status === 'Completed').length, icon: Clock3, tone: 'text-emerald-600 bg-emerald-50' },
         { label: 'Total Revenue', value: `Rs. ${(doctorRecord?.total_revenue || doctor?.totalRevenue || 0).toLocaleString()}`, icon: IndianRupee, tone: 'text-amber-600 bg-amber-50' },
-    ], [clinics.length, todayAppointments, doctorRecord?.total_revenue, doctor?.totalRevenue]);
+    ], [linkedOrgs.length, todayAppointments, doctorRecord?.total_revenue, doctor?.totalRevenue]);
 
     const clinicCards = useMemo(() => {
         if (!clinics.length) return [];
@@ -330,88 +365,14 @@ export default function DoctorDashboard() {
                 <div className="text-sm text-slate-400">Appointments ready.</div>
             </Skeleton>
 
-            {/* In-page patients modal for selected clinic */}
-            <AnimatePresence>
-                {selectedClinic && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                            className="bg-white rounded-3xl shadow-xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
-                        >
-                            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">
-                                <div>
-                                    <h3 className="font-bold text-slate-800 text-lg">Patients for {selectedClinic.clinicName}</h3>
-                                    <p className="text-xs text-slate-500 mt-0.5">Quick view of booked appointments</p>
-                                </div>
-                                <button
-                                    onClick={() => setSelectedClinic(null)}
-                                    className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition-colors"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                </button>
-                            </div>
-                            <div className="p-5 overflow-y-auto flex-1">
-                                {selectedClinic.appointments?.length === 0 ? (
-                                    <div className="text-center py-10">
-                                        <p className="text-sm text-slate-500">No appointments booked yet.</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {selectedClinic.appointments.map(apt => (
-                                            <div key={apt.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-shadow">
-                                                <div>
-                                                    <p className="font-bold text-slate-800">{apt.patient_name || apt.patient || 'Patient'}</p>
-                                                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-500 font-medium">
-                                                        <span className="bg-slate-100 px-2 py-0.5 rounded-md">{formatDate(apt.date)}</span>
-                                                        <span className="bg-slate-100 px-2 py-0.5 rounded-md">{apt.time_slot || '-'}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <span className={cn(
-                                                        'px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap',
-                                                        apt.status === 'Completed' ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                                            apt.status === 'In-Progress' ? 'bg-violet-50 text-violet-600 border-violet-200' :
-                                                            apt.status === 'Cancelled' ? 'bg-red-50 text-red-600 border-red-200' :
-                                                                    'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                                    )}>
-                                                        {apt.status}
-                                                    </span>
-                                                    {apt.status === 'Scheduled' && (
-                                                        <button
-                                                            onClick={() => handleStart(apt.id)}
-                                                            disabled={updatingId === apt.id}
-                                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors whitespace-nowrap disabled:opacity-50"
-                                                        >
-                                                            {updatingId === apt.id ? 'Starting...' : 'Start'}
-                                                        </button>
-                                                    )}
-                                                    {apt.status === 'In-Progress' && (
-                                                        <button
-                                                            onClick={() => handleEnd(apt.id)}
-                                                            disabled={updatingId === apt.id}
-                                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors whitespace-nowrap disabled:opacity-50"
-                                                        >
-                                                            {updatingId === apt.id ? 'Ending...' : 'End'}
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => navigate(`/doctor/clinics/${encodeURIComponent(selectedClinic.clinicName)}`)}
-                                                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors whitespace-nowrap"
-                                                    >
-                                                        Manage
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            {/* Integrated Appointment Management Modal */}
+            <DoctorAppointmentsModal
+                isOpen={!!selectedOrgForAppointments}
+                onClose={() => setSelectedOrgForAppointments(null)}
+                doctor={doctorRecord}
+                orgId={selectedOrgForAppointments?.id}
+                orgProfileId={selectedOrgForAppointments?.profile_id}
+            />
         </div>
     );
 }

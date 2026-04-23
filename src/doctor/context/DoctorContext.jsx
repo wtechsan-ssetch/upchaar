@@ -2,6 +2,18 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import { supabase } from '@/lib/supabase.js';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE, withAuthTimeout } from '@/lib/auth.js';
 
+/** Upload a profile picture to Supabase Storage and return the public URL */
+export async function uploadDoctorAvatar(file, doctorId) {
+    const ext = file.name.split('.').pop();
+    const path = `doctors/${doctorId}/avatar_${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+        .from('doctor-docs')
+        .upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadError) throw new Error('Upload failed: ' + uploadError.message);
+    const { data } = supabase.storage.from('doctor-docs').getPublicUrl(path);
+    return data.publicUrl;
+}
+
 const DoctorContext = createContext(null);
 const DEFAULT_AVAILABLE_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DEFAULT_HOURS_FROM = '09:00';
@@ -35,6 +47,7 @@ const mapDoctorRecord = (record) => {
         hoursTo: DEFAULT_HOURS_TO,
         availableDays: DEFAULT_AVAILABLE_DAYS,
         languages: record.languages || ['English'],
+        avatarUrl: record.avatar_url || null,
         avatarColor: record.avatar_color || '#0d9488',
         totalRevenue: record.total_revenue || 0,
         totalAppointments: record.total_appointments || 0,
@@ -321,6 +334,7 @@ export function DoctorProvider({ children }) {
             available_days: updates.availableDays,
             languages: updates.languages,
             avatar_color: updates.avatarColor,
+            avatar_url: updates.avatarUrl,
             updated_at: new Date().toISOString(),
         };
 
@@ -341,6 +355,7 @@ export function DoctorProvider({ children }) {
             gender: updates.gender,
             languages: updates.languages,
             avatarColor: updates.avatarColor,
+            avatarUrl: updates.avatarUrl,
         };
 
         Object.keys(authMetaUpdates).forEach((key) => authMetaUpdates[key] === undefined && delete authMetaUpdates[key]);

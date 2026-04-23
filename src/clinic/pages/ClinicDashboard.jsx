@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useAuth } from '@/auth/AuthContext.jsx';
 import { supabase } from '@/lib/supabase.js';
 import { useNavigate } from 'react-router-dom';
+import DoctorAppointmentsModal from '@/components/dashboard/DoctorAppointmentsModal';
 import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 
 const NAV_ITEMS = [
   { icon: 'dashboard', label: 'Dashboard' },
@@ -34,6 +36,9 @@ export default function ClinicDashboard() {
   const [addingDoctor, setAddingDoctor] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true); 
   const [appointments, setAppointments] = useState([]);
+  const [timetables, setTimetables] = useState({});
+  const [expandedDoctor, setExpandedDoctor] = useState(null);
+  const [selectedDoctorForAppointments, setSelectedDoctorForAppointments] = useState(null);
   const sidebarRef = useRef(null);
 
   const stats = useMemo(() => {
@@ -77,6 +82,7 @@ export default function ClinicDashboard() {
 
 
 
+
   const fetchStaff = useCallback(async () => {
     try {
       setLoading(true);
@@ -89,13 +95,46 @@ export default function ClinicDashboard() {
             id,
             full_name,
             specialization,
-            clinic_name
+            consultation_fee,
+            avatar_url,
+            status
           )
         `)
         .eq('organization_id', profile?.id);
 
       if (error) throw error;
-      setStaffDoctors(data || []);
+      const links = data || [];
+      setStaffDoctors(links);
+
+      // Fetch timetables
+      if (links.length > 0) {
+        const { data: clinicRow } = await supabase.from('clinics').select('id').eq('profile_id', profile?.id).maybeSingle();
+        const orgId = clinicRow?.id;
+        
+        // Save the orgId to the profile so we can use it for the modal
+        if (profile && orgId) {
+            profile.internal_org_id = orgId;
+        }
+
+        if (orgId) {
+          const docIds = links.map(l => l.doctor_id).filter(Boolean);
+          const { data: slots } = await supabase
+            .from('doctor_timetables')
+            .select('*')
+            .in('doctor_id', docIds)
+            .eq('org_id', orgId)
+            .eq('is_active', true)
+            .order('day')
+            .order('time_from');
+          
+          const grouped = {};
+          (slots || []).forEach(s => {
+            if (!grouped[s.doctor_id]) grouped[s.doctor_id] = [];
+            grouped[s.doctor_id].push(s);
+          });
+          setTimetables(grouped);
+        }
+      }
     } catch (err) {
       console.error('Error fetching staff:', err.message);
     } finally {
@@ -385,32 +424,99 @@ export default function ClinicDashboard() {
                       </div>
                     ))
                   ) : staffDoctors.length > 0 ? (
-                    staffDoctors.map((link) => (
-                      <div key={link.id}
-                        className="bg-white p-5 sm:p-6 rounded-2xl text-center flex flex-col items-center group relative hover:shadow-md transition-shadow"
-                        style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05),0 2px 4px -2px rgb(0 0 0/0.05)' }}>
-                        <button 
-                          type="button"
-                          onClick={(e) => handleUnlinkDoctor(e, link.id)}
-                          className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all z-20 cursor-pointer"
-                          title="Unlink Doctor"
-                        >
-                          <span className="material-symbols-outlined text-lg">link_off</span>
-                        </button>
-                        <div className="relative mb-4">
-                          <div className="w-20 h-20 rounded-full border-4 border-teal-50 flex items-center justify-center bg-teal-600 text-white text-2xl font-bold font-mono">
-                            {link.doctors?.full_name?.charAt(0).toUpperCase() || 'D'}
+                    staffDoctors.map((link) => {
+                      const doc = link.doctors;
+                      const isExpanded = expandedDoctor === link.id;
+                      const slots = timetables[doc?.id] || [];
+                      // Group slots by day
+                      const byDay = {};
+                      slots.forEach(s => {
+                        if (!byDay[s.day]) byDay[s.day] = [];
+                        byDay[s.day].push(`${s.time_from} - ${s.time_to}`);
+                      });
+
+                      return (
+                        <div key={link.id}
+                          className="bg-white rounded-2xl flex flex-col group relative transition-all duration-300 hover:shadow-xl border border-gray-100 overflow-hidden"
+                          style={{ boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.05)' }}>
+                          
+                          {/* Unlink button */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleUnlinkDoctor(e, link.id)}
+                            className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all z-20"
+                            title="Unlink Doctor"
+                          >
+                            <span className="material-symbols-outlined text-lg">link_off</span>
+                          </button>
+
+                          {/* Doctor Info */}
+                          <div className="p-5 flex flex-col items-center text-center">
+                            <div className="relative mb-3">
+                              <div className="w-16 h-16 rounded-full border-4 border-teal-50 overflow-hidden bg-teal-600 flex items-center justify-center text-white text-xl font-bold">
+                                {doc?.avatar_url
+                                  ? <img src={doc.avatar_url} alt={doc.full_name} className="w-full h-full object-cover" />
+                                  : (doc?.full_name?.charAt(0).toUpperCase() || 'D')}
+                              </div>
+                              <span className="absolute bottom-1 right-0 w-3.5 h-3.5 rounded-full border-2 border-white bg-green-500" />
+                            </div>
+                            <h4 className="font-bold text-gray-900 text-sm line-clamp-1">{doc?.full_name}</h4>
+                            <p className="text-xs text-teal-600 font-medium">{doc?.specialization}</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5 font-bold uppercase tracking-wide">verified</p>
+                            
+                            <button 
+                              type="button"
+                              onClick={(e) => {
+                                 e.stopPropagation();
+                                 setSelectedDoctorForAppointments(doc);
+                              }}
+                              className="w-full mt-3 py-2 text-[11px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-xl transition-colors tracking-wide uppercase"
+                            >
+                              View Appointments
+                            </button>
                           </div>
-                          <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-white bg-green-500" />
+
+                          {/* Timetable toggle */}
+                          <div className="border-t border-gray-50">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedDoctor(isExpanded ? null : link.id)}
+                              className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-colors"
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-sm text-teal-500">schedule</span>
+                                {slots.length > 0 ? `${slots.length} slot${slots.length !== 1 ? 's' : ''}` : 'No schedule set'}
+                              </span>
+                              <span className="material-symbols-outlined text-sm">
+                                {isExpanded ? 'expand_less' : 'expand_more'}
+                              </span>
+                            </button>
+
+                            {/* Schedule detail */}
+                            {isExpanded && (
+                              <div className="px-4 pb-4 space-y-1.5">
+                                {Object.keys(byDay).length > 0 ? (
+                                  Object.entries(byDay).map(([day, times]) => (
+                                    <div key={day} className="flex items-start gap-2 text-xs">
+                                      <span className="font-semibold text-slate-600 w-9 shrink-0">{day.slice(0,3)}</span>
+                                      <div className="flex flex-wrap gap-1">
+                                        {times.map((t, i) => (
+                                          <span key={i} className="px-2 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-100 font-medium">
+                                            {t}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-[11px] text-gray-400 italic">Doctor hasn't set a timetable yet.</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <h4 className="font-bold text-gray-900 line-clamp-1">{link.doctors?.full_name}</h4>
-                        <p className="text-sm text-teal-600 font-medium mb-1">{link.doctors?.specialization}</p>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Verified Partner</p>
-                        <button className="w-full mt-4 py-2 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors">
-                          Manage Availability
-                        </button>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="sm:col-span-2 xl:col-span-3 py-12 text-center bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-200">
                       <span className="material-symbols-outlined text-4xl text-gray-300 mb-2">person_add</span>

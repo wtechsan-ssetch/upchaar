@@ -4,7 +4,7 @@ import DoctorPendingPage from '../pages/DoctorPendingPage.jsx';
 import {
     LayoutDashboard, Calendar, Users, ClipboardList,
     UserCircle, LogOut, ChevronLeft, ChevronRight, Stethoscope,
-    Bell, Search, MessageSquare, Menu, X, KeyRound, Landmark,
+    Bell, Search, MessageSquare, Menu, X, KeyRound, Landmark, CalendarClock,
 } from 'lucide-react';
 import { useState, useMemo, useCallback, Suspense } from 'react';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ const NAV = [
     { to: '/doctor/appointments', icon: Calendar, label: 'Appointments' },
     { to: '/doctor/patients', icon: Users, label: 'My Patients' },
     { to: '/doctor/prescriptions', icon: ClipboardList, label: 'Prescriptions' },
+    { to: '/doctor/timetable', icon: CalendarClock, label: 'Add Timetable' },
     { to: '/doctor/release', icon: Landmark, label: 'Fee Release' },
     { to: '/doctor/profile', icon: UserCircle, label: 'Profile' },
 ];
@@ -83,9 +84,11 @@ export default function DoctorLayout() {
                             {/* Mobile doctor card */}
                             <div className="px-6 pb-3">
                                 <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-2xl">
-                                    <div className="h-10 w-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shrink-0"
+                                    <div className="h-10 w-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shrink-0 overflow-hidden"
                                         style={{ backgroundColor: doctor.avatarColor || '#0d9488' }}>
-                                        {initials}
+                                        {doctor.avatarUrl
+                                            ? <img src={doctor.avatarUrl} alt={doctor.fullName} className="w-full h-full object-cover" />
+                                            : initials}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-semibold text-slate-800 truncate">{doctor.fullName}</p>
@@ -161,9 +164,11 @@ export default function DoctorLayout() {
                         {!collapsed ? (
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                                 className="flex items-center gap-3 p-2 bg-white/50 border border-white rounded-2xl shadow-sm">
-                                <div className="h-10 w-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shrink-0"
+                                <div className="h-10 w-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shrink-0 overflow-hidden"
                                     style={{ backgroundColor: doctor.avatarColor || '#0d9488' }}>
-                                    {initials}
+                                    {doctor.avatarUrl
+                                        ? <img src={doctor.avatarUrl} alt={doctor.fullName} className="w-full h-full object-cover" />
+                                        : initials}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-slate-800 truncate">{doctor.fullName}</p>
@@ -172,9 +177,11 @@ export default function DoctorLayout() {
                             </motion.div>
                         ) : (
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                className="h-12 w-12 rounded-2xl flex items-center justify-center font-bold text-white text-base shadow-sm"
+                                className="h-12 w-12 rounded-2xl flex items-center justify-center font-bold text-white text-base shadow-sm overflow-hidden"
                                 style={{ backgroundColor: doctor.avatarColor || '#0d9488' }}>
-                                {initials}
+                                {doctor.avatarUrl
+                                    ? <img src={doctor.avatarUrl} alt={doctor.fullName} className="w-full h-full object-cover" />
+                                    : initials}
                             </motion.div>
                         )}
                     </AnimatePresence>
