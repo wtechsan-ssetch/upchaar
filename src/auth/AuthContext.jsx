@@ -23,6 +23,7 @@ export const PROFILE_TYPE_DASHBOARDS = {
     patient: '/',
     doctor: '/doctor/dashboard',
     clinic: '/clinic/dashboard',
+    diagnostic: '/diagnostic/dashboard',
     medical: '/medical/dashboard',
     hospital: '/hospital/dashboard',
 };

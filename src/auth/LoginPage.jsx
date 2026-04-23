@@ -22,7 +22,7 @@ import { sendOtp, verifyOtp, normalisePhone } from '@/lib/otpService.js';
 import { supabase } from '@/lib/supabase.js';
 import {
     Heart, Mail, Lock, Eye, EyeOff, Loader2, AlertCircle,
-    User, Phone, ChevronDown, Building2,
+    User, Phone, ChevronDown, Building2, Activity,
     Pill, HospitalIcon, Users, CheckCircle2, ShieldCheck, RefreshCw
 } from 'lucide-react';
 
@@ -30,6 +30,7 @@ import {
 const PROFILE_TYPES = [
     { value: 'patient',  label: 'Patient',       icon: Users,         desc: 'Book appointments, manage records' },
     { value: 'clinic',   label: 'Clinic',         icon: Building2,     desc: 'Register your clinic' },
+    { value: 'diagnostic', label: 'Diagnostic Centre', icon: Activity, desc: 'Manage tests & reports' },
     { value: 'medical',  label: 'Medical Store',  icon: Pill,          desc: 'List medicines & supplies' },
     { value: 'hospital', label: 'Hospital',       icon: HospitalIcon,  desc: 'Register your hospital' },
 ];
