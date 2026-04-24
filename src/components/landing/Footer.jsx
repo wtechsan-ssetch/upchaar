@@ -31,7 +31,7 @@ export const Footer = () => {
         "More": [
             { title: "Help & Support", href: "/terms" },
             { title: "Developers", href: "#" },
-            { title: "Privacy Policy", href: "#" },
+            { title: "Privacy Policy", href: "/privacy-policy" },
             { title: "Terms and Conditions", href: "/terms" },
         ],
         "Social": [
