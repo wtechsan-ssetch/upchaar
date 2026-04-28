@@ -151,6 +151,43 @@ export default function DoctorAppointmentsModal({
     fetchAppointments();
   }, [selectedSlot, selectedDate, doctor?.id, orgId, orgProfileId]);
 
+  // Handle status updates (Confirm/Complete or Cancel)
+  const handleStatusUpdate = async (appointmentId, newStatus) => {
+    if (newStatus === 'Completed') {
+      const confirmed = window.confirm("Have you completed consultation?");
+      if (!confirmed) return;
+    } else if (newStatus === 'Cancelled') {
+      const confirmed = window.confirm("Are you sure you want to cancel this appointment?");
+      if (!confirmed) return;
+    }
+
+    try {
+      const updateData = { 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      };
+      
+      if (newStatus === 'Completed') {
+        updateData.ended_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('appointments')
+        .update(updateData)
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+
+      // Update local state
+      setAppointments(prev => prev.map(apt => 
+        apt.id === appointmentId ? { ...apt, ...updateData } : apt
+      ));
+    } catch (err) {
+      console.error("Error updating appointment status:", err.message);
+      alert("Failed to update status. Please try again.");
+    }
+  };
+
   // Handle closing modal and resetting state
   const handleClose = () => {
     onClose();
@@ -384,17 +421,34 @@ export default function DoctorAppointmentsModal({
                               </div>
                             </div>
                             
-                            <div className="flex items-center sm:flex-col sm:items-end justify-between gap-2 mt-2 sm:mt-0">
-                              <span className={`
-                                inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border
-                                ${STATUS_COLORS[apt.status] || STATUS_COLORS.Scheduled}
-                              `}>
-                                {STATUS_ICONS[apt.status] || STATUS_ICONS.Scheduled}
-                                {apt.status}
-                              </span>
+                            <div className="flex items-center sm:flex-row sm:items-center justify-between gap-3 mt-2 sm:mt-0">
+                              {apt.status === 'Confirmed' ? (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleStatusUpdate(apt.id, 'Completed')}
+                                    className="px-4 py-1.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-200"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={() => handleStatusUpdate(apt.id, 'Cancelled')}
+                                    className="px-4 py-1.5 rounded-xl bg-white border border-red-200 text-red-500 text-xs font-bold hover:bg-red-50 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className={`
+                                  inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border
+                                  ${STATUS_COLORS[apt.status] || STATUS_COLORS.Scheduled}
+                                `}>
+                                  {STATUS_ICONS[apt.status] || STATUS_ICONS.Scheduled}
+                                  {apt.status}
+                                </span>
+                              )}
                               
-                              <p className="text-[11px] font-medium text-slate-400">
-                                Booked via {apt.type || 'App'}
+                              <p className="text-[11px] font-medium text-slate-400 hidden sm:block">
+                                via {apt.type || 'App'}
                               </p>
                             </div>
                           </div>

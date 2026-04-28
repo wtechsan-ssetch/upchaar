@@ -202,7 +202,52 @@ export default function PatientDashboard() {
     const [avatarError, setAvatarError] = useState('');
     const [changePwOpen, setChangePwOpen] = useState(false);
     const [activeAppointment, setActiveAppointment] = useState(null);
-    const [mockQueuePosition, setMockQueuePosition] = useState(5);
+    const [currentServing, setCurrentServing] = useState(1);
+    const [loadingQueue, setLoadingQueue] = useState(false);
+
+    // Fetch the currently serving queue number for a slot
+    const fetchCurrentServing = useCallback(async (appt) => {
+        if (!appt) return;
+        try {
+            const { data, error } = await supabase
+                .from('appointments')
+                .select('queue_number')
+                .eq('doctor_id', appt.doctor_id)
+                .eq('organization_id', appt.organization_id)
+                .eq('date', appt.date)
+                .eq('time_slot', appt.time_slot)
+                .eq('status', 'Confirmed')
+                .order('queue_number', { ascending: true })
+                .limit(1);
+
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                setCurrentServing(data[0].queue_number);
+            } else {
+                // If no confirmed appointments, might be everyone is done or none started
+                // We'll check for the highest completed to estimate
+                const { data: completedData } = await supabase
+                    .from('appointments')
+                    .select('queue_number')
+                    .eq('doctor_id', appt.doctor_id)
+                    .eq('organization_id', appt.organization_id)
+                    .eq('date', appt.date)
+                    .eq('time_slot', appt.time_slot)
+                    .eq('status', 'Completed')
+                    .order('queue_number', { descending: true })
+                    .limit(1);
+                
+                if (completedData?.[0]) {
+                    setCurrentServing(completedData[0].queue_number + 1);
+                } else {
+                    setCurrentServing(1);
+                }
+            }
+        } catch (err) {
+            console.error("Error fetching current serving:", err);
+        }
+    }, []);
 
     // Fetch active appointment for queue tracking
     useEffect(() => {
@@ -220,35 +265,73 @@ export default function PatientDashboard() {
             .then(({ data }) => {
                 if (data?.[0]) {
                     setActiveAppointment(data[0]);
-                    setMockQueuePosition(data[0].queue_number || 5);
+                    fetchCurrentServing(data[0]);
                 }
             });
-    }, [patient?.id]);
+    }, [patient?.id, fetchCurrentServing]);
 
-    // Live Queue Notification Simulation
+    // Real-time Queue Updates
     useEffect(() => {
-        if (!activeAppointment || mockQueuePosition <= 0) return;
-        
-        const interval = setInterval(() => {
-            setMockQueuePosition(prev => {
-                const next = Math.max(0, prev - 1);
-                if (next < prev && next > 0) {
-                    toast.info(`Queue Update: ${next} people ahead of you`, {
-                        description: `Your appointment with ${activeAppointment.doctor_name} is getting closer!`,
-                        icon: '🔔'
-                    });
-                } else if (next === 0) {
-                    toast.success('Your Turn!', {
-                        description: 'Please proceed to the doctor\'s cabin now.',
-                        duration: 10000,
-                    });
-                }
-                return next;
-            });
-        }, 120000); // 2 minutes
+        if (!activeAppointment?.id) return;
 
-        return () => clearInterval(interval);
-    }, [activeAppointment, mockQueuePosition]);
+        const channel = supabase
+            .channel('queue-updates')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'appointments',
+                    filter: `doctor_id=eq.${activeAppointment.doctor_id}`
+                },
+                (payload) => {
+                    // If any appointment in the same slot is updated, refresh serving status
+                    if (payload.new.time_slot === activeAppointment.time_slot && 
+                        payload.new.date === activeAppointment.date &&
+                        payload.new.organization_id === activeAppointment.organization_id) {
+                        
+                        fetchCurrentServing(activeAppointment);
+
+                        // If the updated appointment is MINE, show toast
+                        if (payload.new.id === activeAppointment.id) {
+                            if (payload.new.status === 'Completed') {
+                                toast.success('Consultation Completed', {
+                                    description: 'Your visit has been marked as complete. Take care!',
+                                });
+                                setActiveAppointment(null); // Clear from active tracking
+                            } else if (payload.new.status === 'Cancelled') {
+                                toast.error('Appointment Cancelled', {
+                                    description: 'Your appointment has been cancelled.',
+                                });
+                                setActiveAppointment(null);
+                            }
+                        }
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [activeAppointment, fetchCurrentServing]);
+
+    // Notification for turn approaching
+    useEffect(() => {
+        if (!activeAppointment || !currentServing) return;
+        
+        const position = activeAppointment.queue_number - currentServing;
+        if (position === 0) {
+            toast.success('Your Turn!', {
+                description: 'Please proceed to the doctor\'s cabin now.',
+                duration: 10000,
+            });
+        } else if (position > 0 && position <= 2) {
+            toast.info('Almost Your Turn', {
+                description: `There ${position === 1 ? 'is only 1 person' : `are only ${position} people`} ahead of you.`,
+            });
+        }
+    }, [activeAppointment, currentServing]);
 
     /**
      * handleAvatarChange
@@ -383,7 +466,7 @@ export default function PatientDashboard() {
                             </h2>
                             <QueueStatusCard 
                                 appointment={activeAppointment} 
-                                currentServing={activeAppointment.queue_number - mockQueuePosition}
+                                currentServing={currentServing}
                                 onAction={() => navigate(`/records`)}
                             />
                         </motion.div>

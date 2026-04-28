@@ -12,6 +12,35 @@ import { cn } from '@/lib/utils';
  * A premium tracking card for patient dashboard to show real-time queue status.
  */
 export default function QueueStatusCard({ appointment, currentServing, onAction }) {
+    // Helper to parse "09:00 AM" or "09:00" and add minutes
+    const getExpectedTime = (timeStr, queueNum) => {
+        if (!timeStr) return '--:--';
+        
+        // Match HH:MM AM/PM
+        const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+        if (!match) return timeStr;
+        
+        let [_, h, m, p] = match;
+        h = parseInt(h);
+        m = parseInt(m);
+        
+        if (p) {
+            if (p.toUpperCase() === 'PM' && h < 12) h += 12;
+            if (p.toUpperCase() === 'AM' && h === 12) h = 0;
+        }
+        
+        // Total minutes from start of day
+        let totalMins = h * 60 + m + (Math.max(0, queueNum - 1) * 10);
+        
+        let rh = Math.floor(totalMins / 60) % 24;
+        let rm = totalMins % 60;
+        let rp = rh >= 12 ? 'PM' : 'AM';
+        let dh = rh % 12 || 12;
+        
+        return `${dh.toString().padStart(2, '0')}:${rm.toString().padStart(2, '0')} ${rp}`;
+    };
+
+    const expectedTime = getExpectedTime(appointment.time_slot, appointment.queue_number);
     const estimatedWait = Math.max(0, ((appointment.queue_number || 1) - currentServing) * 10); // minutes
 
     const myNumber = appointment.queue_number || 1;
@@ -99,9 +128,9 @@ export default function QueueStatusCard({ appointment, currentServing, onAction 
                         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/50">
                             <div className="flex items-center gap-2 mb-1">
                                 <Clock size={14} className="text-amber-500" />
-                                <span className="text-[10px] font-bold text-slate-400 uppercase">Wait Time</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">Expected At</span>
                             </div>
-                            <p className="text-lg font-bold text-slate-700">{isServing ? '0' : estimatedWait} <span className="text-xs font-semibold text-slate-400 font-sans">mins</span></p>
+                            <p className="text-lg font-bold text-slate-700">{isServing ? 'NOW' : expectedTime}</p>
                         </div>
                     </div>
                 </div>
