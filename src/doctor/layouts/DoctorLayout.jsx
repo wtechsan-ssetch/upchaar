@@ -48,7 +48,8 @@ export default function DoctorLayout() {
     if (!doctor) return <Navigate to="/doctor/login" replace />;
 
     // Doctor is logged in but not yet approved by admin → show pending page
-    if (doctorRecord && doctorRecord.status !== 'Approved') {
+    // We block access if doctorRecord is missing or status is not 'Approved'
+    if (!doctorRecord || doctorRecord.status !== 'Approved') {
         return <DoctorPendingPage />;
     }
 

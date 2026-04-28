@@ -111,11 +111,17 @@ export function AuthProvider({ children }) {
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
                     const u = session?.user ?? null;
                     setUser(u);
-                    // ⚡ Never block loading on profile fetch
-                    setLoading(false);
+                    
                     if (u && !isRegistering.current) {
-                        // Fetch profile in background — doesn't block anything
-                        fetchProfile(u.id).then(p => { if (mounted) setProfile(p); });
+                        setLoading(true);
+                        fetchProfile(u.id).then(p => {
+                            if (mounted) {
+                                setProfile(p);
+                                setLoading(false);
+                            }
+                        });
+                    } else {
+                        setLoading(false);
                     }
                 }
             }
