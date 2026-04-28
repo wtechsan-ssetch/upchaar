@@ -257,6 +257,34 @@ export default function BookAppointmentQueued() {
         setBookingLoading(true);
         
         try {
+            const normalizedPhone = patientInfo.phone?.trim() || null;
+
+            let duplicateQuery = supabase
+                .from('appointments')
+                .select('id', { count: 'exact', head: true })
+                .eq('doctor_id', selectedDoctor.id)
+                .eq('organization_id', selectedClinic?.id)
+                .eq('date', selectedDate)
+                .eq('time_slot', selectedSlot)
+                .neq('status', 'Cancelled');
+
+            if (user?.id) {
+                duplicateQuery = duplicateQuery.eq('patient_id', user.id);
+            } else if (normalizedPhone) {
+                duplicateQuery = duplicateQuery.eq('patient_phone', normalizedPhone);
+            }
+
+            const { count: existingCount, error: duplicateError } = await duplicateQuery;
+
+            if (duplicateError) throw duplicateError;
+
+            if ((existingCount ?? 0) > 0) {
+                toast.error('Duplicate booking not allowed.', {
+                    description: 'You already have an appointment with this doctor on the same date and time slot.',
+                });
+                return;
+            }
+
             // Calculate real queue number: count existing appointments for same doctor + org + date + slot
             const { count, error: countError } = await supabase
                 .from('appointments')
@@ -272,6 +300,7 @@ export default function BookAppointmentQueued() {
             const appointmentData = {
                 patient_id: user?.id || null,
                 patient_name: patientInfo.name,
+                patient_phone: normalizedPhone,
                 doctor_id: selectedDoctor.id,
                 doctor_name: selectedDoctor.full_name,
                 organization_id: selectedClinic?.id,
@@ -285,7 +314,12 @@ export default function BookAppointmentQueued() {
                 specialization: selectedDoctor.specialization
             };
 
-            const { error } = await supabase.from('appointments').insert([appointmentData]);
+            let { error } = await supabase.from('appointments').insert([appointmentData]);
+
+            if (error?.message?.includes("Could not find the 'patient_phone' column")) {
+                const { patient_phone: _unusedPhone, ...fallbackAppointmentData } = appointmentData;
+                ({ error } = await supabase.from('appointments').insert([fallbackAppointmentData]));
+            }
         
             if (!error) {
                 setBookingSuccess(true);

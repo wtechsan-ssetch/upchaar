@@ -8,7 +8,7 @@
  */
 
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { usePatient } from '../context/PatientContext.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -375,8 +375,7 @@ export default function PatientDashboard() {
 
     // Redirect unauthenticated users to login
     if (!patient) {
-        navigate('/patient/login', { replace: true });
-        return null;
+        return <Navigate to="/patient/login" replace />;
     }
 
 

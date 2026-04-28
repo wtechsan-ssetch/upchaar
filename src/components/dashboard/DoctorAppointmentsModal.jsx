@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase.js';
 import { 
-  X, CalendarDays, Clock, Users, ChevronLeft, 
+  X, CalendarDays, Clock, Users,
   ChevronRight, Phone, Stethoscope, CheckCircle,
-  Clock3, XCircle, FileText
+  Clock3, XCircle, FileText, Bell
 } from 'lucide-react';
 import { format, addDays, startOfToday } from 'date-fns';
 import Skeleton from 'react-loading-skeleton';
@@ -40,6 +40,7 @@ export default function DoctorAppointmentsModal({
   
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [appointments, setAppointments] = useState([]);
+  const [expandedAptId, setExpandedAptId] = useState(null);
 
   // Generate an array of next 14 days for date selection
   const upcomingDates = useMemo(() => {
@@ -83,73 +84,72 @@ export default function DoctorAppointmentsModal({
     fetchSlots();
   }, [isOpen, doctor, orgId, selectedDate]);
 
-  // Use effect to fetch appointments when slot changes
-  useEffect(() => {
+  const fetchAppointments = useCallback(async () => {
     if (!selectedSlot) {
       setAppointments([]);
       return;
     }
 
-    const fetchAppointments = async () => {
-      setLoadingAppointments(true);
-      try {
-        const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    setLoadingAppointments(true);
+    try {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
-        // Fetch all appointments for the day/doctor/org
-        let query = supabase
-          .from('appointments')
-          .select('*')
-          .eq('doctor_id', doctor.id)
-          .eq('date', dateStr);
+      // Fetch all appointments for the day/doctor/org
+      let query = supabase
+        .from('appointments')
+        .select('*')
+        .eq('doctor_id', doctor.id)
+        .eq('date', dateStr);
 
-        // Filter by internal org ID (primary) with profile ID fallback for legacy data
-        if (orgId && orgProfileId && orgId !== orgProfileId) {
-          query = query.or(`organization_id.eq.${orgId},organization_id.eq.${orgProfileId}`);
-        } else if (orgId) {
-          query = query.eq('organization_id', orgId);
-        } else if (orgProfileId) {
-          query = query.eq('organization_id', orgProfileId);
-        }
-
-        const { data, error } = await query.order('queue_number', { ascending: true });
-
-        if (error) throw error;
-        
-        // Helper to convert time string (HH:MM or HH:MM AM/PM) to minutes
-        const toMinutes = (t) => {
-          if (!t) return 0;
-          // Check if it has AM/PM
-          const match = t.match(/(\d+):(\d+)\s*(AM|PM)?/i);
-          if (!match) return 0;
-          let [_, h, m, p] = match;
-          h = parseInt(h);
-          m = parseInt(m);
-          if (p) {
-            if (p.toUpperCase() === 'PM' && h < 12) h += 12;
-            if (p.toUpperCase() === 'AM' && h === 12) h = 0;
-          }
-          return h * 60 + m;
-        };
-
-        const rangeStart = toMinutes(selectedSlot.time_from);
-        const rangeEnd = toMinutes(selectedSlot.time_to);
-
-        // Filter appointments that fall within this slot's range
-        const filtered = (data || []).filter(apt => {
-          const aptTime = toMinutes(apt.time_slot);
-          return aptTime >= rangeStart && aptTime < rangeEnd;
-        });
-
-        setAppointments(filtered);
-      } catch (err) {
-        console.error("Error fetching appointments:", err.message);
-      } finally {
-        setLoadingAppointments(false);
+      // Filter by internal org ID (primary) with profile ID fallback for legacy data
+      if (orgId && orgProfileId && orgId !== orgProfileId) {
+        query = query.or(`organization_id.eq.${orgId},organization_id.eq.${orgProfileId}`);
+      } else if (orgId) {
+        query = query.eq('organization_id', orgId);
+      } else if (orgProfileId) {
+        query = query.eq('organization_id', orgProfileId);
       }
-    };
 
-    fetchAppointments();
+      const { data, error } = await query.order('queue_number', { ascending: true });
+
+      if (error) throw error;
+      
+      // Helper to convert time string (HH:MM or HH:MM AM/PM) to minutes
+      const toMinutes = (t) => {
+        if (!t) return 0;
+        const match = t.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+        if (!match) return 0;
+        let [_, h, m, p] = match;
+        h = parseInt(h);
+        m = parseInt(m);
+        if (p) {
+          if (p.toUpperCase() === 'PM' && h < 12) h += 12;
+          if (p.toUpperCase() === 'AM' && h === 12) h = 0;
+        }
+        return h * 60 + m;
+      };
+
+      const rangeStart = toMinutes(selectedSlot.time_from);
+      const rangeEnd = toMinutes(selectedSlot.time_to);
+
+      // Filter appointments that fall within this slot's range
+      const filtered = (data || []).filter(apt => {
+        const aptTime = toMinutes(apt.time_slot);
+        return aptTime >= rangeStart && aptTime < rangeEnd;
+      });
+
+      setAppointments(filtered);
+    } catch (err) {
+      console.error("Error fetching appointments:", err.message);
+    } finally {
+      setLoadingAppointments(false);
+    }
   }, [selectedSlot, selectedDate, doctor?.id, orgId, orgProfileId]);
+
+  // Use effect to fetch appointments when slot changes
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
 
   // Handle status updates (Confirm/Complete or Cancel)
   const handleStatusUpdate = async (appointmentId, newStatus) => {
@@ -389,11 +389,20 @@ export default function DoctorAppointmentsModal({
                         <p className="text-sm text-slate-400 mt-1">No patients have booked in this slot yet.</p>
                       </div>
                     ) : (
-                      appointments.map((apt, index) => (
+                      appointments.map((apt, index) => {
+                        const isExpanded = expandedAptId === apt.id;
+                        return (
                         <div 
                           key={apt.id} 
-                          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center gap-4"
+                          className={`
+                            bg-white rounded-2xl border transition-all flex flex-col overflow-hidden
+                            ${isExpanded ? 'border-teal-400 shadow-md ring-1 ring-teal-400/20' : 'border-slate-200 shadow-sm hover:border-slate-300'}
+                          `}
                         >
+                          <div 
+                            className="p-4 flex flex-col sm:flex-row sm:items-center gap-4 cursor-pointer"
+                            onClick={() => setExpandedAptId(isExpanded ? null : apt.id)}
+                          >
                           <div className="shrink-0 flex items-center justify-center h-16 w-16 bg-gradient-to-br from-teal-50 to-emerald-50 rounded-2xl border border-teal-100/50">
                             <span className="text-xl font-black text-teal-700/80">
                               #{apt.queue_number || (index + 1)}
@@ -425,13 +434,19 @@ export default function DoctorAppointmentsModal({
                               {apt.status === 'Confirmed' ? (
                                 <div className="flex items-center gap-2">
                                   <button
-                                    onClick={() => handleStatusUpdate(apt.id, 'Completed')}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStatusUpdate(apt.id, 'Completed');
+                                    }}
                                     className="px-4 py-1.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-200"
                                   >
                                     Confirm
                                   </button>
                                   <button
-                                    onClick={() => handleStatusUpdate(apt.id, 'Cancelled')}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStatusUpdate(apt.id, 'Cancelled');
+                                    }}
                                     className="px-4 py-1.5 rounded-xl bg-white border border-red-200 text-red-500 text-xs font-bold hover:bg-red-50 transition-colors"
                                   >
                                     Cancel
@@ -452,8 +467,44 @@ export default function DoctorAppointmentsModal({
                               </p>
                             </div>
                           </div>
+
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="px-4 pb-4 pt-2 border-t border-slate-50 bg-slate-50/30"
+                              >
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      alert("Prescription editor coming soon!");
+                                    }}
+                                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"
+                                  >
+                                    <FileText size={14} className="text-teal-500" />
+                                    Write Prescription
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      alert("Notification sent to patient!");
+                                    }}
+                                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"
+                                  >
+                                    <Bell size={14} className="text-amber-500" />
+                                    Notify Next
+                                  </button>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                          </div>
                         </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </>

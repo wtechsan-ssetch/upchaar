@@ -300,6 +300,22 @@ export default function DoctorDetailPage() {
             // Build a full timestamptz from the selected date (normalize to midnight UTC)
             const appointmentDate = new Date(selectedDate + 'T00:00:00').toISOString();
 
+            const { count: existingCount, error: duplicateError } = await supabase
+                .from('appointments')
+                .select('id', { count: 'exact', head: true })
+                .eq('patient_id', patient.id)
+                .eq('doctor_id', id)
+                .eq('date', appointmentDate)
+                .eq('time_slot', selectedSlot)
+                .neq('status', 'Cancelled');
+
+            if (duplicateError) throw duplicateError;
+
+            if ((existingCount ?? 0) > 0) {
+                alert('You already have an appointment with this doctor on the same date and time slot.');
+                return;
+            }
+
             // Count existing appointments for this doctor on this date to compute queue#
             const { count, error: countErr } = await supabase
                 .from('appointments')
