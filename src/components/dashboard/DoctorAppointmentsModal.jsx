@@ -26,6 +26,8 @@ const STATUS_ICONS = {
   Scheduled: <CalendarDays size={14} className="mt-0.5" />,
 };
 
+const normalizeStatus = (status) => String(status || '').trim().toLowerCase();
+
 export default function DoctorAppointmentsModal({ 
   isOpen, 
   onClose, 
@@ -170,7 +172,7 @@ export default function DoctorAppointmentsModal({
     }
 
     try {
-      const updateData = { 
+      const updateData = {
         status: newStatus,
         updated_at: new Date().toISOString()
       };
@@ -179,20 +181,50 @@ export default function DoctorAppointmentsModal({
         updateData.ended_at = new Date().toISOString();
       }
 
-      const { error } = await supabase
+      const fallbackDataWithoutEndedAt = (() => {
+        const { ended_at: _unusedEndedAt, ...rest } = updateData;
+        return rest;
+      })();
+      const fallbackDataStatusOnly = { status: newStatus };
+
+      const updateAttempts = [updateData, fallbackDataWithoutEndedAt, fallbackDataStatusOnly];
+      let lastError = null;
+      let updateSucceeded = false;
+
+      for (const payload of updateAttempts) {
+        const { error } = await supabase
+          .from('appointments')
+          .update(payload)
+          .eq('id', appointmentId);
+
+        if (!error) {
+          updateSucceeded = true;
+          break;
+        }
+
+        lastError = error;
+      }
+
+      if (!updateSucceeded) {
+        throw lastError || new Error('Unable to update appointment status.');
+      }
+
+      const { data: verifyRow, error: verifyError } = await supabase
         .from('appointments')
-        .update(updateData)
-        .eq('id', appointmentId);
+        .select('id, status')
+        .eq('id', appointmentId)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (verifyError) throw verifyError;
+      if (!verifyRow || normalizeStatus(verifyRow.status) !== normalizeStatus(newStatus)) {
+        throw new Error('Status update was not applied by backend. Please check permissions.');
+      }
 
-      // Update local state
-      setAppointments(prev => prev.map(apt => 
-        apt.id === appointmentId ? { ...apt, ...updateData } : apt
-      ));
+      // Re-sync from backend so queue/order and status are always authoritative.
+      await fetchAppointments();
     } catch (err) {
       console.error("Error updating appointment status:", err.message);
-      alert("Failed to update status. Please try again.");
+      alert(`Failed to update status. ${err.message || 'Please try again.'}`);
     }
   };
 
@@ -402,6 +434,7 @@ export default function DoctorAppointmentsModal({
                     ) : (
                       appointments.map((apt, index) => {
                         const isExpanded = expandedAptId === apt.id;
+                        const isConfirmed = normalizeStatus(apt.status) === 'confirmed';
                         return (
                         <div 
                           key={apt.id} 
@@ -442,7 +475,7 @@ export default function DoctorAppointmentsModal({
                             </div>
                             
                             <div className="flex items-center sm:flex-row sm:items-center justify-between gap-3 mt-2 sm:mt-0">
-                              {apt.status === 'Confirmed' ? (
+                              {isConfirmed ? (
                                 <div className="flex items-center gap-2">
                                   <button
                                     onClick={(e) => {
@@ -451,7 +484,7 @@ export default function DoctorAppointmentsModal({
                                     }}
                                     className="px-4 py-1.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-200"
                                   >
-                                    Confirm
+                                    Complete
                                   </button>
                                   <button
                                     onClick={(e) => {

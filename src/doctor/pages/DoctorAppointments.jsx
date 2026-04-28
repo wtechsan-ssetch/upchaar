@@ -172,26 +172,33 @@ export default function DoctorAppointments() {
                                     <span className={cn('px-2.5 py-1 rounded-full text-xs font-semibold border', STATUS_STYLE[apt.status] || STATUS_STYLE.Scheduled)}>{apt.status}</span>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <div className="flex gap-1.5">
-                                        <button
-                                            type="button"
-                                            disabled={updatingId === apt.id || apt.status === 'Confirmed' || apt.status === 'Completed'}
-                                            onClick={() => updateAppointmentStatus(apt.id, 'Confirmed')}
-                                            className="h-8 w-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                            title="Confirm appointment"
-                                        >
-                                            {updatingId === apt.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            disabled={updatingId === apt.id || apt.status === 'Cancelled' || apt.status === 'Completed'}
-                                            onClick={() => updateAppointmentStatus(apt.id, 'Cancelled')}
-                                            className="h-8 w-8 flex items-center justify-center rounded-lg bg-red-50 text-red-500 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                            title="Cancel appointment"
-                                        >
-                                            {updatingId === apt.id ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
-                                        </button>
-                                    </div>
+                                    {apt.status === 'Completed' ? (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-blue-50 text-blue-600 border-blue-200">
+                                            <CheckCircle size={12} />
+                                            Completed
+                                        </span>
+                                    ) : (
+                                        <div className="flex gap-1.5">
+                                            <button
+                                                type="button"
+                                                disabled={updatingId === apt.id || apt.status === 'Confirmed'}
+                                                onClick={() => updateAppointmentStatus(apt.id, 'Confirmed')}
+                                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                                title="Confirm appointment"
+                                            >
+                                                {updatingId === apt.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={updatingId === apt.id || apt.status === 'Cancelled'}
+                                                onClick={() => updateAppointmentStatus(apt.id, 'Cancelled')}
+                                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-red-50 text-red-500 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                                title="Cancel appointment"
+                                            >
+                                                {updatingId === apt.id ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+                                            </button>
+                                        </div>
+                                    )}
                                 </td>
                             </motion.tr>
                         ))}

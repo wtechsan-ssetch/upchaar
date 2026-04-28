@@ -136,15 +136,25 @@ export default function DoctorDashboard() {
 
         setUpdatingId(appointmentId);
         try {
-            const { error } = await supabase
+            const updateData = { status: 'Completed', ended_at: new Date().toISOString() };
+
+            let { error } = await supabase
                 .from('appointments')
-                .update({ status: 'Completed', ended_at: new Date().toISOString() })
+                .update(updateData)
                 .eq('id', appointmentId);
+
+            if (error?.message?.includes("Could not find the 'ended_at' column")) {
+                const { ended_at: _unusedEndedAt, ...fallbackData } = updateData;
+                ({ error } = await supabase
+                    .from('appointments')
+                    .update(fallbackData)
+                    .eq('id', appointmentId));
+            }
 
             if (error) throw error;
 
             setAppointments(prev => prev.map(apt => (
-                apt.id === appointmentId ? { ...apt, status: 'Completed', ended_at: new Date().toISOString() } : apt
+                apt.id === appointmentId ? { ...apt, ...updateData } : apt
             )));
             window.alert('Consultation ended successfully!');
         } catch (error) {
