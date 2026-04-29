@@ -69,19 +69,12 @@ export const Footer = () => {
                             <ShieldCheck size={13} className="text-slate-600" />
                             Staff Portal:
                         </span>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
                             <Link
                                 to="/admin/login"
                                 className="text-xs text-slate-500 hover:text-teal-400 transition-colors duration-200 flex items-center gap-1"
                             >
-                                Super Admin Login
-                            </Link>
-                            <span className="text-slate-700 text-xs">|</span>
-                            <Link
-                                to="/admin/login"
-                                className="text-xs text-slate-500 hover:text-teal-400 transition-colors duration-200 flex items-center gap-1"
-                            >
-                                Support Admin Login
+                                Admin Login
                             </Link>
                         </div>
                     </div>

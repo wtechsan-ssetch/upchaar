@@ -22,6 +22,7 @@ export default function BookAppointmentQueued() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { user, loading: authLoading } = useAuth();
+    const clinicIdParam = searchParams.get('clinicId');
     
     useEffect(() => {
         if (!authLoading && !user) {
@@ -214,7 +215,12 @@ export default function BookAppointmentQueued() {
             });
             const list = (await Promise.all(orgPromises)).filter(Boolean);
             setClinics(list);
-            if (list.length > 0) setSelectedClinic(list[0]);
+            if (list.length > 0) {
+                const desiredClinic = clinicIdParam
+                    ? list.find(c => String(c.id) === String(clinicIdParam))
+                    : null;
+                setSelectedClinic(desiredClinic || list[0]);
+            }
         } else {
             setClinics([]);
         }

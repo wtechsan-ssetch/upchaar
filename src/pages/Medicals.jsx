@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
     Card,
     CardContent,
@@ -17,7 +18,8 @@ import {
     ArrowUpRight,
     PhoneCall,
     ChevronRight,
-    Activity
+    Activity,
+    X
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase.js';
@@ -28,6 +30,12 @@ export default function MedicalsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [medicals, setMedicals] = useState([]);
+    const navigate = useNavigate();
+
+    const [detailsOpen, setDetailsOpen] = useState(false);
+    const [selectedFacility, setSelectedFacility] = useState(null);
+    const [linkedDoctors, setLinkedDoctors] = useState([]);
+    const [loadingDoctors, setLoadingDoctors] = useState(false);
 
     useEffect(() => {
         // Fetch registered medicals & clinics directly from their respective tables
@@ -44,38 +52,52 @@ export default function MedicalsPage() {
                     .from('clinics')
                     .select('*');
                 
-                let merged = [];
-                
-                if (!medicalsError && medicalsData) {
-                    const mappedMedicals = medicalsData.map(m => ({
+                const mappedMedicals = !medicalsError && medicalsData
+                    ? medicalsData.map(m => ({
                         ...m,
                         full_name: m.name,
-                        profile_type: 'medical'
-                    }));
-                    merged = [...merged, ...mappedMedicals];
-                }
+                        profile_type: 'medical',
+                    }))
+                    : [];
 
-                if (!clinicsError && clinicsData) {
-                    const mappedClinics = clinicsData.map(c => ({
+                const mappedClinics = !clinicsError && clinicsData
+                    ? clinicsData.map(c => ({
                         ...c,
                         full_name: c.name,
-                        profile_type: 'clinic'
-                    }));
-                    merged = [...merged, ...mappedClinics];
-                }
+                        profile_type: 'clinic',
+                    }))
+                    : [];
+
+                let merged = [...mappedMedicals, ...mappedClinics];
 
                 // If fetching from those tables isn't returning anything, fallback to profiles for backward compatibility
                 if (merged.length === 0) {
-                     const { data: profileData, error } = await supabase
+                    const { data: profileData, error } = await supabase
                         .from('profiles')
                         .select('*')
                         .in('profile_type', ['medical', 'clinic', 'hospital']);
-                     if (!error && profileData) {
-                         merged = profileData;
-                     }
+                    if (!error && profileData) {
+                        setMedicals(profileData);
+                        return;
+                    }
                 }
 
-                setMedicals(merged);
+                const profileIds = [...new Set(merged.map(m => m.profile_id).filter(Boolean))];
+                const { data: profilesData } = profileIds.length
+                    ? await supabase
+                        .from('profiles')
+                        .select('id, avatar_url')
+                        .in('id', profileIds)
+                    : { data: [] };
+
+                const profilesMap = new Map((profilesData || []).map(p => [p.id, p]));
+
+                const mergedWithAvatars = merged.map((m) => ({
+                    ...m,
+                    avatar_url: m.avatar_url || profilesMap.get(m.profile_id)?.avatar_url || null,
+                }));
+
+                setMedicals(mergedWithAvatars);
             } catch (err) {
                 console.error("Error fetching facilities:", err);
             } finally {
@@ -84,6 +106,54 @@ export default function MedicalsPage() {
         };
         fetchMedicals();
     }, []);
+
+    // Fetch linked doctors for the selected facility
+    useEffect(() => {
+        const fetchLinkedDoctors = async () => {
+            if (!detailsOpen || !selectedFacility) return;
+            setLoadingDoctors(true);
+            try {
+                // staff_links.organization_id can store either:
+                //   - the internal medicals/clinics table id (selectedFacility.id)
+                //   - the auth profile UUID (selectedFacility.profile_id)
+                // We query both via OR to cover all cases.
+                const orgIdsToSearch = [selectedFacility.id, selectedFacility.profile_id].filter(Boolean);
+
+                const { data, error } = await supabase
+                    .from('staff_links')
+                    .select(`
+                        id,
+                        doctor_id,
+                        doctors (
+                            id,
+                            full_name,
+                            specialization,
+                            consultation_fee,
+                            avatar_url,
+                            status,
+                            city,
+                            state
+                        )
+                    `)
+                    .eq('organization_type', selectedFacility.profile_type)
+                    .in('organization_id', orgIdsToSearch);
+                if (error) {
+                    console.error('Supabase query error:', error);
+                    throw error;
+                }
+
+                const next = (data || []).map(row => row.doctors).filter(Boolean);
+                setLinkedDoctors(next);
+            } catch (err) {
+                console.error('Failed to load linked doctors:', err.message);
+                setLinkedDoctors([]);
+            } finally {
+                setLoadingDoctors(false);
+            }
+        };
+
+        void fetchLinkedDoctors();
+    }, [detailsOpen, selectedFacility]);
 
     const filteredMedicals = medicals.filter(m => {
         const nameMatch = m.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || m.name?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -146,7 +216,15 @@ export default function MedicalsPage() {
                                         <Card className="group h-full border-slate-100 hover:border-emerald-500/20 transition-all duration-300 shadow-sm hover:shadow-2xl overflow-hidden rounded-[2.5rem] bg-white flex flex-col">
                                             <div className="relative h-48 bg-emerald-50 flex items-center justify-center overflow-hidden shrink-0">
                                                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 to-teal-600/20" />
-                                                <Store className="w-20 h-20 text-emerald-600/40 group-hover:scale-110 transition-transform duration-700" />
+                                                {medical.avatar_url ? (
+                                                    <img
+                                                        src={medical.avatar_url}
+                                                        alt={medical.full_name || medical.name || 'Facility'}
+                                                        className="absolute inset-0 h-full w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <Store className="w-20 h-20 text-emerald-600/40 group-hover:scale-110 transition-transform duration-700" />
+                                                )}
                                                 
                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent flex flex-col justify-end p-6">
                                                     <div className="flex items-center justify-between">
@@ -194,7 +272,13 @@ export default function MedicalsPage() {
                                                 <Button variant="outline" className="flex-1 h-12 rounded-2xl border-slate-200 font-bold text-slate-700 hover:bg-slate-50 gap-2 border-2">
                                                     <PhoneCall className="w-4 h-4" /> Call
                                                 </Button>
-                                                <Button className="flex-[2] h-12 rounded-2xl bg-emerald-600 border-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 group/btn shadow-xl shadow-emerald-900/20">
+                                                <Button
+                                                    className="flex-[2] h-12 rounded-2xl bg-emerald-600 border-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 group/btn shadow-xl shadow-emerald-900/20"
+                                                    onClick={() => {
+                                                        setSelectedFacility(medical);
+                                                        setDetailsOpen(true);
+                                                    }}
+                                                >
                                                     View Details
                                                     <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                                                 </Button>
@@ -215,6 +299,165 @@ export default function MedicalsPage() {
                     </div>
                 )}
             </div>
+
+            <AnimatePresence>
+                {detailsOpen && selectedFacility && (
+                    <>
+                        <motion.div
+                            className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm"
+                            onClick={() => {
+                                setDetailsOpen(false);
+                                setSelectedFacility(null);
+                                setLinkedDoctors([]);
+                            }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                        />
+
+                        <motion.div
+                            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 pointer-events-none"
+                            initial={{ opacity: 0, y: 16 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 16 }}
+                        >
+                            <div
+                                className="pointer-events-auto w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-slate-100 bg-slate-50">
+                                    <div className="flex items-center gap-4 min-w-0">
+                                        <div className="h-14 w-14 rounded-2xl bg-emerald-50 overflow-hidden flex-shrink-0 border border-emerald-100">
+                                            {selectedFacility.avatar_url ? (
+                                                <img
+                                                    src={selectedFacility.avatar_url}
+                                                    alt={selectedFacility.full_name || 'Facility'}
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            ) : (
+                                                <Store className="h-8 w-8 text-emerald-600 m-3" />
+                                            )}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h2 className="text-lg font-bold text-slate-800 line-clamp-1">
+                                                {selectedFacility.full_name || selectedFacility.name || 'Facility'}
+                                            </h2>
+                                            <p className="text-sm text-slate-500 capitalize">
+                                                {selectedFacility.profile_type || 'medical/clinic'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setDetailsOpen(false);
+                                            setSelectedFacility(null);
+                                            setLinkedDoctors([]);
+                                        }}
+                                        className="h-9 w-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors flex items-center justify-center"
+                                        aria-label="Close"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+
+                                <div className="px-6 py-5 space-y-5">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="bg-white rounded-2xl border border-slate-100 p-4">
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contact</p>
+                                            <p className="text-sm font-semibold text-slate-800 mt-1">
+                                                {selectedFacility.phone || selectedFacility.phone_number || '—'}
+                                            </p>
+                                            <p className="text-xs text-slate-500 mt-1">{selectedFacility.email || '—'}</p>
+                                            <p className="text-xs text-slate-500 mt-1">
+                                                {selectedFacility.address || selectedFacility.clinic_address || selectedFacility.city || ''}
+                                            </p>
+                                        </div>
+
+                                        <div className="bg-white rounded-2xl border border-slate-100 p-4">
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Linked Doctors</p>
+                                            <p className="text-sm font-semibold text-slate-800 mt-1">
+                                                {loadingDoctors ? 'Loading...' : `${linkedDoctors.length} linked`}
+                                            </p>
+                                            <p className="text-xs text-slate-500 mt-1">
+                                                Choose a doctor to book an appointment.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                            <Store className="h-4 w-4 text-emerald-600" />
+                                            Doctors you can book
+                                        </h3>
+
+                                        {loadingDoctors ? (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {['a', 'b', 'c', 'd'].map((sk) => (
+                                                    <div key={sk} className="bg-white rounded-2xl border border-slate-100 p-4">
+                                                        <div className="h-5 bg-slate-100 rounded w-2/3 mb-3 animate-pulse" />
+                                                        <div className="h-3 bg-slate-100 rounded w-1/2 mb-3 animate-pulse" />
+                                                        <div className="h-8 bg-slate-100 rounded w-full animate-pulse" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : linkedDoctors.length === 0 ? (
+                                            <div className="py-10 text-center text-slate-500 bg-slate-50 rounded-2xl border border-slate-100">
+                                                No linked doctors found for this facility.
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {linkedDoctors.map((doc) => (
+                                                    <div
+                                                        key={doc.id}
+                                                        className="bg-white rounded-2xl border border-slate-100 p-4 flex items-start justify-between gap-4"
+                                                    >
+                                                        <div className="flex items-start gap-3 min-w-0">
+                                                            <div className="h-11 w-11 rounded-2xl overflow-hidden border border-teal-50 bg-teal-50 flex items-center justify-center flex-shrink-0">
+                                                                {doc.avatar_url ? (
+                                                                    <img src={doc.avatar_url} alt={doc.full_name} className="h-full w-full object-cover" />
+                                                                ) : (
+                                                                    <span className="text-sm font-bold text-teal-700">
+                                                                        {(doc.full_name || 'D').split(' ')[0]?.[0]}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="font-bold text-slate-800 line-clamp-1">
+                                                                    {doc.full_name || 'Doctor'}
+                                                                </p>
+                                                                <p className="text-xs text-teal-700 mt-0.5 line-clamp-1">
+                                                                    {doc.specialization || 'Specialization'}
+                                                                </p>
+                                                                <p className="text-xs text-slate-500 mt-1">
+                                                                    Fee: ₹{doc.fees || doc.consultation_fee || 500}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex-shrink-0">
+                                                            <Button
+                                                                onClick={() => {
+                                                                    navigate(`/appointment-options?doctorId=${doc.id}&clinicId=${selectedFacility.id || selectedFacility.profile_id}`);
+                                                                    setDetailsOpen(false);
+                                                                }}
+                                                                className="h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold"
+                                                            >
+                                                                Book Appointment
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

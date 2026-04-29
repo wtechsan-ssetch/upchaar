@@ -170,15 +170,143 @@ export async function fetchAppointments() {
 // ── Facilities ───────────────────────────────────────────────────────────────
 
 export async function fetchFacilities() {
-    const { data, error } = await supabase
-        .from('facilities')
-        .select('*')
-        .order('added_at', { ascending: false });
-    if (error) throw new Error(error.message);
-    return data || [];
+    // Admin "Facilities Management" should reflect real provider records.
+    // We unify multiple tables into the shape expected by `FacilitiesManagement.jsx`.
+
+    const normalizeServices = (value) => {
+        if (!value) return [];
+        if (Array.isArray(value)) return value.filter(Boolean);
+        if (typeof value === 'string') return value.split(',').map(s => s.trim()).filter(Boolean);
+        return [];
+    };
+
+    const mapRow = (row, type) => {
+        const rawName = row?.name || row?.full_name || row?.fullName || '';
+        const rawLocation = row?.location || row?.address || row?.full_address || '';
+        const rawCity = row?.city || row?.town || row?.state_city || '';
+        const rawServices = row?.facilities || row?.services || row?.facility_list || row?.specialties || row?.tests || [];
+
+        return {
+            id: row?.id,
+            type,
+            name: rawName,
+            location: rawLocation,
+            city: rawCity,
+            facilities: normalizeServices(rawServices),
+            status: row?.status || 'Active',
+            added_at: row?.added_at || row?.created_at || row?.applied_at || row?.updated_at || new Date().toISOString(),
+            avatar_url: row?.avatar_url || row?.logo || null,
+            profile_id: row?.profile_id || row?.profileId || null,
+        };
+    };
+
+    const safeSelectAll = async (table) => {
+        try {
+            const { data, error } = await supabase.from(table).select('*');
+            if (error) return [];
+            return data || [];
+        } catch {
+            return [];
+        }
+    };
+
+    // Fetch from provider tables
+    const [medicalsRows, clinicsRows] = await Promise.all([
+        safeSelectAll('medicals'),
+        safeSelectAll('clinics'),
+    ]);
+
+    // Hospitals: best-effort. Prefer `hospitals` table, else fall back to `profiles` rows.
+    let hospitalsRows = await safeSelectAll('hospitals');
+    if (hospitalsRows.length === 0) {
+        const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('profile_type', 'hospital');
+        hospitalsRows = data || [];
+    }
+
+    // Diagnostics centres: best-effort. Prefer a dedicated table, else fall back to profiles.
+    let diagnosticsRows = await safeSelectAll('diagnostic_centers');
+    if (diagnosticsRows.length === 0) diagnosticsRows = await safeSelectAll('diagnostic_centres');
+    if (diagnosticsRows.length === 0) {
+        const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('profile_type', 'diagnostic');
+        diagnosticsRows = data || [];
+    }
+
+    const unified = [
+        ...(medicalsRows || []).map(r => mapRow(r, 'medical')),
+        ...(clinicsRows || []).map(r => mapRow(r, 'clinic')),
+        ...(hospitalsRows || []).map(r => mapRow(r, 'hospital')),
+        ...(diagnosticsRows || []).map(r => mapRow(r, 'diagnostic')),
+    ];
+
+    // Sort newest first if added_at is present
+    unified.sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime());
+    return unified;
 }
 
 export async function addFacility(facility) {
+    // Best-effort: insert into the real provider table first.
+    // If that fails (e.g., missing required fields), fall back to the legacy `facilities` table.
+    const tableByType = {
+        hospital: 'hospitals',
+        diagnostic: 'diagnostic_centers',
+        clinic: 'clinics',
+        medical: 'medicals',
+    };
+
+    const targetTable = tableByType[facility?.type];
+
+    const payloadByType = {
+        // Clinics/Medical stores are referenced by `address` in booking flows.
+        clinic: {
+            name: facility?.name,
+            address: facility?.location,
+            city: facility?.city,
+            facilities: facility?.facilities,
+            status: facility?.status || 'Active',
+        },
+        medical: {
+            name: facility?.name,
+            address: facility?.location,
+            city: facility?.city,
+            facilities: facility?.facilities,
+            status: facility?.status || 'Active',
+        },
+        hospital: {
+            name: facility?.name,
+            address: facility?.location,
+            city: facility?.city,
+            facilities: facility?.facilities,
+            status: facility?.status || 'Active',
+        },
+        diagnostic: {
+            name: facility?.name,
+            location: facility?.location,
+            city: facility?.city,
+            facilities: facility?.facilities,
+            status: facility?.status || 'Active',
+        },
+    };
+
+    if (targetTable) {
+        try {
+            const payload = payloadByType[facility.type];
+            const { data, error } = await supabase
+                .from(targetTable)
+                .insert([payload])
+                .select()
+                .single();
+            if (!error) return data;
+        } catch {
+            // fallthrough to legacy table
+        }
+    }
+
     const { data, error } = await supabase
         .from('facilities')
         .insert([facility])
@@ -199,8 +327,40 @@ export async function updateFacility(id, updates) {
     return data;
 }
 
-export async function deleteFacility(id) {
-    const { error } = await supabase.from('facilities').delete().eq('id', id);
+export async function deleteFacility({ id, type, profile_id } = {}) {
+    if (!id || !type) throw new Error('Missing id/type for facility deletion.');
+
+    // Delete from the underlying provider table
+    const tableByType = {
+        hospital: 'hospitals',
+        diagnostic: 'diagnostic_centers',
+        clinic: 'clinics',
+        medical: 'medicals',
+    };
+
+    const tryDelete = async (table) => {
+        try {
+            const { error } = await supabase.from(table).delete().eq('id', id);
+            if (!error) return true;
+            return false;
+        } catch {
+            return false;
+        }
+    };
+
+    // Prefer dedicated tables if present; fall back to profiles for hospital/diagnostic rows.
+    if (type === 'diagnostic') {
+        if (await tryDelete('diagnostic_centers')) return;
+        if (await tryDelete('diagnostic_centres')) return;
+    }
+
+    const table = tableByType[type];
+    if (table) {
+        if (await tryDelete(table)) return;
+    }
+
+    // Profiles fallback (if the list came from `profiles` instead of a dedicated table)
+    const { error } = await supabase.from('profiles').delete().eq('id', profile_id || id);
     if (error) throw new Error(error.message);
 }
 

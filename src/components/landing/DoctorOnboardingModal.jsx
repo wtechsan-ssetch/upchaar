@@ -517,10 +517,14 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
         if (!file) return null;
         const ext = file.name.split('.').pop();
         const path = `${folder}/${fieldName}.${ext}`;
+        
+        // Use doctor-documents for PDFs (private) and doctor-avatars for images (public)
+        const bucket = file.type === 'application/pdf' ? 'doctor-documents' : 'doctor-avatars';
+
         const { error } = await supabase.storage
-            .from('doctor-docs')
+            .from(bucket)
             .upload(path, file, { upsert: true, contentType: file.type });
-        if (error) throw new Error(`Failed to upload ${fieldName}: ${error.message}`);
+        if (error) throw new Error(`Failed to upload ${fieldName} to ${bucket}: ${error.message}`);
         return path;
     };
 

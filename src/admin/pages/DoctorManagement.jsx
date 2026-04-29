@@ -634,7 +634,7 @@ function AvatarImage({ path, supabase, className }) {
             return;
         }
 
-        supabase.storage.from('doctor-docs').createSignedUrl(path, 3600)
+        supabase.storage.from('doctor-avatars').createSignedUrl(path, 3600)
             .then(({ data, error }) => {
                 if (error || !data?.signedUrl) {
                     setError(true);
@@ -683,7 +683,7 @@ function DocumentViewer({ documents = {}, supabase }) {
                     const path = documents?.[key];
                     if (!path) return { key, label, url: null };
                     const { data } = await supabase.storage
-                        .from('doctor-docs')
+                        .from('doctor-documents')
                         .createSignedUrl(path, 3600);
                     return { key, label, url: data?.signedUrl || null };
                 })

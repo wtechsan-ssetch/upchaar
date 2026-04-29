@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, CheckCircle, XCircle, Search, Loader2 } from 'lucide-react';
+import { Clock, CheckCircle, Search, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase.js';
 import { useDoctor } from '../context/DoctorContext.jsx';
@@ -20,7 +20,6 @@ export default function DoctorAppointments() {
     const [search, setSearch] = useState('');
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [updatingId, setUpdatingId] = useState(null);
 
     useEffect(() => {
         if (!doctorRecord?.id) {
@@ -51,26 +50,6 @@ export default function DoctorAppointments() {
 
         fetchAppointments();
     }, [doctorRecord?.id]);
-
-    const updateAppointmentStatus = async (appointmentId, nextStatus) => {
-        setUpdatingId(appointmentId);
-        try {
-            const { error } = await supabase
-                .from('appointments')
-                .update({ status: nextStatus })
-                .eq('id', appointmentId);
-
-            if (error) throw error;
-
-            setAppointments(prev => prev.map(apt => (
-                apt.id === appointmentId ? { ...apt, status: nextStatus } : apt
-            )));
-        } catch (error) {
-            console.error(`Failed to update appointment status to ${nextStatus}:`, error.message);
-        } finally {
-            setUpdatingId(null);
-        }
-    };
 
     const filtered = useMemo(() => appointments.filter(a => {
         const patientName = a.patient_name || a.patientName || a.patient || '';
@@ -127,7 +106,7 @@ export default function DoctorAppointments() {
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-slate-100 bg-slate-50">
-                            {['Patient', 'Age', 'Issue', 'Date & Time', 'Status', 'Actions'].map(h => (
+                            {['Patient', 'Age', 'Issue', 'Date & Time', 'Status'].map(h => (
                                 <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                             ))}
                         </tr>
@@ -135,7 +114,7 @@ export default function DoctorAppointments() {
                     <tbody className="divide-y divide-slate-50">
                         {loading ? (
                             <tr>
-                                <td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">
+                                <td colSpan={5} className="px-4 py-12 text-center text-slate-400 text-sm">
                                     <span className="inline-flex items-center gap-2">
                                         <Loader2 size={16} className="animate-spin" />
                                         Loading appointments...
@@ -144,7 +123,7 @@ export default function DoctorAppointments() {
                             </tr>
                         ) : filtered.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">
+                                <td colSpan={5} className="px-4 py-12 text-center text-slate-400 text-sm">
                                     No appointments found
                                 </td>
                             </tr>
@@ -169,35 +148,13 @@ export default function DoctorAppointments() {
                                     <p className="text-slate-400 text-xs flex items-center gap-1"><Clock size={10} /> {apt.time_slot || '-'}</p>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <span className={cn('px-2.5 py-1 rounded-full text-xs font-semibold border', STATUS_STYLE[apt.status] || STATUS_STYLE.Scheduled)}>{apt.status}</span>
-                                </td>
-                                <td className="px-4 py-3">
                                     {apt.status === 'Completed' ? (
                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-blue-50 text-blue-600 border-blue-200">
                                             <CheckCircle size={12} />
                                             Completed
                                         </span>
                                     ) : (
-                                        <div className="flex gap-1.5">
-                                            <button
-                                                type="button"
-                                                disabled={updatingId === apt.id || apt.status === 'Confirmed'}
-                                                onClick={() => updateAppointmentStatus(apt.id, 'Confirmed')}
-                                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                                title="Confirm appointment"
-                                            >
-                                                {updatingId === apt.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                disabled={updatingId === apt.id || apt.status === 'Cancelled'}
-                                                onClick={() => updateAppointmentStatus(apt.id, 'Cancelled')}
-                                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-red-50 text-red-500 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                                title="Cancel appointment"
-                                            >
-                                                {updatingId === apt.id ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
-                                            </button>
-                                        </div>
+                                        <span className={cn('px-2.5 py-1 rounded-full text-xs font-semibold border', STATUS_STYLE[apt.status] || STATUS_STYLE.Scheduled)}>{apt.status}</span>
                                     )}
                                 </td>
                             </motion.tr>

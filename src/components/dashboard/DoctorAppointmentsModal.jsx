@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase.js';
 import { 
   X, CalendarDays, Clock, Users,
   ChevronRight, Phone, Stethoscope, CheckCircle,
-  Clock3, XCircle, FileText, Bell
+  Clock3, XCircle, FileText
 } from 'lucide-react';
 import { format, addDays, startOfToday } from 'date-fns';
 import Skeleton from 'react-loading-skeleton';
@@ -27,6 +27,17 @@ const STATUS_ICONS = {
 };
 
 const normalizeStatus = (status) => String(status || '').trim().toLowerCase();
+
+const getCanonicalStatus = (status) => {
+  const normalized = normalizeStatus(status);
+  if (normalized === 'confirmed') return 'Confirmed';
+  if (normalized === 'pending') return 'Pending';
+  if (normalized === 'completed') return 'Completed';
+  if (normalized === 'cancelled' || normalized === 'canceled') return 'Cancelled';
+  if (normalized === 'in-progress' || normalized === 'in progress') return 'In-Progress';
+  if (normalized === 'scheduled') return 'Scheduled';
+  return status;
+};
 
 export default function DoctorAppointmentsModal({ 
   isOpen, 
@@ -160,73 +171,6 @@ export default function DoctorAppointmentsModal({
   useEffect(() => {
     fetchAppointments();
   }, [fetchAppointments]);
-
-  // Handle status updates (Confirm/Complete or Cancel)
-  const handleStatusUpdate = async (appointmentId, newStatus) => {
-    if (newStatus === 'Completed') {
-      const confirmed = window.confirm("Have you completed consultation?");
-      if (!confirmed) return;
-    } else if (newStatus === 'Cancelled') {
-      const confirmed = window.confirm("Are you sure you want to cancel this appointment?");
-      if (!confirmed) return;
-    }
-
-    try {
-      const updateData = {
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      };
-      
-      if (newStatus === 'Completed') {
-        updateData.ended_at = new Date().toISOString();
-      }
-
-      const fallbackDataWithoutEndedAt = (() => {
-        const { ended_at: _unusedEndedAt, ...rest } = updateData;
-        return rest;
-      })();
-      const fallbackDataStatusOnly = { status: newStatus };
-
-      const updateAttempts = [updateData, fallbackDataWithoutEndedAt, fallbackDataStatusOnly];
-      let lastError = null;
-      let updateSucceeded = false;
-
-      for (const payload of updateAttempts) {
-        const { error } = await supabase
-          .from('appointments')
-          .update(payload)
-          .eq('id', appointmentId);
-
-        if (!error) {
-          updateSucceeded = true;
-          break;
-        }
-
-        lastError = error;
-      }
-
-      if (!updateSucceeded) {
-        throw lastError || new Error('Unable to update appointment status.');
-      }
-
-      const { data: verifyRow, error: verifyError } = await supabase
-        .from('appointments')
-        .select('id, status')
-        .eq('id', appointmentId)
-        .maybeSingle();
-
-      if (verifyError) throw verifyError;
-      if (!verifyRow || normalizeStatus(verifyRow.status) !== normalizeStatus(newStatus)) {
-        throw new Error('Status update was not applied by backend. Please check permissions.');
-      }
-
-      // Re-sync from backend so queue/order and status are always authoritative.
-      await fetchAppointments();
-    } catch (err) {
-      console.error("Error updating appointment status:", err.message);
-      alert(`Failed to update status. ${err.message || 'Please try again.'}`);
-    }
-  };
 
   // Handle closing modal and resetting state
   const handleClose = () => {
@@ -434,7 +378,7 @@ export default function DoctorAppointmentsModal({
                     ) : (
                       appointments.map((apt, index) => {
                         const isExpanded = expandedAptId === apt.id;
-                        const isConfirmed = normalizeStatus(apt.status) === 'confirmed';
+                        const canonicalStatus = getCanonicalStatus(apt.status);
                         return (
                         <div 
                           key={apt.id} 
@@ -475,36 +419,15 @@ export default function DoctorAppointmentsModal({
                             </div>
                             
                             <div className="flex items-center sm:flex-row sm:items-center justify-between gap-3 mt-2 sm:mt-0">
-                              {isConfirmed ? (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleStatusUpdate(apt.id, 'Completed');
-                                    }}
-                                    className="px-4 py-1.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-200"
-                                  >
-                                    Complete
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleStatusUpdate(apt.id, 'Cancelled');
-                                    }}
-                                    className="px-4 py-1.5 rounded-xl bg-white border border-red-200 text-red-500 text-xs font-bold hover:bg-red-50 transition-colors"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              ) : (
-                                <span className={`
+                              <span
+                                className={`
                                   inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border
-                                  ${STATUS_COLORS[apt.status] || STATUS_COLORS.Scheduled}
-                                `}>
-                                  {STATUS_ICONS[apt.status] || STATUS_ICONS.Scheduled}
-                                  {apt.status}
-                                </span>
-                              )}
+                                  ${STATUS_COLORS[canonicalStatus] || STATUS_COLORS.Scheduled}
+                                `}
+                              >
+                                {STATUS_ICONS[canonicalStatus] || STATUS_ICONS.Scheduled}
+                                {canonicalStatus}
+                              </span>
                               
                               <p className="text-[11px] font-medium text-slate-400 hidden sm:block">
                                 via {apt.type || 'App'}
@@ -520,27 +443,9 @@ export default function DoctorAppointmentsModal({
                                 exit={{ height: 0, opacity: 0 }}
                                 className="px-4 pb-4 pt-2 border-t border-slate-50 bg-slate-50/30"
                               >
-                                <div className="flex flex-wrap gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      alert("Prescription editor coming soon!");
-                                    }}
-                                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"
-                                  >
-                                    <FileText size={14} className="text-teal-500" />
-                                    Write Prescription
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      alert("Notification sent to patient!");
-                                    }}
-                                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"
-                                  >
-                                    <Bell size={14} className="text-amber-500" />
-                                    Notify Next
-                                  </button>
+                                <div className="flex items-center gap-2 text-xs text-slate-500 py-1">
+                                  <FileText size={14} className="text-slate-400" />
+                                  Prescription writing and patient notifications are disabled in this modal view.
                                 </div>
                               </motion.div>
                             )}

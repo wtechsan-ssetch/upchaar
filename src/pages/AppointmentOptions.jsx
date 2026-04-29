@@ -52,9 +52,13 @@ export default function AppointmentOptions() {
     const { user, loading } = useAuth();
 
     const doctorId = searchParams.get('doctorId');
+    const clinicId = searchParams.get('clinicId');
 
     const handleQueueBased = () => {
-        const route = doctorId ? `/book-appointment-queued?doctorId=${doctorId}` : '/book-appointment-queued';
+        const base = doctorId
+            ? `/book-appointment-queued?doctorId=${doctorId}`
+            : '/book-appointment-queued';
+        const route = clinicId ? `${base}${base.includes('?') ? '&' : '?'}clinicId=${clinicId}` : base;
         if (!loading && !user) {
             navigate('/login', { state: { from: route } });
         } else {
@@ -63,7 +67,8 @@ export default function AppointmentOptions() {
     };
 
     const handleNonQueueBased = () => {
-        const route = doctorId ? `/book-appointment?doctorId=${doctorId}` : '/book-appointment';
+        const base = doctorId ? `/book-appointment?doctorId=${doctorId}` : '/book-appointment';
+        const route = clinicId ? `${base}${base.includes('?') ? '&' : '?'}clinicId=${clinicId}` : base;
         navigate(route);
     };
 

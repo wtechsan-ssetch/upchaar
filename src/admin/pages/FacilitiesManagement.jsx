@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { fetchFacilities, addFacility, deleteFacility } from '@/lib/adminApi.js';
-import { Search, Plus, Trash2, Building2, Stethoscope, Pill, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Plus, Trash2, Building2, Stethoscope, Pill, X, ChevronLeft, ChevronRight, TestTubes } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,6 +10,7 @@ const TABS = [
     { key: 'hospital', label: 'Hospitals', icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50', badge: 'bg-blue-100 text-blue-700' },
     { key: 'clinic', label: 'Clinics', icon: Stethoscope, color: 'text-teal-600', bg: 'bg-teal-50', badge: 'bg-teal-100 text-teal-700' },
     { key: 'medical', label: 'Medical Stores', icon: Pill, color: 'text-violet-600', bg: 'bg-violet-50', badge: 'bg-violet-100 text-violet-700' },
+    { key: 'diagnostic', label: 'Diagnostics Centres', icon: TestTubes, color: 'text-emerald-600', bg: 'bg-emerald-50', badge: 'bg-emerald-100 text-emerald-700' },
 ];
 const PAGE_SIZE = 8;
 
@@ -61,7 +62,7 @@ export default function FacilitiesManagement() {
 
     const handleDelete = async () => {
         try {
-            await deleteFacility(deleteTarget.id);
+            await deleteFacility(deleteTarget);
             setFacilities(prev => prev.filter(f => f.id !== deleteTarget.id));
             showToast(`${deleteTarget.name} removed`, 'error');
         } catch (err) {

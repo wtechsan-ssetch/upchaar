@@ -23,6 +23,7 @@ export default function BookAppointment() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { user } = useAuth();
+    const clinicIdParam = searchParams.get('clinicId');
     
     // ── Search & Filter State ────────────────────────
     const [selectedState, setSelectedState] = useState('');
@@ -173,7 +174,12 @@ export default function BookAppointment() {
             });
             const list = (await Promise.all(orgPromises)).filter(Boolean);
             setClinics(list);
-            if (list.length > 0) setSelectedClinic(list[0]);
+            if (list.length > 0) {
+                const desiredClinic = clinicIdParam
+                    ? list.find(c => String(c.id) === String(clinicIdParam))
+                    : null;
+                setSelectedClinic(desiredClinic || list[0]);
+            }
         } else {
             setClinics([]);
         }
