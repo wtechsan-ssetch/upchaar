@@ -129,11 +129,6 @@ export default function DoctorDashboard() {
     };
 
     const handleEnd = async (appointmentId) => {
-        if (!canEndConsultation()) {
-            window.alert(`You can end the consultation at ${hoursTo}.`);
-            return;
-        }
-
         setUpdatingId(appointmentId);
         try {
             const updateData = { status: 'Completed', ended_at: new Date().toISOString() };
@@ -160,6 +155,30 @@ export default function DoctorDashboard() {
         } catch (error) {
             console.error('Failed to end consultation:', error.message);
             window.alert('Failed to end consultation. Please try again.');
+        } finally {
+            setUpdatingId(null);
+        }
+    };
+
+    const handleCancel = async (appointmentId) => {
+        if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+
+        setUpdatingId(appointmentId);
+        try {
+            const { error } = await supabase
+                .from('appointments')
+                .update({ status: 'Cancelled' })
+                .eq('id', appointmentId);
+
+            if (error) throw error;
+
+            setAppointments(prev => prev.map(apt => (
+                apt.id === appointmentId ? { ...apt, status: 'Cancelled' } : apt
+            )));
+            window.alert('Appointment cancelled successfully!');
+        } catch (error) {
+            console.error('Failed to cancel appointment:', error.message);
+            window.alert('Failed to cancel appointment. Please try again.');
         } finally {
             setUpdatingId(null);
         }
@@ -371,9 +390,75 @@ export default function DoctorDashboard() {
                 )}
             </div>
 
-            <Skeleton name="appointments" loading={loading}>
-                <div className="text-sm text-slate-400">Appointments ready.</div>
-            </Skeleton>
+            {/* Today's Appointments Section */}
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-5">
+                    <div>
+                        <h2 className="font-bold text-slate-800 text-lg">Today&apos;s Appointments</h2>
+                        <p className="text-sm text-slate-500 mt-1">Directly manage today&apos;s patient queue.</p>
+                    </div>
+                </div>
+
+                {loading ? (
+                    <div className="space-y-3">
+                        <Skeleton height={80} borderRadius={24} />
+                        <Skeleton height={80} borderRadius={24} />
+                    </div>
+                ) : todayAppointments.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+                        <CalendarDays size={28} className="mx-auto text-slate-300 mb-3" />
+                        <p className="text-sm font-medium text-slate-500">No appointments for today.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {todayAppointments.map((apt) => (
+                            <div key={apt.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50/50 gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-10 w-10 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
+                                        {apt.queue_number || '#'}
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-slate-800">{apt.patient_name || apt.patient || 'Patient'}</p>
+                                        <p className="text-xs text-slate-500">{apt.time_slot} · {apt.status}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {apt.status === 'Scheduled' || apt.status === 'Confirmed' || apt.status === 'Pending' ? (
+                                        <>
+                                            <button
+                                                onClick={() => handleStart(apt.id)}
+                                                disabled={updatingId === apt.id}
+                                                className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition-colors disabled:opacity-50"
+                                            >
+                                                {updatingId === apt.id ? 'Starting...' : 'Start'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleCancel(apt.id)}
+                                                disabled={updatingId === apt.id}
+                                                className="px-4 py-2 rounded-xl bg-white border border-red-200 text-red-600 text-xs font-bold hover:bg-red-50 transition-colors disabled:opacity-50"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </>
+                                    ) : apt.status === 'In-Progress' ? (
+                                        <button
+                                            onClick={() => handleEnd(apt.id)}
+                                            disabled={updatingId === apt.id}
+                                            className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                        >
+                                            {updatingId === apt.id ? 'Completing...' : 'Complete'}
+                                        </button>
+                                    ) : (
+                                        <span className="text-xs font-medium text-slate-400 px-3 py-1 bg-slate-100 rounded-full">
+                                            {apt.status}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Integrated Appointment Management Modal */}
             <DoctorAppointmentsModal

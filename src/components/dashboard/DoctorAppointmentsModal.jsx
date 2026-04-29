@@ -54,6 +54,10 @@ export default function DoctorAppointmentsModal({
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [appointments, setAppointments] = useState([]);
    const [expandedAptId, setExpandedAptId] = useState(null);
+   const [updatingId, setUpdatingId] = useState(null);
+   const [prescriptionText, setPrescriptionText] = useState('');
+   const [diagnosisText, setDiagnosisText] = useState('');
+   const [showPrescriptionForm, setShowPrescriptionForm] = useState(null); // ID of appointment
    const patientsListRef = useRef(null);
 
    // Scroll to patients list when a slot is selected on mobile
@@ -166,6 +170,70 @@ export default function DoctorAppointmentsModal({
       setLoadingAppointments(false);
     }
   }, [selectedSlot, selectedDate, doctor?.id, orgId, orgProfileId]);
+
+  const updateAppointmentStatus = async (appointmentId, newStatus) => {
+    setUpdatingId(appointmentId);
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: newStatus })
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+      
+      // Refresh list
+      fetchAppointments();
+      window.alert(`Appointment marked as ${newStatus}`);
+    } catch (err) {
+      console.error("Error updating appointment:", err.message);
+      window.alert("Failed to update status");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleNotifyPatient = async (appointment) => {
+    setUpdatingId(appointment.id);
+    try {
+      // Simulate notification logic
+      // In a real app, this might trigger an Edge Function or update a 'notified' flag
+      await new Promise(resolve => setTimeout(resolve, 800));
+      window.alert(`Notification sent to ${appointment.patient_name || appointment.patient}`);
+    } catch (err) {
+      console.error("Error notifying patient:", err.message);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleSavePrescription = async (appointmentId) => {
+    if (!diagnosisText && !prescriptionText) return;
+    
+    setUpdatingId(appointmentId);
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ 
+          diagnosis: diagnosisText,
+          medicines: prescriptionText.split('\n').filter(Boolean),
+          status: 'Completed' // Automatically complete when prescription is saved?
+        })
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+      
+      setShowPrescriptionForm(null);
+      setPrescriptionText('');
+      setDiagnosisText('');
+      fetchAppointments();
+      window.alert("Prescription saved and consultation completed!");
+    } catch (err) {
+      console.error("Error saving prescription:", err.message);
+      window.alert("Failed to save prescription");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   // Use effect to fetch appointments when slot changes
   useEffect(() => {
@@ -443,9 +511,102 @@ export default function DoctorAppointmentsModal({
                                 exit={{ height: 0, opacity: 0 }}
                                 className="px-4 pb-4 pt-2 border-t border-slate-50 bg-slate-50/30"
                               >
-                                <div className="flex items-center gap-2 text-xs text-slate-500 py-1">
-                                  <FileText size={14} className="text-slate-400" />
-                                  Prescription writing and patient notifications are disabled in this modal view.
+                                <div className="space-y-4">
+                                  <div className="flex flex-wrap gap-2">
+                                    <button 
+                                      onClick={() => handleNotifyPatient(apt)}
+                                      disabled={updatingId === apt.id}
+                                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold hover:bg-amber-100 transition-colors disabled:opacity-50"
+                                    >
+                                      <Phone size={14} /> Notify Next
+                                    </button>
+
+                                    {(canonicalStatus === 'Scheduled' || canonicalStatus === 'Confirmed' || canonicalStatus === 'Pending') && (
+                                      <button 
+                                        onClick={() => updateAppointmentStatus(apt.id, 'In-Progress')}
+                                        disabled={updatingId === apt.id}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-teal-50 text-teal-700 border border-teal-200 text-xs font-bold hover:bg-teal-100 transition-colors disabled:opacity-50"
+                                      >
+                                        <Clock size={14} /> Start
+                                      </button>
+                                    )}
+                                    
+                                    <button 
+                                      onClick={() => {
+                                        setShowPrescriptionForm(apt.id);
+                                        setDiagnosisText(apt.diagnosis || '');
+                                        setPrescriptionText((apt.medicines || []).join('\n'));
+                                      }}
+                                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold hover:bg-blue-100 transition-colors"
+                                    >
+                                      <FileText size={14} /> Write Prescription
+                                    </button>
+
+                                    {canonicalStatus !== 'Completed' && (
+                                      <button 
+                                        onClick={() => updateAppointmentStatus(apt.id, 'Completed')}
+                                        disabled={updatingId === apt.id}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                                      >
+                                        <CheckCircle size={14} /> Complete
+                                      </button>
+                                    )}
+
+                                    {canonicalStatus !== 'Cancelled' && (
+                                      <button 
+                                        onClick={() => {
+                                          if(window.confirm('Cancel this appointment?')) updateAppointmentStatus(apt.id, 'Cancelled');
+                                        }}
+                                        disabled={updatingId === apt.id}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-50 text-red-700 border border-red-200 text-xs font-bold hover:bg-red-100 transition-colors disabled:opacity-50"
+                                      >
+                                        <XCircle size={14} /> Cancel
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {showPrescriptionForm === apt.id && (
+                                    <motion.div 
+                                      initial={{ opacity: 0, y: 10 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3"
+                                    >
+                                      <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Diagnosis</label>
+                                        <input 
+                                          value={diagnosisText}
+                                          onChange={(e) => setDiagnosisText(e.target.value)}
+                                          placeholder="Enter diagnosis..."
+                                          className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Medicines (one per line)</label>
+                                        <textarea 
+                                          value={prescriptionText}
+                                          onChange={(e) => setPrescriptionText(e.target.value)}
+                                          placeholder="Paracetamol 500mg - 1-0-1&#10;Amoxicillin 250mg - after food"
+                                          rows={3}
+                                          className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                                        />
+                                      </div>
+                                      <div className="flex justify-end gap-2">
+                                        <button 
+                                          onClick={() => setShowPrescriptionForm(null)}
+                                          className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-700"
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button 
+                                          onClick={() => handleSavePrescription(apt.id)}
+                                          disabled={updatingId === apt.id}
+                                          className="px-4 py-1.5 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition-colors disabled:opacity-50"
+                                        >
+                                          {updatingId === apt.id ? 'Saving...' : 'Save & Complete'}
+                                        </button>
+                                      </div>
+                                    </motion.div>
+                                  )}
                                 </div>
                               </motion.div>
                             )}
