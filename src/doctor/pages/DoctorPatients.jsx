@@ -76,6 +76,7 @@ export default function DoctorPatients() {
                     if (!existing) {
                         patientMap.set(mapKey, {
                             id: stableId || mapKey,
+                            patientId: stableId || null,
                             name: patientName,
                             phone: patientPhone,
                             age: patientAge,
@@ -100,7 +101,25 @@ export default function DoctorPatients() {
                 }
 
                 const next = [...patientMap.values()].sort((a, b) => (b.lastVisitMs || 0) - (a.lastVisitMs || 0));
-                setPatients(next);
+                const patientIds = next.map(p => p.patientId).filter(Boolean);
+                let avatarMap = new Map();
+
+                if (patientIds.length > 0) {
+                    const { data: profilesData, error: profilesError } = await supabase
+                        .from('profiles')
+                        .select('id, avatar_url')
+                        .in('id', patientIds);
+
+                    if (profilesError) throw profilesError;
+                    avatarMap = new Map((profilesData || []).map(p => [p.id, p]));
+                }
+
+                const nextWithAvatars = next.map(p => ({
+                    ...p,
+                    avatar_url: p.patientId ? (avatarMap.get(p.patientId)?.avatar_url || null) : null,
+                }));
+
+                setPatients(nextWithAvatars);
             } catch (error) {
                 console.error('Failed to load doctor patients:', error.message);
                 setPatients([]);
@@ -160,8 +179,12 @@ export default function DoctorPatients() {
                         className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 hover:shadow-md transition-shadow"
                     >
                         <div className="flex items-start gap-4">
-                            <div className="h-11 w-11 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 text-sm flex-shrink-0">
-                                {getInitials(p.name)}
+                            <div className="h-11 w-11 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 text-sm flex-shrink-0 overflow-hidden">
+                                {p.avatar_url ? (
+                                    <img src={p.avatar_url} alt={p.name} className="h-full w-full object-cover" />
+                                ) : (
+                                    getInitials(p.name)
+                                )}
                             </div>
                             <div className="flex-1">
                                 <div className="flex items-center justify-between">
