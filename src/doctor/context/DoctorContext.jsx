@@ -7,10 +7,10 @@ export async function uploadDoctorAvatar(file, doctorId) {
     const ext = file.name.split('.').pop();
     const path = `doctors/${doctorId}/avatar_${Date.now()}.${ext}`;
     const { error: uploadError } = await supabase.storage
-        .from('doctor-avatars')
+        .from('doctor-avtar')
         .upload(path, file, { upsert: true, contentType: file.type });
     if (uploadError) throw new Error('Upload failed: ' + uploadError.message);
-    const { data } = supabase.storage.from('doctor-avatars').getPublicUrl(path);
+    const { data } = supabase.storage.from('doctor-avtar').getPublicUrl(path);
     return data.publicUrl;
 }
 
