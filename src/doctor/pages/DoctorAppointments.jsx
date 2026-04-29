@@ -106,7 +106,7 @@ export default function DoctorAppointments() {
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-slate-100 bg-slate-50">
-                            {['Patient', 'Age', 'Issue', 'Date & Time', 'Status'].map(h => (
+                            {['Patient', 'Age', 'Issue', 'Fee', 'Date & Time', 'Status'].map(h => (
                                 <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                             ))}
                         </tr>
@@ -143,6 +143,7 @@ export default function DoctorAppointments() {
                                 </td>
                                 <td className="px-4 py-3 text-slate-600">{apt.patient_age ? `${apt.patient_age} yrs` : '-'}</td>
                                 <td className="px-4 py-3 text-slate-600 max-w-[180px] truncate text-xs">{apt.issue || apt.specialization || 'Consultation'}</td>
+                                <td className="px-4 py-3 text-emerald-600 font-bold">₹{apt.fee || 0}</td>
                                 <td className="px-4 py-3">
                                     <p className="text-slate-700 font-medium text-xs">{formatDate(apt.date)}</p>
                                     <p className="text-slate-400 text-xs flex items-center gap-1"><Clock size={10} /> {apt.time_slot || '-'}</p>
