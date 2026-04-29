@@ -62,8 +62,7 @@ const initialData = {
     degree: '', passingYear: '', institution: '', additionalQualifications: '',
     // Step 3
     experience: '', languages: [],
-    state: '', city: '', manualCity: '', 
-    // Step 4
+    state: '', city: '', manualCity: '', consultationFee: '',    // Step 4
     govtId: null, licenseDoc: null, degreeCert: null,
     acceptTerms: false, declaration: false,
 };
@@ -116,6 +115,7 @@ function validate(step, data) {
         if (!data.state) errors.state = 'State is required';
         if (!data.city) errors.city = 'City is required';
         if (data.city === 'Other' && !data.manualCity.trim()) errors.manualCity = 'Please enter your city';
+        if (!data.consultationFee || data.consultationFee < 0) errors.consultationFee = 'Valid consultation fee is required';
     }
     if (step === 4) {
         // Enforce PDF and < 100KB for documents
@@ -334,11 +334,17 @@ function Step3({ data, onChange, errors }) {
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-1">
                     <FormLabel required>Years of Experience</FormLabel>
                     <Input id="experience" type="number" placeholder="5" min="0" max="60" value={data.experience}
                         onChange={e => onChange('experience', e.target.value)} className={errors.experience ? 'border-red-400' : ''} />
                     <FieldError msg={errors.experience} />
+                </div>
+                <div className="sm:col-span-1">
+                    <FormLabel required>Consultation Fee (₹)</FormLabel>
+                    <Input id="consultationFee" type="number" placeholder="500" min="0" value={data.consultationFee}
+                        onChange={e => onChange('consultationFee', e.target.value)} className={errors.consultationFee ? 'border-red-400' : ''} />
+                    <FieldError msg={errors.consultationFee} />
                 </div>
 
                 {/* Languages */}
@@ -603,6 +609,7 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
                     state: data.state || null,
                     languages: data.languages,
                     experience: data.experience ? Number(data.experience) : 0,
+                    consultation_fee: data.consultationFee ? Number(data.consultationFee) : 500,
                     status: 'Pending',
                     applied_at: now,
                     metadata: {
@@ -668,6 +675,7 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
                 institution: data.institution.trim(),
                 additionalQualifications: data.additionalQualifications || null,
                 experience: data.experience || 0,
+                consultationFee: data.consultationFee || 500,
                 languages: data.languages,
                 city: cityToSave,
                 state: data.state,
