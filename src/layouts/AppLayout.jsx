@@ -59,7 +59,7 @@ export default function AppLayout({ children, hideSidebar = false, hideNavbar = 
                         {(!collapsed || onClose) && (
                             <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}
                                 className="font-bold text-sm text-primary whitespace-nowrap">
-                                Upchaar
+                                Upchar
                             </motion.span>
                         )}
                     </AnimatePresence>

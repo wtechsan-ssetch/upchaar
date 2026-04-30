@@ -19,13 +19,13 @@ export const Footer = () => {
             { title: "Read health articles", href: "#" },
         ],
         "For doctors": [
-            { title: "Upchaar for doctors", href: "#" },
-            { title: "Upchaar Profile", href: "#" },
+            { title: "Upchar for doctors", href: "#" },
+            { title: "Upchar Profile", href: "#" },
             { title: "Join as a doctor", href: "#" },
         ],
         "For hospitals": [
-            { title: "Upchaar Profile", href: "#" },
-            { title: "Upchaar Reach", href: "#" },
+            { title: "Upchar Profile", href: "#" },
+            { title: "Upchar Reach", href: "#" },
         ],
         "For Corporates": [{ title: "Wellness program", href: "#" }],
         "More": [
@@ -87,16 +87,16 @@ export const Footer = () => {
                         <span className="hidden md:block">|</span>
                         <div className="flex items-center gap-1.5"><ShieldCheck size={14}/> <span>Support WhatsApp: 9434655390</span></div>
                         <span className="hidden md:block">|</span>
-                        <div className="flex items-center gap-1.5"><ShieldCheck size={14}/> <span>Email: mainupchaarhealth@gmail.com</span></div>
+                        <div className="flex items-center gap-1.5"><ShieldCheck size={14}/> <span>Email: support@upcharhealth.com</span></div>
                     </div>
 
                     <div className="flex items-center space-x-2">
-                        <img src="/logo.png" alt="Upchaar Health Logo" width={32} height={32} />
-                        <span className="font-bold text-lg">Upchaar Health</span>
+                        <img src="/logo.png" alt="Upchar Health Logo" width={32} height={32} />
+                        <span className="font-bold text-lg">Upchar Health</span>
                     </div>
 
                     <p className="text-sm text-gray-400">
-                        {currentYear && <>© {currentYear} Upchaar Health. All rights reserved.</>}
+                        {currentYear && <>© {currentYear} Upchar Health. All rights reserved.</>}
                     </p>
                 </div>
             </div>

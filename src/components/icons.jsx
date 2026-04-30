@@ -1,6 +1,6 @@
 import React from "react";
 
-export function UpchaarLogo(props) {
+export function UpcharLogo(props) {
     return (
         <svg
             xmlns="http://www.w3.org/2000/svg"

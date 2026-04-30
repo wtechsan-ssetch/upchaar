@@ -1,7 +1,7 @@
 /**
  * App.jsx
  * ─────────────────────────────────────────────────
- * Root application component for Upchaar Health.
+ * Root application component for Upchar Health.
  *
  * Architecture:
  * ┌─ BrowserRouter

@@ -14,7 +14,7 @@ export default function PrivacyPolicyPage() {
                             Privacy Policy
                         </h1>
                         <p className="mt-4 text-xl text-slate-500">
-                            Upchaar Health Privacy Policy and Data Handling.
+                            Upchar Health Privacy Policy and Data Handling.
                         </p>
                     </div>
 
@@ -63,7 +63,7 @@ export default function PrivacyPolicyPage() {
                             <h3>7. Grievance Officer</h3>
                             <p>In compliance with data protection laws, any concerns regarding data privacy, security breaches, or policy violations can be directed to our designated Grievance Officer at:</p>
                             <ul>
-                                <li><strong>Email:</strong> <a href="mailto:mainupchaarhealth@gmail.com">mainupchaarhealth@gmail.com</a></li>
+                                <li><strong>Email:</strong> <a href="mailto:support@upcharhealth.com">support@upcharhealth.com</a></li>
                                 <li><strong>Response Time:</strong> We are committed to addressing all privacy-related concerns within 15 days of receipt.</li>
                             </ul>
                             <p className="text-sm text-slate-500 mt-4 italic">

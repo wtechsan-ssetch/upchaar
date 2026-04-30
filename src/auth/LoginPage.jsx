@@ -284,7 +284,7 @@ export default function LoginPage() {
                                 <Heart size={22} className="text-white" />
                             </div>
                             <div>
-                                <p className="text-white/70 text-xs uppercase tracking-widest font-medium">Upchaar Health</p>
+                                <p className="text-white/70 text-xs uppercase tracking-widest font-medium">Upchar Health</p>
                                 <h1 className="text-white font-bold text-xl">
                                     {tab === 'signin' ? 'Welcome Back' : signupStep === 'otp' ? 'Verify Mobile' : 'Create Account'}
                                 </h1>
@@ -295,7 +295,7 @@ export default function LoginPage() {
                                 ? 'Sign in to access your health dashboard.'
                                 : signupStep === 'otp'
                                     ? `We sent a 6-digit code to ${signUpForm.phone}.`
-                                    : 'Join Upchaar Health — choose your account type.'}
+                                    : 'Join Upchar Health — choose your account type.'}
                         </p>
                     </div>
 
@@ -623,7 +623,7 @@ export default function LoginPage() {
 
                 {/* Back link */}
                 <p className="mt-4 text-center text-xs text-slate-400">
-                    <Link to="/" className="hover:text-slate-600 transition">← Back to Upchaar Health</Link>
+                    <Link to="/" className="hover:text-slate-600 transition">← Back to Upchar Health</Link>
                 </p>
             </motion.div>
 
