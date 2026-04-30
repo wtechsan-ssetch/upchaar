@@ -1,5 +1,5 @@
 {
-  "name": "upchaar-health",
+  "name": "upchar-health",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -77,13 +77,13 @@
   "main": "eslint.config.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wtechsan-ssetch/upchaar.git"
+    "url": "git+https://github.com/wtechsan-ssetch/upchar.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/wtechsan-ssetch/upchaar/issues"
+    "url": "https://github.com/wtechsan-ssetch/upchar/issues"
   },
-  "homepage": "https://github.com/wtechsan-ssetch/upchaar#readme"
+  "homepage": "https://github.com/wtechsan-ssetch/upchar#readme"
 }

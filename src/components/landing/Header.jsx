@@ -181,11 +181,11 @@ export const Header = () => {
                 {/* Left Section - Logo */}
                 <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
                     <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-teal-200 bg-white shadow-sm ring-4 ring-teal-50/50 group-hover:ring-teal-100/50 transition-all">
-                        <img src="/logo.png" alt="Upchaar Logo" className="w-6 h-6 sm:w-7 sm:h-7" />
+                        <img src="/logo.png" alt="Upchar Logo" className="w-6 h-6 sm:w-7 sm:h-7" />
                     </div>
                     <div className="flex flex-col sm:flex-row sm:gap-1 tracking-tight">
                         <span className="font-extrabold text-base sm:text-lg lg:text-xl text-teal-600 leading-tight">
-                            Upchaar
+                            Upchar
                         </span>
                         <span className='font-bold text-xs sm:text-lg lg:text-xl text-slate-400 sm:text-red-600 hidden md:block lg:hidden xl:block'>Health</span>
                     </div>

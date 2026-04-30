@@ -445,7 +445,7 @@ function Step4({ data, onChange, errors }) {
                         I have read and agree to the{' '}
                         <a href="#" className="text-primary underline underline-offset-2 hover:opacity-80">Terms of Service</a>{' '}
                         and{' '}
-                        <a href="#" className="text-primary underline underline-offset-2 hover:opacity-80">Privacy Policy</a> of Upchaar Health.
+                        <a href="#" className="text-primary underline underline-offset-2 hover:opacity-80">Privacy Policy</a> of Upchar Health.
                         <span className="text-red-500 ml-0.5">*</span>
                     </span>
                 </label>
@@ -483,7 +483,7 @@ function SuccessScreen({ onClose }) {
             <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-foreground">Application Submitted!</h2>
                 <p className="text-muted-foreground max-w-sm">
-                    Thank you for joining Upchaar Health. Our team will review your credentials and reach out within 2–3 business days.
+                    Thank you for joining Upchar Health. Our team will review your credentials and reach out within 2–3 business days.
                 </p>
             </div>
             <Button onClick={onClose} className="rounded-full px-8 shadow-[0_8px_24px_hsl(var(--primary)/0.3)]">

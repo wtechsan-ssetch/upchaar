@@ -16,7 +16,7 @@ export default function TermsPage() {
                             Terms & Support
                         </h1>
                         <p className="mt-4 text-xl text-slate-500">
-                            Upchaar Health Support Information and Terms of Service.
+                            Upchar Health Support Information and Terms of Service.
                         </p>
                     </div>
 
@@ -49,8 +49,8 @@ export default function TermsPage() {
                                         <Mail size={18} className="text-slate-400" /> Support Email
                                     </dt>
                                     <dd className="mt-1 text-sm text-slate-900 sm:mt-0 sm:col-span-2 font-semibold">
-                                        <a href="mailto:mainupchaarhealth@gmail.com" className="text-teal-600 hover:text-teal-500 hover:underline">
-                                            mainupchaarhealth@gmail.com
+                                        <a href="mailto:support@upcharhealth.com" className="text-teal-600 hover:text-teal-500 hover:underline">
+                                            support@upcharhealth.com
                                         </a>
                                     </dd>
                                 </div>
