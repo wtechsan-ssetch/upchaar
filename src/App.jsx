@@ -22,6 +22,7 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { SkeletonTheme } from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // ── Portal-specific context providers ────────────
 import { PatientProvider } from '@/patient/context/PatientContext.jsx';
@@ -54,6 +55,7 @@ function App() {
                     <ClinicProvider>
                       <AppRoutes />
                       <Analytics />
+                      <SpeedInsights />
                     </ClinicProvider>
                   </MedicalProvider>
                 </AdminProvider>
