@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Card,
@@ -9,7 +10,7 @@ import {
     CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { diagnosticCenters } from '@/lib/data';
+import { diagnosticCenters as staticCenters } from '@/lib/data';
 import { Badge } from '@/components/ui/badge';
 import { 
     MapPin, 
@@ -24,12 +25,37 @@ import {
     CheckCircle2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/lib/supabase.js';
 
 export default function DiagnosticsPage() {
+    const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
-
+    
+    // In a real app, you would fetch these from supabase.from('diagnostics')
+    // We are currently falling back to static data if no DB match is found in BookTest, 
+    // so we pass the static ID to BookTest
     const categories = ['All', 'Pathology', 'Radiology', 'MRI/CT Scan', 'Blood Test'];
+    const [diagnosticCenters, setDiagnosticCenters] = useState(staticCenters);
+
+    useEffect(() => {
+        const fetchCenters = async () => {
+            const { data, error } = await supabase.from('diagnostics').select('*');
+            if (!error && data) {
+                const dbCenters = data.map(d => ({
+                    id: d.id,
+                    name: d.name,
+                    location: d.location || 'Location Not Provided',
+                    tests: d.tests || ['General Test'],
+                    logo: d.logo || 'https://placehold.co/200x200.png',
+                    dataAiHint: 'clinic exterior'
+                }));
+                // combine and avoid duplicates if any
+                setDiagnosticCenters([...staticCenters, ...dbCenters]);
+            }
+        };
+        fetchCenters();
+    }, []);
 
     const filteredCenters = diagnosticCenters.filter(center => {
         const matchesSearch = center.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -147,7 +173,10 @@ export default function DiagnosticsPage() {
                                 </CardContent>
 
                                 <CardFooter className="pt-0 p-6">
-                                    <Button className="w-full h-12 bg-emerald-600 hover:bg-slate-900 transition-all rounded-2xl font-bold gap-2 text-base group/btn shadow-lg shadow-emerald-600/10 hover:shadow-slate-900/20">
+                                    <Button 
+                                        onClick={() => navigate(`/book-test?centerId=${center.id}`)}
+                                        className="w-full h-12 bg-emerald-600 hover:bg-slate-900 transition-all rounded-2xl font-bold gap-2 text-base group/btn shadow-lg shadow-emerald-600/10 hover:shadow-slate-900/20"
+                                    >
                                         Book a Test
                                         <ChevronRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
                                     </Button>

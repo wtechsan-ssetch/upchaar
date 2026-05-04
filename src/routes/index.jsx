@@ -52,6 +52,7 @@ const BlogsPage       = lazy(() => import('@/pages/Blogs.jsx'));
 const AppointmentOptions = lazy(() => import('@/pages/AppointmentOptions.jsx'));
 const BookAppointment = lazy(() => import('@/pages/BookAppointment.jsx'));
 const BookAppointmentQueued = lazy(() => import('@/pages/BookAppointmentQueued.jsx'));
+const BookTest = lazy(() => import('@/pages/BookTest.jsx'));
 const BlogPostPage    = lazy(() => import('@/pages/BlogPost.jsx'));
 const TermsPage       = lazy(() => import('@/pages/Terms.jsx'));
 
@@ -154,6 +155,7 @@ export function AppRoutes() {
             <Route path="/appointment-options" element={<AppLayout hideSidebar hideNavbar><AppointmentOptions /></AppLayout>} />
             <Route path="/book-appointment" element={<AppLayout hideSidebar hideNavbar><BookAppointment /></AppLayout>} />
             <Route path="/book-appointment-queued" element={<AppLayout hideSidebar hideNavbar><BookAppointmentQueued /></AppLayout>} />
+            <Route path="/book-test" element={<AppLayout hideSidebar hideNavbar><BookTest /></AppLayout>} />
             <Route path="/diagnostics" element={<AppLayout><DiagnosticsPage /></AppLayout>} />
             <Route path="/hospitals" element={<AppLayout><HospitalsPage /></AppLayout>} />
             <Route path="/medicals" element={<AppLayout><MedicalsPage /></AppLayout>} />

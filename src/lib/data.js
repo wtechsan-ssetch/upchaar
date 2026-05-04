@@ -10,9 +10,9 @@ export const doctors = [
 ];
 
 export const diagnosticCenters = [
-  { id: '1', name: 'Dr. Lal PathLabs', location: 'Koramangala, Bangalore', tests: ['Blood Test', 'Urine Test', 'MRI Scan'], logo: 'https://placehold.co/200x200.png', dataAiHint: 'laboratory building' },
-  { id: '2', name: 'Metropolis Healthcare', location: 'Andheri, Mumbai', tests: ['CT Scan', 'X-Ray', 'ECG'], logo: 'https://placehold.co/200x200.png', dataAiHint: 'modern building' },
-  { id: '3', name: 'SRL Diagnostics', location: 'Connaught Place, Delhi', tests: ['Ultrasound', 'Thyroid Test', 'Vitamin D Test'], logo: 'https://placehold.co/200x200.png', dataAiHint: 'clinic exterior' },
+  { id: '11111111-1111-1111-1111-111111111111', name: 'Dr. Lal PathLabs', location: 'Koramangala, Bangalore', tests: ['Blood Test', 'Urine Test', 'MRI Scan'], logo: 'https://placehold.co/200x200.png', dataAiHint: 'laboratory building' },
+  { id: '22222222-2222-2222-2222-222222222222', name: 'Metropolis Healthcare', location: 'Andheri, Mumbai', tests: ['CT Scan', 'X-Ray', 'ECG'], logo: 'https://placehold.co/200x200.png', dataAiHint: 'modern building' },
+  { id: '33333333-3333-3333-3333-333333333333', name: 'SRL Diagnostics', location: 'Connaught Place, Delhi', tests: ['Ultrasound', 'Thyroid Test', 'Vitamin D Test'], logo: 'https://placehold.co/200x200.png', dataAiHint: 'clinic exterior' },
 ];
 
 export const hospitals = [

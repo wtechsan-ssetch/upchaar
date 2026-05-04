@@ -108,7 +108,7 @@ export default function DoctorPendingPage() {
                                 We are verifying your details. We will connect with you shortly.
                             </p>
                             <p className="text-slate-500 text-sm mt-3 leading-relaxed">
-                                Thanks for choosing us — welcome to the new era of healthcare. Our team typically reviews applications within <span className="font-semibold text-teal-600">2–3 business days</span>.
+                                Thanks for choosing us — welcome to the new era of healthcare. Our team typically reviews applications within <span className="font-semibold text-teal-600">24-48 hours</span>.
                             </p>
                         </div>
 
