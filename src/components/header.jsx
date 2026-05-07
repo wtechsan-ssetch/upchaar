@@ -14,10 +14,17 @@ import { Search, Bell } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/auth/AuthContext.jsx';
+import { getStorageUrl } from '@/lib/uploadImage.js';
 
 export function Header() {
-    const { signOut } = useAuth();
+    const { signOut, profile } = useAuth();
     const navigate = useNavigate();
+
+    const initials = profile?.full_name 
+        ? profile.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() 
+        : 'U';
+    
+    const bucket = profile?.profile_type === 'doctor' ? 'doctor-avtar' : 'avatars';
 
     const handleSignOut = async () => {
         if (!window.confirm('Are you sure you want to sign out?')) return;
@@ -49,8 +56,14 @@ export function Header() {
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="rounded-full">
                             <Avatar className="h-8 w-8">
-                                <AvatarImage src="https://placehold.co/40x40.png" alt="@user" data-ai-hint="person smiling" />
-                                <AvatarFallback>SN</AvatarFallback>
+                                {profile?.avatar_url && (
+                                    <AvatarImage 
+                                        src={getStorageUrl(profile.avatar_url, bucket)} 
+                                        alt={profile.full_name || 'User'} 
+                                        className="object-cover"
+                                    />
+                                )}
+                                <AvatarFallback>{initials}</AvatarFallback>
                             </Avatar>
                         </Button>
                     </DropdownMenuTrigger>

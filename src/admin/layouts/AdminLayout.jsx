@@ -70,7 +70,7 @@ export default function AdminLayout() {
                                 transition={{ duration: 0.15 }}
                                 className="font-bold text-sm text-primary whitespace-nowrap"
                             >
-                                Upchaar Admin
+                                Upchar Admin
                             </motion.span>
                         )}
                     </AnimatePresence>

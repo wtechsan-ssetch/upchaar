@@ -7,10 +7,10 @@ export async function uploadDoctorAvatar(file, doctorId) {
     const ext = file.name.split('.').pop();
     const path = `doctors/${doctorId}/avatar_${Date.now()}.${ext}`;
     const { error: uploadError } = await supabase.storage
-        .from('doctor-docs')
+        .from('doctor-avtar')
         .upload(path, file, { upsert: true, contentType: file.type });
     if (uploadError) throw new Error('Upload failed: ' + uploadError.message);
-    const { data } = supabase.storage.from('doctor-docs').getPublicUrl(path);
+    const { data } = supabase.storage.from('doctor-avtar').getPublicUrl(path);
     return data.publicUrl;
 }
 
@@ -40,6 +40,9 @@ const mapDoctorRecord = (record) => {
         clinicAddress: record.clinic_address || '',
         experience: record.experience || 0,
         fee: record.consultation_fee ?? 500,
+        pendingFee: record.pending_fee ?? null,
+        pendingFeeAt: record.pending_fee_at ?? null,
+        pendingFeeEffective: record.pending_fee_effective ?? null,
         degree: record.degree || 'MBBS',
         bio: record.bio || '',
         gender: record.gender || '',
@@ -52,8 +55,8 @@ const mapDoctorRecord = (record) => {
         totalRevenue: record.total_revenue || 0,
         totalAppointments: record.total_appointments || 0,
         status: record.status || 'Pending',
-        medicalLicense: record.medical_license || '',
-        nmcRegistration: record.nmc_registration || '',
+        medicalLicense: record.license_no || '',
+        nmcRegistration: record.nmc_no || '',
         secretKey: record.secret_key || '',
     };
 };
@@ -159,12 +162,15 @@ export function DoctorProvider({ children }) {
                 return;
             }
 
-            if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 setLoading(true);
                 void (async () => {
                     await restoreDoctorSession(session);
                     if (mounted) setLoading(false);
                 })();
+            } else if (event === 'USER_UPDATED') {
+                // Background refresh only for metadata updates to avoid full-page spinner
+                void restoreDoctorSession(session);
             }
         });
 
@@ -301,8 +307,8 @@ export function DoctorProvider({ children }) {
                 email: email.trim(),
                 phone: phone.trim(),
                 whatsapp_number: (whatsappNumber || '').trim(),
-                medical_license: medicalLicense.trim(),
-                nmc_registration: nmcRegistration.trim(),
+                license_no: medicalLicense.trim(),
+                nmc_no: nmcRegistration.trim(),
                 dob: dob,
                 specialization: specialization || 'General Physician',
                 city: city || '',
@@ -315,7 +321,8 @@ export function DoctorProvider({ children }) {
                 total_revenue: 0,
                 experience: 0,
                 status: 'Pending',
-                secret_key: generatedKey
+                secret_key: generatedKey,
+                avatar_color: '#0d9488'
             }).select().single();
 
             if (doctorError) {
@@ -341,65 +348,97 @@ export function DoctorProvider({ children }) {
             throw new Error('No doctor session found.');
         }
 
+        const currentFee = doctorRecord.consultation_fee ?? 500;
+        const newFee     = updates.fee != null ? Number(updates.fee) : currentFee;
+        const feeChanged = newFee !== currentFee;
+
+        // ── Non-fee fields update immediately ──────────────────────────────
         const doctorUpdates = {
-            full_name: updates.fullName,
-            phone: updates.phone,
-            city: updates.city,
-            specialization: updates.specialization,
-            experience: updates.experience,
-            consultation_fee: updates.fee,
-            degree: updates.degree,
-            clinic_name: updates.clinicName,
-            bio: updates.bio,
-            gender: updates.gender,
-            hours_from: updates.hoursFrom,
-            hours_to: updates.hoursTo,
-            available_days: updates.availableDays,
-            languages: updates.languages,
-            avatar_color: updates.avatarColor,
-            avatar_url: updates.avatarUrl,
-            updated_at: new Date().toISOString(),
+            full_name:        updates.fullName,
+            phone:            updates.phone,
+            city:             updates.city,
+            specialization:   updates.specialization,
+            experience:       updates.experience,
+            degree:           updates.degree,
+            clinic_name:      updates.clinicName,
+            bio:              updates.bio,
+            gender:           updates.gender,
+            hours_from:       updates.hoursFrom,
+            hours_to:         updates.hoursTo,
+            available_days:   updates.availableDays,
+            languages:        updates.languages,
+            avatar_color:     updates.avatarColor,
+            avatar_url:       updates.avatarUrl,
+            updated_at:       new Date().toISOString(),
         };
 
-        Object.keys(doctorUpdates).forEach((key) => doctorUpdates[key] === undefined && delete doctorUpdates[key]);
+        // ── Fee: queue as pending with 24hr delay ──────────────────────────
+        if (feeChanged) {
+            const effectiveAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+            doctorUpdates.pending_fee           = newFee;
+            doctorUpdates.pending_fee_at        = new Date().toISOString();
+            doctorUpdates.pending_fee_effective = effectiveAt;
+            // Keep current consultation_fee unchanged — it will update after 24hrs
+            delete doctorUpdates.consultation_fee;
+        }
 
-        const authMetaUpdates = {
-            fullName: updates.fullName,
-            phone: updates.phone,
-            city: updates.city,
-            specialization: updates.specialization,
-            clinicName: updates.clinicName,
-            availableDays: updates.availableDays,
-            hoursFrom: updates.hoursFrom,
-            hoursTo: updates.hoursTo,
-            fee: updates.fee,
-            degree: updates.degree,
-            bio: updates.bio,
-            gender: updates.gender,
-            languages: updates.languages,
-            avatarColor: updates.avatarColor,
-            avatarUrl: updates.avatarUrl,
-        };
+        Object.keys(doctorUpdates).forEach(
+            (key) => doctorUpdates[key] === undefined && delete doctorUpdates[key]
+        );
 
-        Object.keys(authMetaUpdates).forEach((key) => authMetaUpdates[key] === undefined && delete authMetaUpdates[key]);
+        const { data: doctorData, error: doctorError } = await supabase
+            .from('doctors')
+            .update(doctorUpdates)
+            .eq('id', doctorRecord.id)
+            .select()
+            .single();
 
-        const [{ data: authData, error: authError }, { data: doctorData, error: doctorError }] = await Promise.all([
-            supabase.auth.updateUser({ data: authMetaUpdates }),
-            supabase
-                .from('doctors')
-                .update(doctorUpdates)
-                .eq('id', doctorRecord.id)
-                .select()
-                .single(),
-        ]);
-
-        if (authError) throw new Error(authError.message);
         if (doctorError) throw new Error(doctorError.message);
+
+        // ── Auth metadata (fee reflected immediately in context only) ──────
+        const authMetaUpdates = {
+            fullName:      updates.fullName,
+            phone:         updates.phone,
+            city:          updates.city,
+            specialization:updates.specialization,
+            clinicName:    updates.clinicName,
+            availableDays: updates.availableDays,
+            hoursFrom:     updates.hoursFrom,
+            hoursTo:       updates.hoursTo,
+            fee:           currentFee, // keep old fee in auth meta until effective
+            degree:        updates.degree,
+            bio:           updates.bio,
+            gender:        updates.gender,
+            languages:     updates.languages,
+            avatarColor:   updates.avatarColor,
+            avatarUrl:     updates.avatarUrl,
+        };
+        Object.keys(authMetaUpdates).forEach(
+            (key) => authMetaUpdates[key] === undefined && delete authMetaUpdates[key]
+        );
+
+        const { data: authData, error: authError } = await supabase.auth.updateUser({
+            data: authMetaUpdates,
+        });
+        if (authError) throw new Error(authError.message);
+
+        // ── Notify admin of fee change request ────────────────────────────
+        if (feeChanged) {
+            await supabase.from('admin_notifications').insert({
+                type:       'fee_change_request',
+                from_id:    doctorRecord.id,
+                from_name:  updates.fullName || doctorRecord.full_name,
+                from_email: doctorRecord.email,
+                subject:    'Doctor Fee Update Request',
+                message:    `Dr. ${updates.fullName || doctorRecord.full_name} has requested to update their consultation fee from ₹${currentFee} to ₹${newFee}. This will take effect in 24 hours.`,
+                is_read:    false,
+            });
+        }
 
         setDoctorRecord(doctorData);
         const nextDoctor = buildDoctorState(authData.user, doctorData);
         setDoctor(nextDoctor);
-        return nextDoctor;
+        return { doctor: nextDoctor, feeChangePending: feeChanged, pendingFee: feeChanged ? newFee : null };
     }, [doctor?.id, doctorRecord?.id]);
 
     const rotateSecretKey = useCallback(async () => {

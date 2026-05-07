@@ -19,13 +19,13 @@ export const Footer = () => {
             { title: "Read health articles", href: "#" },
         ],
         "For doctors": [
-            { title: "Upchaar for doctors", href: "#" },
-            { title: "Upchaar Profile", href: "#" },
+            { title: "Upchar for doctors", href: "#" },
+            { title: "Upchar Profile", href: "#" },
             { title: "Join as a doctor", href: "#" },
         ],
         "For hospitals": [
-            { title: "Upchaar Profile", href: "#" },
-            { title: "Upchaar Reach", href: "#" },
+            { title: "Upchar Profile", href: "#" },
+            { title: "Upchar Reach", href: "#" },
         ],
         "For Corporates": [{ title: "Wellness program", href: "#" }],
         "More": [
@@ -35,10 +35,11 @@ export const Footer = () => {
             { title: "Terms and Conditions", href: "/terms" },
         ],
         "Social": [
-            { title: "Facebook", href: "#" },
-            { title: "Twitter", href: "#" },
-            { title: "LinkedIn", href: "#" },
-            { title: "YouTube", href: "#" },
+            { title: "Facebook", href: "https://www.facebook.com/61579044704694" },
+            { title: "Twitter", href: "https://twitter.com/HealthSanjiwani" },
+            { title: "LinkedIn", href: "https://www.linkedin.com/in/upchaar-health-6a348137a" },
+            { title: "YouTube", href: "https://www.youtube.com/watch?v=MfyFm00jNLA" },
+            { title: "Instagram", href: "https://www.instagram.com/upcharhealth_official" },
         ],
     };
 
@@ -52,9 +53,20 @@ export const Footer = () => {
                             <ul className="space-y-2">
                                 {links.map((link) => (
                                     <li key={link.title}>
-                                        <Link to={link.href} className="text-sm text-gray-300 hover:text-red-400">
-                                            {link.title}
-                                        </Link>
+                                        {link.href.startsWith('http') ? (
+                                            <a 
+                                                href={link.href} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="text-sm text-gray-300 hover:text-red-400 relative z-10"
+                                            >
+                                                {link.title}
+                                            </a>
+                                        ) : (
+                                            <Link to={link.href} className="text-sm text-gray-300 hover:text-red-400">
+                                                {link.title}
+                                            </Link>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
@@ -62,30 +74,6 @@ export const Footer = () => {
                     ))}
                 </div>
 
-                {/* ── Staff Portal ──────────────────────────────────── */}
-                <div className="mt-10 border-t border-slate-800 pt-6">
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                        <span className="flex items-center gap-1.5 text-xs text-slate-500 select-none">
-                            <ShieldCheck size={13} className="text-slate-600" />
-                            Staff Portal:
-                        </span>
-                        <div className="flex items-center gap-4">
-                            <Link
-                                to="/admin/login"
-                                className="text-xs text-slate-500 hover:text-teal-400 transition-colors duration-200 flex items-center gap-1"
-                            >
-                                Super Admin Login
-                            </Link>
-                            <span className="text-slate-700 text-xs">|</span>
-                            <Link
-                                to="/admin/login"
-                                className="text-xs text-slate-500 hover:text-teal-400 transition-colors duration-200 flex items-center gap-1"
-                            >
-                                Support Admin Login
-                            </Link>
-                        </div>
-                    </div>
-                </div>
 
                 {/* ── Support & Copyright ─────────────────────────────────────── */}
                 <div className="mt-6 border-t border-slate-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -94,16 +82,12 @@ export const Footer = () => {
                         <span className="hidden md:block">|</span>
                         <div className="flex items-center gap-1.5"><ShieldCheck size={14}/> <span>Support WhatsApp: 9434655390</span></div>
                         <span className="hidden md:block">|</span>
-                        <div className="flex items-center gap-1.5"><ShieldCheck size={14}/> <span>Email: mainupchaarhealth@gmail.com</span></div>
+                        <div className="flex items-center gap-1.5"><ShieldCheck size={14}/> <span>Email: support@upcharhealth.com</span></div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                        <img src="/logo.png" alt="Upchaar Health Logo" width={32} height={32} />
-                        <span className="font-bold text-lg">Upchaar Health</span>
-                    </div>
 
                     <p className="text-sm text-gray-400">
-                        {currentYear && <>© {currentYear} Upchaar Health. All rights reserved.</>}
+                        {currentYear && <>© {currentYear} Upchar Health. All rights reserved.</>}
                     </p>
                 </div>
             </div>

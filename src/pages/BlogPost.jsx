@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useBlog } from '@/blog/context/BlogContext.jsx';
 import { Heart, Eye, Clock, ArrowLeft, Share2, Calendar, Stethoscope, BookOpen } from 'lucide-react';
@@ -15,6 +15,7 @@ export default function BlogPost() {
     const { publishedPosts, likePost, incrementViews } = useBlog();
     const [liked, setLiked]   = useState(false);
     const [copied, setCopied] = useState(false);
+    const viewedSlugRef = useRef(null);
 
     const post = publishedPosts.find(p => p.slug === slug);
     const related = publishedPosts.filter(p =>
@@ -23,7 +24,11 @@ export default function BlogPost() {
     ).slice(0, 3);
 
     useEffect(() => {
-        if (post) { incrementViews(post.id); window.scrollTo(0, 0); }
+        if (post && viewedSlugRef.current !== slug) {
+            incrementViews(post.id);
+            window.scrollTo(0, 0);
+            viewedSlugRef.current = slug;
+        }
     }, [slug, post, incrementViews]);
 
     const handleLike = () => {

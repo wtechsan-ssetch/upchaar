@@ -21,7 +21,7 @@ export const MsmeSection = () => {
                 </h2>
 
                 <p className="mt-4 text-lg text-muted-foreground leading-relaxed">
-                    Upchaar Health is officially registered under the{" "}
+                    Upchar Health is officially registered under the{" "}
                     <span className="font-semibold text-foreground">
                         MSME (Udyam) Scheme, Government of India
                     </span>.
@@ -36,11 +36,11 @@ export const MsmeSection = () => {
                     className="mt-10 mx-auto w-fit bg-destructive/10 text-destructive px-6 py-3 rounded-2xl text-lg font-semibold shadow-sm border border-destructive/20 flex items-center gap-2"
                 >
                     <ShieldCheck className="h-6 w-6" />
-                    <span>MSME Registered (UDYAM-XX-XX-XXXX8337)</span>
+                    <span>MSME Registered (UDYAM-XX-XX-XXXX8280)</span>
                 </motion.div>
 
                 <p className="text-sm text-muted-foreground mt-4">
-                    *For security reasons, your complete Udyam number is not displayed publicly.
+                    *For security reasons, our complete Udyam number is not displayed publicly.
                 </p>
             </motion.div>
         </section>

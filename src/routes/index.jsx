@@ -1,7 +1,7 @@
 /**
  * routes/index.jsx
  * ─────────────────────────────────────────────────
- * Master routes file for Upchaar Health.
+ * Master routes file for Upchar Health.
  *
  * React Router v6 requires that only <Route> elements
  * (or React.Fragments containing Routes) appear as
@@ -46,6 +46,7 @@ const DiagnosticsPage = lazy(() => import('@/pages/Diagnostics'));
 const HospitalsPage   = lazy(() => import('@/pages/Hospitals'));
 const MedicalsPage    = lazy(() => import('@/pages/Medicals.jsx'));
 const RecordsPage     = lazy(() => import('@/pages/Records'));
+const PrescriptionPage = lazy(() => import('@/pages/PrescriptionPage.jsx'));
 const EmergencyPage   = lazy(() => import('@/pages/Emergency'));
 
 const BlogsPage       = lazy(() => import('@/pages/Blogs.jsx'));
@@ -86,6 +87,7 @@ const DoctorProfile      = lazy(() => import('@/doctor/pages/DoctorProfile.jsx')
 const DoctorClinicPatients = lazy(() => import('@/doctor/pages/DoctorClinicPatients.jsx'));
 const DoctorReleaseRequests = lazy(() => import('@/doctor/pages/DoctorReleaseRequests.jsx'));
 const DoctorTimetable = lazy(() => import('@/doctor/pages/DoctorTimetable.jsx'));
+const DoctorSlotPatients = lazy(() => import('@/doctor/pages/DoctorSlotPatients.jsx'));
 
 // ── BLOGGER pages ─────────────────────────────────────
 const BloggerLayout   = lazy(() => import('@/blog/layouts/BloggerLayout.jsx'));
@@ -159,6 +161,7 @@ export function AppRoutes() {
             <Route path="/hospitals" element={<AppLayout><HospitalsPage /></AppLayout>} />
             <Route path="/medicals" element={<AppLayout><MedicalsPage /></AppLayout>} />
             <Route path="/records" element={<AppLayout><RecordsPage /></AppLayout>} />
+            <Route path="/prescription/:id" element={<PrescriptionPage />} />
             <Route path="/emergency" element={<EmergencyPage />} />
 
             {/* Blog: public, no nav/sidebar */}
@@ -219,6 +222,7 @@ export function AppRoutes() {
                 <Route path="clinics/:clinicName" element={<DoctorClinicPatients />} />
                 <Route path="release" element={<DoctorReleaseRequests />} />
                 <Route path="timetable" element={<DoctorTimetable />} />
+                <Route path="slot-patients" element={<DoctorSlotPatients />} />
                 <Route path="profile" element={<DoctorProfile />} />
             </Route>
 

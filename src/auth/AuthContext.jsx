@@ -71,6 +71,12 @@ export function AuthProvider({ children }) {
         }
     }, []);
 
+    const refreshProfile = useCallback(async () => {
+        if (!user) return;
+        const p = await fetchProfile(user.id);
+        setProfile(p);
+    }, [user, fetchProfile]);
+
     useEffect(() => {
         let mounted = true;
 
@@ -101,7 +107,6 @@ export function AuthProvider({ children }) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             (event, session) => {
                 if (!mounted) return;
-                console.log('[Auth] event:', event);
 
                 if (event === 'SIGNED_OUT') {
                     clearAuthState();
@@ -113,7 +118,9 @@ export function AuthProvider({ children }) {
                     setUser(u);
                     
                     if (u && !isRegistering.current) {
-                        setLoading(true);
+                        // Only set loading to true for initial SIGNED_IN, not for background refreshes
+                        if (event === 'SIGNED_IN' && !profile) setLoading(true);
+                        
                         fetchProfile(u.id).then(p => {
                             if (mounted) {
                                 setProfile(p);
@@ -253,6 +260,15 @@ export function AuthProvider({ children }) {
                     whatsapp_number: whatsappNumber?.trim() || '',
                     status: 'Pending',
                 });
+            } else if (profileType === 'diagnostic') {
+                await supabase.from('diagnostic_centers').insert({
+                    profile_id: userId,
+                    name: fullName.trim(),
+                    email: email.trim(),
+                    phone: phone?.trim() || '',
+                    whatsapp_number: whatsappNumber?.trim() || '',
+                    status: 'Pending',
+                });
             }
 
             // Clear the temporary session without letting sign-out block the UI.
@@ -276,8 +292,8 @@ export function AuthProvider({ children }) {
     }, []);
 
     const contextValue = useMemo(() => ({
-        user, profile, loading, signIn, signUp, signOut, getDashboardPath,
-    }), [user, profile, loading, signIn, signUp, signOut, getDashboardPath]);
+        user, profile, loading, signIn, signUp, signOut, getDashboardPath, refreshProfile
+    }), [user, profile, loading, signIn, signUp, signOut, getDashboardPath, refreshProfile]);
 
     return (
         <AuthContext.Provider value={contextValue}>

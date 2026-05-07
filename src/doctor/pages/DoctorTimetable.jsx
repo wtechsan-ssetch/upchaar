@@ -360,7 +360,30 @@ export default function DoctorTimetable() {
                         .select('id, name, address, city, state')
                         .eq('profile_id', link.organization_id)
                         .maybeSingle();
-                    return data ? { ...data, type: link.organization_type } : null;
+
+                    if (data) {
+                        return { ...data, type: link.organization_type };
+                    }
+
+                    // Fallback: org registered but not yet in specialized table
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('id, full_name, profile_type')
+                        .eq('id', link.organization_id)
+                        .maybeSingle();
+
+                    if (profile) {
+                        return {
+                            id: profile.id,
+                            name: profile.full_name || 'Unnamed Organization',
+                            address: null,
+                            city: null,
+                            state: null,
+                            type: link.organization_type,
+                        };
+                    }
+
+                    return null;
                 });
 
                 const results = (await Promise.all(orgPromises)).filter(Boolean);

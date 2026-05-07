@@ -53,7 +53,7 @@ export const FeedbackForm = () => {
                         </div>
                         <h2 className="text-2xl font-bold mb-3">Give us Feedback</h2>
                         <p className="text-slate-400 text-sm leading-relaxed">
-                            Your insights help us improve Upchaar Health. We&apos;d love to hear your thoughts or suggestions.
+                            Your insights help us improve Upchar Health. We&apos;d love to hear your thoughts or suggestions.
                         </p>
                     </div>
 

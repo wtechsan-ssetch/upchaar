@@ -93,11 +93,11 @@ export default function PatientLogin() {
                             className="flex items-center gap-3 mb-4"
                         >
                             {/* Brand icon */}
-                            <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
-                                <Heart size={24} className="text-white" />
+                            <div className="h-12 w-12 rounded-2xl bg-white flex items-center justify-center overflow-hidden p-1">
+                                <img src="/logo.png" alt="Upchar Logo" className="w-full h-full object-contain drop-shadow-sm" />
                             </div>
                             <div>
-                                <p className="text-white/70 text-xs font-medium uppercase tracking-widest">Upchaar Health</p>
+                                <p className="text-white/70 text-xs font-medium uppercase tracking-widest">Upchar Health</p>
                                 <h1 className="text-white font-bold text-xl">Patient Portal</h1>
                             </div>
                         </motion.div>
@@ -194,7 +194,7 @@ export default function PatientLogin() {
 
                 {/* Back link */}
                 <p className="mt-4 text-center text-xs text-slate-400">
-                    <Link to="/" className="hover:text-slate-600 transition">← Back to Upchaar Health</Link>
+                    <Link to="/" className="hover:text-slate-600 transition">← Back to Upchar Health</Link>
                 </p>
             </motion.div>
         </div>

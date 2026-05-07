@@ -24,6 +24,7 @@ import {
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase.js';
 import { usePatient } from '@/patient/context/PatientContext.jsx';
+import { getStorageUrl } from '@/lib/uploadImage.js';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /* ── helpers ─────────────────────────────────────── */
@@ -237,41 +238,79 @@ export default function DoctorDetailPage() {
     const [booking, setBooking] = useState(false);
 
     useEffect(() => {
-        supabase
-            .from('doctors')
-            .select('*')
-            .eq('id', id)
-            .eq('status', 'Approved')
-            .single()
-            .then(({ data, error }) => {
-                if (!error && data) {
-                    setDoctor({
-                        id: data.id,
-                        name: data.full_name,
-                        specialty: data.specialization,
-                        subSpecialty: data.sub_specialization,
-                        location: [data.clinic_name, data.clinic_address, data.city, data.state].filter(Boolean).join(', '),
-                        avatar: data.avatar_url || null,
-                        experience: data.experience || 0,
-                        rating: Number(data.rating) || 4.5,
-                        reviews: data.total_appointments || 0,
-                        verified: true,
-                        fees: data.consultation_fee || 0,
-                        clinicName: data.clinic_name || '',
-                        clinicNames: parseClinicNames(data.clinic_name),
-                        languages: data.languages || [],
-                        availableDays: data.available_days || [],
-                        hoursFrom: data.hours_from || '09:00',
-                        hoursTo: data.hours_to || '17:00',
-                        licenseNo: data.license_no,
-                        nmcNo: data.nmc_no,
-                        degree: data.degree,
-                        institution: data.institution,
-                        city: data.city,
-                    });
+        const fetchDoctorDetails = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('doctors')
+                    .select('*')
+                    .eq('id', id)
+                    .eq('status', 'Approved')
+                    .single();
+
+                if (error || !data) {
+                    setLoading(false);
+                    return;
                 }
+
+                // Fetch linked clinics via staff_links
+                const { data: staffData, error: staffError } = await supabase
+                    .from('staff_links')
+                    .select('organization_id, organization_type')
+                    .eq('doctor_id', id);
+
+                let fetchedClinicNames = [];
+                if (!staffError && staffData && staffData.length > 0) {
+                    const orgPromises = staffData.map(async (link) => {
+                        const table = link.organization_type === 'medical' ? 'medicals' : 'clinics';
+                        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(link.organization_id));
+                        const { data: orgData } = await supabase
+                            .from(table)
+                            .select('name')
+                            .eq(isUUID ? 'profile_id' : 'id', link.organization_id)
+                            .maybeSingle();
+                        
+                        return orgData?.name || null;
+                    });
+                    const list = (await Promise.all(orgPromises)).filter(Boolean);
+                    fetchedClinicNames = [...new Set(list)];
+                }
+
+                if (fetchedClinicNames.length === 0) {
+                    fetchedClinicNames = parseClinicNames(data.clinic_name);
+                }
+
+                setDoctor({
+                    id: data.id,
+                    name: data.full_name,
+                    specialty: data.specialization,
+                    subSpecialty: data.sub_specialization,
+                    location: [data.clinic_name, data.clinic_address, data.city, data.state].filter(Boolean).join(', '),
+                    avatar: data.avatar_url || null,
+                    experience: data.experience || 0,
+                    rating: Number(data.rating) || 4.5,
+                    reviews: data.total_appointments || 0,
+                    verified: true,
+                    fees: data.consultation_fee || 0,
+                    clinicName: data.clinic_name || '',
+                    clinicNames: fetchedClinicNames,
+                    languages: data.languages || [],
+                    availableDays: data.available_days || [],
+                    hoursFrom: data.hours_from || '09:00',
+                    hoursTo: data.hours_to || '17:00',
+                    licenseNo: data.license_no,
+                    nmcNo: data.nmc_no,
+                    degree: data.degree,
+                    institution: data.institution,
+                    city: data.city,
+                });
+            } catch (err) {
+                console.error(err);
+            } finally {
                 setLoading(false);
-            });
+            }
+        };
+
+        fetchDoctorDetails();
     }, [id]);
 
     useEffect(() => {
@@ -427,7 +466,7 @@ export default function DoctorDetailPage() {
                                     <div className="relative shrink-0">
                                         <div className="h-32 w-32 md:h-40 md:w-40 rounded-2xl p-1 bg-gradient-to-br from-teal-400 to-emerald-500 shadow-md">
                                             {doctor.avatar ? (
-                                                <img src={doctor.avatar} alt={doctor.name}
+                                                <img src={getStorageUrl(doctor.avatar, 'doctor-avtar')} alt={doctor.name}
                                                     className="h-full w-full rounded-xl object-cover border-4 border-white bg-white" />
                                             ) : (
                                                 <div className="h-full w-full rounded-xl border-4 border-white bg-white flex items-center justify-center text-4xl font-bold text-teal-600">

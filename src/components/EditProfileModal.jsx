@@ -263,7 +263,7 @@ export default function EditProfileModal({ isOpen, onClose, profile }) {
                                                             <Camera size={14} /> Camera
                                                         </button>
                                                         <button type="button" onClick={() => fileInputRef.current.click()} className="text-xs flex items-center gap-1.5 font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-full transition-colors">
-                                                            <Upload size={14} /> Browse
+                                                            <Upload size={14} /> Upload photo
                                                         </button>
                                                     </div>
                                                 </>

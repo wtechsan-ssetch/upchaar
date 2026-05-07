@@ -62,8 +62,7 @@ const initialData = {
     degree: '', passingYear: '', institution: '', additionalQualifications: '',
     // Step 3
     experience: '', languages: [],
-    state: '', city: '', manualCity: '', 
-    // Step 4
+    state: '', city: '', manualCity: '', consultationFee: '',    // Step 4
     govtId: null, licenseDoc: null, degreeCert: null,
     acceptTerms: false, declaration: false,
 };
@@ -116,6 +115,7 @@ function validate(step, data) {
         if (!data.state) errors.state = 'State is required';
         if (!data.city) errors.city = 'City is required';
         if (data.city === 'Other' && !data.manualCity.trim()) errors.manualCity = 'Please enter your city';
+        if (!data.consultationFee || data.consultationFee < 0) errors.consultationFee = 'Valid consultation fee is required';
     }
     if (step === 4) {
         // Enforce PDF and < 100KB for documents
@@ -334,11 +334,17 @@ function Step3({ data, onChange, errors }) {
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-1">
                     <FormLabel required>Years of Experience</FormLabel>
                     <Input id="experience" type="number" placeholder="5" min="0" max="60" value={data.experience}
                         onChange={e => onChange('experience', e.target.value)} className={errors.experience ? 'border-red-400' : ''} />
                     <FieldError msg={errors.experience} />
+                </div>
+                <div className="sm:col-span-1">
+                    <FormLabel required>Consultation Fee (₹)</FormLabel>
+                    <Input id="consultationFee" type="number" placeholder="500" min="0" value={data.consultationFee}
+                        onChange={e => onChange('consultationFee', e.target.value)} className={errors.consultationFee ? 'border-red-400' : ''} />
+                    <FieldError msg={errors.consultationFee} />
                 </div>
 
                 {/* Languages */}
@@ -439,7 +445,7 @@ function Step4({ data, onChange, errors }) {
                         I have read and agree to the{' '}
                         <a href="#" className="text-primary underline underline-offset-2 hover:opacity-80">Terms of Service</a>{' '}
                         and{' '}
-                        <a href="#" className="text-primary underline underline-offset-2 hover:opacity-80">Privacy Policy</a> of Upchaar Health.
+                        <a href="#" className="text-primary underline underline-offset-2 hover:opacity-80">Privacy Policy</a> of Upchar Health.
                         <span className="text-red-500 ml-0.5">*</span>
                     </span>
                 </label>
@@ -477,7 +483,7 @@ function SuccessScreen({ onClose }) {
             <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-foreground">Application Submitted!</h2>
                 <p className="text-muted-foreground max-w-sm">
-                    Thank you for joining Upchaar Health. Our team will review your credentials and reach out within 2–3 business days.
+                    Thank you for joining Upchar Health. Our team will review your credentials and reach out within 2–3 business days.
                 </p>
             </div>
             <Button onClick={onClose} className="rounded-full px-8 shadow-[0_8px_24px_hsl(var(--primary)/0.3)]">
@@ -517,11 +523,18 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
         if (!file) return null;
         const ext = file.name.split('.').pop();
         const path = `${folder}/${fieldName}.${ext}`;
+        
+        // Use doctor-docs for PDFs (private) and doctor-avtar for images (public)
+        const bucket = file.type === 'application/pdf' ? 'doctor-docs' : 'doctor-avtar';
+
         const { error } = await supabase.storage
-            .from('doctor-docs')
+            .from(bucket)
             .upload(path, file, { upsert: true, contentType: file.type });
-        if (error) throw new Error(`Failed to upload ${fieldName}: ${error.message}`);
-        return path;
+        if (error) throw new Error(`Failed to upload ${fieldName} to ${bucket}: ${error.message}`);
+        
+        // Return the full public URL instead of just the path
+        const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
+        return publicUrl;
     };
 
     const savePendingDoctorApplication = async ({ folder, photoPath, govtIdPath, licenseDocPath, degreeCertPath }) => {
@@ -599,6 +612,7 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
                     state: data.state || null,
                     languages: data.languages,
                     experience: data.experience ? Number(data.experience) : 0,
+                    consultation_fee: data.consultationFee ? Number(data.consultationFee) : 500,
                     status: 'Pending',
                     applied_at: now,
                     metadata: {
@@ -664,6 +678,7 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
                 institution: data.institution.trim(),
                 additionalQualifications: data.additionalQualifications || null,
                 experience: data.experience || 0,
+                consultationFee: data.consultationFee || 500,
                 languages: data.languages,
                 city: cityToSave,
                 state: data.state,

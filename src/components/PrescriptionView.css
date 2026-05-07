@@ -1,0 +1,439 @@
+/* Prescription Component Styles */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Sans+3:wght@300;400;600;700&display=swap');
+
+.prescription-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  --red: #E63946;
+  --teal: #1A9E9E;
+  --dark: #1e1e1e;
+  --gray: #555;
+  --light-gray: #f9f9f9;
+  --border-light: #ddd;
+}
+
+.prescription-page {
+  position: relative;
+  background: #ffffff;
+  width: 794px;
+  min-height: 1123px;
+  padding: 0 0 0 0;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  font-family: 'Source Sans 3', sans-serif;
+  margin: 40px auto;
+}
+
+/* ========== CORNER ACCENTS ========== */
+.prescription-page .corner-accent {
+  position: absolute;
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+}
+
+.prescription-page .corner-accent.top-right {
+  top: 0;
+  right: 0;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.prescription-page .corner-accent.bottom-right {
+  bottom: 40px;
+  right: 0;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.prescription-page .corner-accent.bottom-left {
+  bottom: 40px;
+  left: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.prescription-page .accent-stripe {
+  height: 12px;
+}
+
+.prescription-page .accent-stripe.red {
+  background: var(--red);
+  width: 60px;
+}
+
+.prescription-page .accent-stripe.dark {
+  background: #2b2b2b;
+  width: 40px;
+}
+
+.prescription-page .accent-stripe.teal {
+  background: var(--teal);
+  width: 60px;
+}
+
+/* ========== HEADER ========== */
+.prescription-page .rx-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 32px 48px 20px 48px;
+}
+
+.prescription-page .doctor-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.prescription-page .doctor-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--dark);
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+}
+
+.prescription-page .name-red {
+  color: var(--red);
+}
+
+.prescription-page .doctor-degree {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--dark);
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+.prescription-page .doctor-specialty {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--teal);
+  letter-spacing: 0.3px;
+  margin-top: 1px;
+}
+
+.prescription-page .doctor-title {
+  font-size: 13px;
+  color: var(--gray);
+  margin-top: 4px;
+}
+
+.prescription-page .doctor-college {
+  font-size: 13px;
+  color: var(--gray);
+}
+
+/* ========== UPCHAR LOGO ========== */
+.prescription-page .upchar-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.prescription-page .upchar-icon {
+  width: 72px;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.prescription-page .upchar-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  line-height: 1;
+}
+
+.prescription-page .upchar-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--dark);
+  letter-spacing: 2px;
+}
+
+.prescription-page .upchar-health {
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--teal);
+  letter-spacing: 3px;
+}
+
+/* ========== HEADER DIVIDER ========== */
+.prescription-page .header-divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 48px;
+  margin-bottom: 10px;
+}
+
+.prescription-page .divider-line {
+  flex: 1;
+  height: 2px;
+  background: var(--red);
+}
+
+.prescription-page .divider-bullet {
+  width: 12px;
+  height: 12px;
+  background: var(--red);
+  border-radius: 50%;
+  margin-left: 0;
+  flex-shrink: 0;
+}
+
+/* ========== PATIENT FIELDS ========== */
+.prescription-page .patient-fields {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 48px 14px 48px;
+}
+
+.prescription-page .field-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prescription-page .field-group label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dark);
+  white-space: nowrap;
+}
+
+.prescription-page .name-field {
+  flex: 1;
+}
+
+.prescription-page .field-line {
+  flex: 1;
+  border-bottom: 1.5px dotted #aaa;
+  height: 18px;
+  min-width: 200px;
+}
+
+.prescription-page .field-line.short {
+  min-width: 80px;
+}
+
+.prescription-page .field-dots {
+  width: 60px;
+  border-bottom: 1.5px dotted #aaa;
+  height: 18px;
+}
+
+.prescription-page .short-field {
+  flex-shrink: 0;
+}
+
+/* ========== CLINICAL SECTION ========== */
+.prescription-page .clinical-section {
+  position: relative;
+  display: flex;
+  flex: 1;
+  padding: 10px 48px 20px 48px;
+  min-height: 480px;
+}
+
+.prescription-page .clinical-left {
+  width: 200px;
+  flex-shrink: 0;
+}
+
+.prescription-page .clinical-title {
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--teal);
+  letter-spacing: 0.3px;
+}
+
+.prescription-page .clinical-right {
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.prescription-page .vertical-line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.prescription-page .vline-dot {
+  width: 12px;
+  height: 12px;
+  background: var(--red);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.prescription-page .vline-bar {
+  flex: 1;
+  width: 2px;
+  background: var(--red);
+  min-height: 400px;
+}
+
+/* ========== WATERMARK ========== */
+.prescription-page .watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-30%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  opacity: 1;
+}
+
+.prescription-page .watermark-icon {
+  opacity: 0.06;
+}
+
+.prescription-page .watermark-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0.07;
+  margin-top: -20px;
+}
+
+.prescription-page .watermark-text span {
+  font-family: 'Playfair Display', serif;
+  font-size: 52px;
+  font-weight: 700;
+  color: var(--teal);
+  letter-spacing: 6px;
+  line-height: 1.1;
+}
+
+/* ========== FOOTER ========== */
+.prescription-page .rx-footer {
+  padding: 16px 48px 12px 48px;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fff;
+}
+
+.prescription-page .footer-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.prescription-page .footer-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.prescription-page .footer-content {
+  font-size: 13.5px;
+  color: var(--dark);
+  line-height: 1.6;
+}
+
+.prescription-page .footer-label {
+  font-weight: 700;
+  color: var(--red);
+}
+
+.prescription-page .footer-main {
+  font-weight: 600;
+  color: var(--dark);
+}
+
+.prescription-page .footer-sub {
+  color: var(--gray);
+  font-size: 13px;
+}
+
+.prescription-page .teal-text {
+  color: var(--teal);
+  font-weight: 600;
+}
+
+.prescription-page .phone-text {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.prescription-page .email-item {
+  align-items: center;
+}
+
+.prescription-page .footer-email {
+  color: var(--dark);
+  font-size: 13.5px;
+}
+
+/* ========== BOTTOM BAR ========== */
+.prescription-page .bottom-bar {
+  display: flex;
+  height: 14px;
+  margin-top: auto;
+}
+
+.prescription-page .bar-teal {
+  background: var(--teal);
+  flex: 2;
+}
+
+.prescription-page .bar-dark {
+  background: #2b2b2b;
+  flex: 1;
+}
+
+.prescription-page .bar-red {
+  background: var(--red);
+  flex: 2;
+}
+
+/* Print styles */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .prescription-wrapper, .prescription-wrapper * {
+    visibility: visible;
+  }
+  .prescription-wrapper {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 210mm;
+    height: 297mm;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+  }
+  .prescription-page {
+    box-shadow: none;
+    width: 210mm;
+    height: 297mm;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+}

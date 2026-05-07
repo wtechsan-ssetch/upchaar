@@ -33,6 +33,7 @@ import DoctorPrescriptions from '@/doctor/pages/DoctorPrescriptions.jsx';
 import DoctorProfile from '@/doctor/pages/DoctorProfile.jsx';
 import DoctorClinicPatients from '@/doctor/pages/DoctorClinicPatients.jsx';
 import DoctorReleaseRequests from '@/doctor/pages/DoctorReleaseRequests.jsx';
+import DoctorSlotPatients from '@/doctor/pages/DoctorSlotPatients.jsx';
 
 /**
  * DoctorRoutes
@@ -58,6 +59,7 @@ export function DoctorRoutes() {
                 <Route path="prescriptions" element={<DoctorPrescriptions />} />
                 <Route path="clinics/:clinicName" element={<DoctorClinicPatients />} />
                 <Route path="release" element={<DoctorReleaseRequests />} />
+                <Route path="slot-patients" element={<DoctorSlotPatients />} />
                 <Route path="profile" element={<DoctorProfile />} />
             </Route>
         </>

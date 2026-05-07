@@ -216,7 +216,7 @@ export default function Blogs() {
                         <Rss size={13} /> Health Insights From Our Experts
                     </div>
                     <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-4 leading-tight">
-                        Upchaar <span className="text-emerald-200">Health Blog</span>
+                        Upchar <span className="text-emerald-200">Health Blog</span>
                     </h1>
                     <p className="text-white/80 text-base sm:text-lg mb-8">
                         Evidence-based health articles and wellness tips written by medical professionals.
@@ -319,7 +319,7 @@ export default function Blogs() {
                         <User size={22} className="text-primary" />
                     </div>
                     <h3 className="text-lg font-bold text-slate-800 mb-2">Are you a healthcare professional?</h3>
-                    <p className="text-sm text-slate-500 mb-4">Share your expertise and reach thousands of patients through the Upchaar Health Blog.</p>
+                    <p className="text-sm text-slate-500 mb-4">Share your expertise and reach thousands of patients through the Upchar Health Blog.</p>
                     <Link to="/blogger/login"
                         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 shadow-md shadow-primary/20 transition-all">
                         Start Writing <ChevronRight size={14} />

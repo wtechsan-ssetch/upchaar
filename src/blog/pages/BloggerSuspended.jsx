@@ -139,7 +139,7 @@ export default function BloggerSuspended() {
 
                 {/* Footer note */}
                 <p className="text-center text-xs text-slate-400 mt-4">
-                    Upchaar Health · Blogger Portal · For support contact your administrator
+                    Upchar Health · Blogger Portal · For support contact your administrator
                 </p>
             </motion.div>
         </div>

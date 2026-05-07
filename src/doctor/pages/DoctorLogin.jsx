@@ -57,7 +57,7 @@ export default function DoctorLogin() {
                                 <Stethoscope size={24} className="text-white" />
                             </div>
                             <div>
-                                <p className="text-white/70 text-xs font-medium uppercase tracking-widest">Upchaar Health</p>
+                                <p className="text-white/70 text-xs font-medium uppercase tracking-widest">Upchar Health</p>
                                 <h1 className="text-white font-bold text-xl">Doctor Portal</h1>
                             </div>
                         </motion.div>
@@ -134,7 +134,7 @@ export default function DoctorLogin() {
 
                 {/* Back link */}
                 <p className="mt-4 text-center text-xs text-slate-400">
-                    <Link to="/" className="hover:text-slate-600 transition">← Back to Upchaar Health</Link>
+                    <Link to="/" className="hover:text-slate-600 transition">← Back to Upchar Health</Link>
                 </p>
             </motion.div>
         </div>

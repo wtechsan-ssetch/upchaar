@@ -225,7 +225,7 @@ export default function SupportAdminManagement() {
                             <form onSubmit={handleAdd} className="p-5 space-y-4">
                                 {[
                                     { key: 'name', label: 'Full Name', placeholder: 'e.g. Rahul Nair', type: 'text' },
-                                    { key: 'email', label: 'Email Address', placeholder: 'support@upchaar.health', type: 'email' },
+                                    { key: 'email', label: 'Email Address', placeholder: 'support@upcharhealth.com', type: 'email' },
                                     { key: 'phone', label: 'Phone Number', placeholder: '9876543210', type: 'tel' },
                                     { key: 'password', label: 'Initial Password', placeholder: 'Min. 8 characters', type: 'password' },
                                 ].map(({ key, label, placeholder, type }) => (

@@ -85,6 +85,7 @@ export default function DoctorProfile() {
 
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [savedMsg, setSavedMsg] = useState('');
     const [error, setError] = useState('');
     const [copied, setCopied] = useState(false);
     const [regenerating, setRegenerating] = useState(false);
@@ -149,14 +150,20 @@ export default function DoctorProfile() {
         setError('');
         setSaving(true);
         try {
-            await updateProfile({
+            const result = await updateProfile({
                 ...form,
                 experience: Number(form.experience) || 0,
                 fee: Number(form.fee) || 0,
                 languages: form.languages.split(',').map(s => s.trim()).filter(Boolean),
             });
+            const feeChangePending = result?.feeChangePending;
             setSaved(true);
-            setTimeout(() => setSaved(false), 3000);
+            setSavedMsg(
+                feeChangePending
+                    ? `Profile saved! Your fee change to ₹${result.pendingFee} will take effect in 24 hours.`
+                    : 'Profile updated successfully'
+            );
+            setTimeout(() => { setSaved(false); setSavedMsg(''); }, 5000);
         } catch (err) {
             setError(err.message || 'Failed to save profile.');
         } finally {
@@ -171,6 +178,32 @@ export default function DoctorProfile() {
                 <h1 className="text-xl font-bold text-slate-800">My Profile</h1>
                 <p className="text-sm text-slate-500 mt-0.5">Update your details, availability and clinic info</p>
             </div>
+
+            {/* Pending fee banner */}
+            {doctor.pendingFee != null && (
+                <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl"
+                >
+                    <span className="text-amber-500 mt-0.5 text-lg">⏳</span>
+                    <div>
+                        <p className="text-sm font-bold text-amber-800">Fee Update Pending</p>
+                        <p className="text-xs text-amber-700 mt-0.5">
+                            Your fee is changing from <strong>₹{doctor.fee}</strong> to{' '}
+                            <strong>₹{doctor.pendingFee}</strong>. This will be effective from{' '}
+                            <strong>
+                                {doctor.pendingFeeEffective
+                                    ? new Date(doctor.pendingFeeEffective).toLocaleString('en-IN', {
+                                        dateStyle: 'medium', timeStyle: 'short'
+                                    })
+                                    : 'in 24 hours'}
+                            </strong>.
+                            Admin has been notified.
+                        </p>
+                    </div>
+                </motion.div>
+            )}
 
             {error && (
                 <motion.div
@@ -448,7 +481,7 @@ export default function DoctorProfile() {
                             animate={{ opacity: 1 }}
                             className="text-sm text-emerald-600 font-medium"
                         >
-                            ✓ Profile updated successfully
+                            ✓ {savedMsg}
                         </motion.p>
                     )}
                 </div>

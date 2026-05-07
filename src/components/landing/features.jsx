@@ -19,7 +19,7 @@ export const Features = () => {
             <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
                 <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl font-headline">Everything You Need for Better Health</h2>
                 <p className="mt-2 max-w-xl text-muted-foreground">
-                    Upchaar provides powerful tools to make healthcare more accessible and convenient.
+                    Upchar provides powerful tools to make healthcare more accessible and convenient.
                 </p>
             </div>
             <motion.div

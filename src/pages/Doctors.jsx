@@ -27,6 +27,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth/AuthContext.jsx';
 import { supabase } from '@/lib/supabase.js';
+import { getStorageUrl } from '@/lib/uploadImage.js';
 import Skeleton from 'react-loading-skeleton';
 
 export default function DoctorsPage() {
@@ -52,7 +53,7 @@ export default function DoctorsPage() {
                         location: [d.clinic_name, d.city, d.state].filter(Boolean).join(', '),
                         city: (d.city || '').toLowerCase(),
                         availability: 'Available Today',
-                        avatar: d.avatar_url || null,
+                        avatar: getStorageUrl(d.avatar_url, 'doctor-avtar'),
                         experience: d.experience || 0,
                         rating: Number(d.rating) || 4.5,
                         reviews: d.total_appointments || 0,

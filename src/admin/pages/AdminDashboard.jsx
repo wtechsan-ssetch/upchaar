@@ -5,8 +5,9 @@ import {
 } from 'recharts';
 import {
     Users, Stethoscope, CalendarCheck2, TrendingUp,
-    TrendingDown, ArrowUpRight, Clock, CheckCircle, XCircle, AlertCircle
+    TrendingDown, ArrowUpRight, Clock, CheckCircle, XCircle, AlertCircle, IndianRupee, X
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase.js';
 import { cn } from '@/lib/utils';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { fetchDashboardStats, fetchDoctors, fetchAppointments } from '@/lib/adminApi.js';
@@ -51,18 +52,37 @@ export default function AdminDashboard() {
     const [stats, setStats] = useState({ totalDoctors: 0, totalPatients: 0, totalAppointments: 0, platformRevenue: 0 });
     const [pendingDoctors, setPendingDoctors] = useState([]);
     const [recentAppointments, setRecentAppointments] = useState([]);
+    const [feeNotifications, setFeeNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedFeeNote, setSelectedFeeNote] = useState(null);
 
     useEffect(() => {
-        Promise.all([fetchDashboardStats(), fetchDoctors(), fetchAppointments()])
-            .then(([s, doctors, appointments]) => {
+        Promise.all([
+            fetchDashboardStats(),
+            fetchDoctors(),
+            fetchAppointments(),
+            supabase
+                .from('admin_notifications')
+                .select('*')
+                .eq('type', 'fee_change_request')
+                .order('created_at', { ascending: false })
+                .limit(10)
+                .then(({ data }) => data || []),
+        ])
+            .then(([s, doctors, appointments, feeNotes]) => {
                 setStats(s);
                 setPendingDoctors(doctors.filter(d => d.status === 'Pending').slice(0, 4));
                 setRecentAppointments(appointments.slice(0, 6));
+                setFeeNotifications(feeNotes);
             })
             .catch(console.error)
             .finally(() => setLoading(false));
     }, []);
+
+    const markFeeNoteRead = async (id) => {
+        await supabase.from('admin_notifications').update({ is_read: true }).eq('id', id);
+        setFeeNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    };
 
     // Build pie data from real appointments
     const statusPie = useMemo(() => {
@@ -83,7 +103,7 @@ export default function AdminDashboard() {
                 <h1 className="text-2xl font-bold text-slate-800">
                     {greeting}
                 </h1>
-                <p className="text-sm text-slate-500 mt-1">Here&apos;s what&apos;s happening on Upchaar Health today.</p>
+                <p className="text-sm text-slate-500 mt-1">Here&apos;s what&apos;s happening on Upchar Health today.</p>
             </div>
 
             {/* Stat Cards */}
@@ -208,6 +228,106 @@ export default function AdminDashboard() {
                     )}
                 </div>
             </div>
+            {/* Fee Change Notifications */}
+            {feeNotifications.length > 0 && (
+                <div className="bg-white rounded-2xl border border-amber-100 shadow-sm p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+                            <IndianRupee size={16} className="text-amber-500" />
+                            Fee Change Requests
+                            {feeNotifications.some(n => !n.is_read) && (
+                                <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+                                    {feeNotifications.filter(n => !n.is_read).length} new
+                                </span>
+                            )}
+                        </h2>
+                    </div>
+                    <div className="space-y-2">
+                        {feeNotifications.map(note => (
+                            <button
+                                key={note.id}
+                                onClick={() => setSelectedFeeNote(note)}
+                                className={`w-full text-left flex items-start gap-3 p-3 rounded-xl border transition-colors ${
+                                    note.is_read
+                                        ? 'border-slate-100 bg-slate-50 hover:bg-slate-100'
+                                        : 'border-amber-200 bg-amber-50 hover:bg-amber-100'
+                                }`}
+                            >
+                                <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                                    <IndianRupee size={14} className="text-amber-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-slate-800">{note.from_name}</p>
+                                    <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{note.message}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">
+                                        {note.created_at
+                                            ? new Date(note.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+                                            : ''}
+                                    </p>
+                                </div>
+                                <span className="text-[10px] text-slate-400 shrink-0 mt-1">Click to read →</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Fee Note Detail Modal */}
+            {selectedFeeNote && (
+                <div
+                    className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+                    onClick={() => setSelectedFeeNote(null)}
+                >
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex items-start justify-between gap-3 p-6 border-b border-amber-200 bg-amber-50">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center">
+                                    <IndianRupee size={18} className="text-amber-600" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">Fee Change Request</p>
+                                    <p className="font-bold text-slate-800 text-base leading-tight mt-0.5">
+                                        {selectedFeeNote.from_name || 'Doctor'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedFeeNote(null)}
+                                className="h-8 w-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition shrink-0"
+                            >
+                                <X size={15} />
+                            </button>
+                        </div>
+                        <div className="px-6 py-3 border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                            {selectedFeeNote.created_at && (
+                                <span>
+                                    <span className="font-semibold text-slate-600">Requested at:</span>{' '}
+                                    {new Date(selectedFeeNote.created_at).toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' })}
+                                </span>
+                            )}
+                        </div>
+                        <div className="p-6">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Full Message</p>
+                            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                    {selectedFeeNote.message || '(No message)'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="px-6 pb-6 flex justify-end">
+                            <button
+                                onClick={() => setSelectedFeeNote(null)}
+                                className="px-5 py-2 rounded-xl bg-slate-800 text-white text-sm font-semibold hover:bg-slate-700 transition"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

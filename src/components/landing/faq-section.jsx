@@ -76,8 +76,7 @@ export function FaqSection() {
                 <div className="grid md:grid-cols-2 gap-12 md:gap-8 items-start">
                     {/* Patient FAQs */}
                     <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
-                        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm">P</span>
+                        <h3 className="text-xl font-bold text-slate-800 mb-6">
                             FAQs for Patients
                         </h3>
                         <Accordion type="single" collapsible className="w-full">
@@ -96,8 +95,7 @@ export function FaqSection() {
 
                     {/* Doctor FAQs */}
                     <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
-                        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <span className="w-8 h-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-sm">D</span>
+                        <h3 className="text-xl font-bold text-slate-800 mb-6">
                             FAQs for Doctors
                         </h3>
                         <Accordion type="single" collapsible className="w-full">

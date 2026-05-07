@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase.js';
 import { useAuth } from '@/auth/AuthContext.jsx';
+import { getStorageUrl } from '@/lib/uploadImage.js';
 
 // ── Static Data ──────────────────────────────────────
 // Constants will be fetched dynamically
@@ -22,13 +23,16 @@ export default function BookAppointmentQueued() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { user, loading: authLoading } = useAuth();
+    const doctorIdParam = searchParams.get('doctorId');
+    const clinicIdParam = searchParams.get('clinicId');
     
     useEffect(() => {
         if (!authLoading && !user) {
-            navigate('/login', { state: { from: '/book-appointment-queued' } });
+            const returnTo = `/book-appointment-queued${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+            navigate('/login', { state: { from: returnTo } });
             toast.error("You must be logged in to book a queued appointment.");
         }
-    }, [user, authLoading, navigate]);
+    }, [user, authLoading, navigate, searchParams]);
 
     // ── Search & Filter State ────────────────────────
     const [selectedState, setSelectedState] = useState('');
@@ -50,7 +54,7 @@ export default function BookAppointmentQueued() {
     const [availableScheduleDays, setAvailableScheduleDays] = useState([]);
     
     // ── UI Flow State ────────────────────────────────
-    const [step, setStep] = useState(1); // 1: Search, 2: Clinic/Slot, 3: Details & OTP, 4: Payment, 5: Confirmation
+    const [step, setStep] = useState(doctorIdParam ? 2 : 1); // 1: Search, 2: Clinic/Slot, 3: Details & OTP, 4: Payment, 5: Confirmation
     const [bookingLoading, setBookingLoading] = useState(false);
     const [bookingSuccess, setBookingSuccess] = useState(false);
 
@@ -203,18 +207,43 @@ export default function BookAppointmentQueued() {
         if (!staffError && staffData && staffData.length > 0) {
             const orgPromises = staffData.map(async (link) => {
                 const table = link.organization_type === 'medical' ? 'medicals' : 'clinics';
-                const { data, error } = await supabase
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(link.organization_id));
+                let { data, error } = await supabase
                     .from(table)
                     .select('*')
-                    .eq('profile_id', link.organization_id)
+                    .eq(isUUID ? 'profile_id' : 'id', link.organization_id)
                     .maybeSingle();
                 
                 if (error) console.error(`Error fetching from ${table}:`, error);
-                return data ? { ...data, organization_type: link.organization_type } : null;
+                
+                // Fallback to profiles table if not found in medicals/clinics
+                if (!data && isUUID) {
+                    const { data: profileData } = await supabase
+                        .from('profiles')
+                        .select('id, full_name, name, city, state, phone')
+                        .eq('id', link.organization_id)
+                        .maybeSingle();
+                        
+                    if (profileData) {
+                        data = {
+                            id: profileData.id,
+                            name: profileData.full_name || profileData.name || 'Unnamed Facility',
+                            address: [profileData.city, profileData.state].filter(Boolean).join(', ') || '',
+                            phone: profileData.phone || ''
+                        };
+                    }
+                }
+
+                return null;
             });
             const list = (await Promise.all(orgPromises)).filter(Boolean);
             setClinics(list);
-            if (list.length > 0) setSelectedClinic(list[0]);
+            if (list.length > 0) {
+                const desiredClinic = clinicIdParam
+                    ? list.find(c => String(c.id) === String(clinicIdParam))
+                    : null;
+                setSelectedClinic(desiredClinic || list[0]);
+            }
         } else {
             setClinics([]);
         }
@@ -391,6 +420,19 @@ export default function BookAppointmentQueued() {
         }));
     }, [selectedClinic, doctorTimetables]);
 
+    const showDeepLinkLoader = authLoading || (doctorIdParam && !selectedDoctor && loading);
+
+    if (showDeepLinkLoader) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+                <div className="flex flex-col items-center gap-3 text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+                    <p className="text-sm font-semibold text-slate-600">Preparing appointment slots...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-8">
                 <div className="max-w-6xl mx-auto space-y-8">
@@ -402,7 +444,11 @@ export default function BookAppointmentQueued() {
                                 if (step === 2) {
                                     navigate('/doctors');
                                 } else {
-                                    setStep(step - 1);
+                                    if (step === 4 && user) {
+                                        setStep(2);
+                                    } else {
+                                        setStep(step - 1);
+                                    }
                                 }
                             }}>
                                 <ChevronLeft className="h-6 w-6" />
@@ -513,7 +559,7 @@ export default function BookAppointmentQueued() {
                                                         <div className="flex items-start gap-4">
                                                             <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 text-2xl font-bold overflow-hidden border-2 border-white shadow-sm">
                                                                 {doc.avatar_url ? (
-                                                                    <img src={doc.avatar_url} alt={doc.full_name} className="w-full h-full object-cover" />
+                                                                    <img src={getStorageUrl(doc.avatar_url, 'doctor-avtar')} alt={doc.full_name} className="w-full h-full object-cover" />
                                                                 ) : doc.full_name?.[0]}
                                                             </div>
                                                             <div className="flex-1">
@@ -569,7 +615,7 @@ export default function BookAppointmentQueued() {
                                         <CardContent className="p-6 text-center space-y-4">
                                             <div className="h-24 w-24 rounded-full bg-slate-100 mx-auto border-4 border-white shadow-md overflow-hidden">
                                                 {selectedDoctor.avatar_url ? (
-                                                    <img src={selectedDoctor.avatar_url} alt={selectedDoctor.full_name} className="w-full h-full object-cover" />
+                                                    <img src={getStorageUrl(selectedDoctor.avatar_url, 'doctor-avtar')} alt={selectedDoctor.full_name} className="w-full h-full object-cover" />
                                                 ) : <div className="h-full w-full flex items-center justify-center text-3xl font-bold text-slate-400">{selectedDoctor.full_name?.[0]}</div>}
                                             </div>
                                             <div>
@@ -853,7 +899,7 @@ export default function BookAppointmentQueued() {
                                             onClick={handleConfirmBooking}
                                             disabled={bookingLoading}
                                         >
-                                            {bookingLoading ? <Loader2 className="animate-spin mr-2" /> : 'Confirm & Pay Now'}
+                                            {bookingLoading ? <Loader2 className="animate-spin mr-2" /> : 'Confirm and Pay Cash'}
                                         </Button>
                                         <p className="text-[10px] text-center text-slate-400">
                                             By clicking confirm, you agree to our terms of service and refund policy.

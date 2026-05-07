@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Menu, X, Stethoscope, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react';
 import { DoctorOnboardingModal } from './DoctorOnboardingModal';
+import { SignOutModal } from './SignOutModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -34,6 +35,7 @@ const ROLE_LABELS = {
     clinic: 'Clinic',
     medical: 'Medical Store',
     hospital: 'Hospital',
+    diagnostic: 'Diagnostic Centre',
 };
 
 // ── Dashboard path per role ───────────────────────────────
@@ -43,6 +45,7 @@ const ROLE_DASHBOARD = {
     clinic: '/clinic/dashboard',
     medical: '/medical/dashboard',
     hospital: '/hospital/dashboard',
+    diagnostic: '/diagnostic/dashboard',
 };
 
 export const Header = () => {
@@ -50,6 +53,7 @@ export const Header = () => {
     const [isDoctorModalOpen, setIsDoctorModalOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
     const searchInputRef = useRef(null);
     const profileRef = useRef(null);
     const isMobile = useIsMobile();
@@ -85,8 +89,12 @@ export const Header = () => {
         if (isMobile && isSearchOpen) setIsMenuOpen(false);
     }, [isSearchOpen, isMobile]);
 
-    const handleSignOut = async () => {
-        if (!window.confirm('Are you sure you want to sign out?')) return;
+    const handleSignOut = () => {
+        setIsSignOutModalOpen(true);
+    };
+
+    const handleConfirmSignOut = async () => {
+        setIsSignOutModalOpen(false);
         setIsProfileOpen(false);
         setIsMenuOpen(false);
         // Sign out from both AuthContext (Supabase session) and PatientContext (local state)
@@ -179,15 +187,19 @@ export const Header = () => {
         <header className="relative z-50 w-full px-4 pt-4">
             <div className="relative z-50 w-full max-w-[1360px] mx-auto flex h-16 sm:h-20 items-center justify-between rounded-full bg-white/90 backdrop-blur-md px-3 sm:px-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-200/50 transition-all duration-300">
                 {/* Left Section - Logo */}
-                <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
-                    <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-teal-200 bg-white shadow-sm ring-4 ring-teal-50/50 group-hover:ring-teal-100/50 transition-all">
-                        <img src="/logo.png" alt="Upchaar Logo" className="w-6 h-6 sm:w-7 sm:h-7" />
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:gap-1 tracking-tight">
-                        <span className="font-extrabold text-base sm:text-lg lg:text-xl text-teal-600 leading-tight">
-                            Upchaar
+                <Link to="/" className="flex items-center gap-3 flex-shrink-0 group select-none">
+                    <motion.div 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full border-2 border-[#a7f3d0] bg-white shadow-sm transition-all overflow-hidden p-1.5"
+                    >
+                        <img src="/logo.png" alt="Upchar Logo" className="w-full h-full object-contain" />
+                    </motion.div>
+                    <div className="flex items-baseline gap-1 tracking-tighter">
+                        <span className="text-xl sm:text-2xl font-black text-[#0d9488] leading-none">
+                            Upchar
                         </span>
-                        <span className='font-bold text-xs sm:text-lg lg:text-xl text-slate-400 sm:text-red-600 hidden md:block lg:hidden xl:block'>Health</span>
+                        <span className="text-xl sm:text-2xl font-black text-[#dc2626] leading-none">Health</span>
                     </div>
                 </Link>
 
@@ -443,6 +455,12 @@ export const Header = () => {
             <DoctorOnboardingModal
                 isOpen={isDoctorModalOpen}
                 onClose={() => setIsDoctorModalOpen(false)}
+            />
+
+            <SignOutModal
+                isOpen={isSignOutModalOpen}
+                onClose={() => setIsSignOutModalOpen(false)}
+                onConfirm={handleConfirmSignOut}
             />
         </header>
     );

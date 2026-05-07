@@ -98,3 +98,25 @@ export async function uploadBlogImage(file, userId) {
     const { data } = supabase.storage.from('blog-images').getPublicUrl(path);
     return data.publicUrl;
 }
+
+/**
+ * getStorageUrl
+ * Resolves a storage path or URL into a final public URL.
+ * 
+ * @param {string} path   - The path stored in DB (e.g. "avatars/123.jpg") or a full URL
+ * @param {string} bucket - The fallback bucket name if path is just a filename
+ * @returns {string|null}  - The resolved public URL
+ */
+export function getStorageUrl(path, bucket = 'avatars') {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    
+    // If it's a raw path, get the public URL from Supabase
+    try {
+        const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+        return data?.publicUrl || null;
+    } catch (err) {
+        console.error('[getStorageUrl] Error resolving path:', path, err);
+        return null;
+    }
+}

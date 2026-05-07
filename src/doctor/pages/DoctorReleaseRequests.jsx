@@ -3,7 +3,7 @@ import { CircleDollarSign, IndianRupee, Landmark, Send } from 'lucide-react';
 import { supabase } from '@/lib/supabase.js';
 import { useDoctor } from '../context/DoctorContext.jsx';
 
-const storageKeyFor = (doctorId) => `upchaar-release-requests-${doctorId}`;
+const storageKeyFor = (doctorId) => `upchar-release-requests-${doctorId}`;
 
 export default function DoctorReleaseRequests() {
     const { doctorRecord } = useDoctor();

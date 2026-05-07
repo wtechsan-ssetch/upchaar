@@ -50,7 +50,7 @@ export default function AdminLogin() {
                             <Shield className="h-7 w-7 text-white" />
                         </div>
                         <h1 className="text-2xl font-bold text-slate-800">Admin Portal</h1>
-                        <p className="text-sm text-slate-500 mt-1">Upchaar Health — Secure Access</p>
+                        <p className="text-sm text-slate-500 mt-1">Upchar Health — Secure Access</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -63,7 +63,7 @@ export default function AdminLogin() {
                                 required
                                 value={form.email}
                                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                                placeholder="admin@upchaar.health"
+                                placeholder="admin@upcharhealth.com"
                                 className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
                             />
                         </div>

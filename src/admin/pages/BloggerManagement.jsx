@@ -440,7 +440,7 @@ export default function BloggerManagement() {
                             <form onSubmit={handleAdd} className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
                                 {[
                                     { key: 'name', label: 'Full Name', placeholder: 'Dr. Meera Krishnan', type: 'text', required: true },
-                                    { key: 'email', label: 'Email', placeholder: 'blogger@upchaar.health', type: 'email', required: true },
+                                    { key: 'email', label: 'Email', placeholder: 'blogger@upcharhealth.com', type: 'email', required: true },
                                     { key: 'password', label: 'Password', placeholder: 'Set login password', type: 'password', required: true },
                                     { key: 'specialty', label: 'Medical Specialty', placeholder: 'General Medicine', type: 'text', required: false },
                                     { key: 'bio', label: 'Bio (optional)', placeholder: 'Short bio…', type: 'text', required: false },

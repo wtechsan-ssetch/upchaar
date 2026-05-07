@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Stethoscope, FlaskConical, Hospital,
-    FileText, LogOut, X, Menu, ChevronLeft, ChevronRight, HeartPulse, User, Store
+    FileText, LogOut, X, Menu, ChevronLeft, ChevronRight, User, Store
 } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,16 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogCancel,
+    AlertDialogAction
+} from "@/components/ui/alert-dialog";
 import EditProfileModal from "@/components/EditProfileModal.jsx";
 
 const NAV = [
@@ -32,9 +42,9 @@ export default function AppLayout({ children, hideSidebar = false, hideNavbar = 
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [editProfileOpen, setEditProfileOpen] = useState(false);
+    const [signOutAlertOpen, setSignOutAlertOpen] = useState(false);
 
     const handleSignOut = useCallback(async () => {
-        if (!window.confirm('Are you sure you want to sign out?')) return;
         await signOut();
         navigate('/');
     }, [signOut, navigate]);
@@ -50,17 +60,28 @@ export default function AppLayout({ children, hideSidebar = false, hideNavbar = 
     const SidebarContent = ({ onClose }) => (
         <div className="flex flex-col h-full">
             {/* Logo + close */}
-            <div className="flex items-center justify-between px-4 py-5 border-b border-slate-100 h-16 flex-shrink-0">
-                <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-teal-400 flex items-center justify-center flex-shrink-0">
-                        <HeartPulse className="text-white" size={15} />
-                    </div>
-                    <AnimatePresence>
+            <div className="flex items-center justify-between px-4 py-5 border-b border-slate-50/50 h-24 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                    <motion.div 
+                        whileHover={{ scale: 1.05 }}
+                        className="h-12 w-12 rounded-full border-2 border-[#a7f3d0] flex items-center justify-center p-1.5 bg-white overflow-hidden shadow-sm flex-shrink-0"
+                    >
+                        <img src="/logo.png" alt="Upchar Logo" className="w-full h-full object-contain" />
+                    </motion.div>
+                    <AnimatePresence mode="wait">
                         {(!collapsed || onClose) && (
-                            <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}
-                                className="font-bold text-sm text-primary whitespace-nowrap">
-                                Upchaar
-                            </motion.span>
+                            <motion.div 
+                                initial={{ opacity: 0, x: -10 }} 
+                                animate={{ opacity: 1, x: 0 }} 
+                                exit={{ opacity: 0, x: -10 }} 
+                                transition={{ duration: 0.12 }}
+                                className="flex items-baseline gap-1 tracking-tighter select-none"
+                            >
+                                <span className="text-xl sm:text-2xl font-black text-[#0d9488] whitespace-nowrap leading-none">
+                                    Upchar
+                                </span>
+                                <span className="text-xl sm:text-2xl font-black text-[#dc2626] whitespace-nowrap leading-none">Health</span>
+                            </motion.div>
                         )}
                     </AnimatePresence>
                 </div>
@@ -182,8 +203,8 @@ export default function AppLayout({ children, hideSidebar = false, hideNavbar = 
                         {/* Avatar Dropdown */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <button className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-teal-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 outline-none hover:opacity-90 transition">
-                                    {initials}
+                                <button className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-teal-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 outline-none hover:opacity-90 transition overflow-hidden">
+                                    {profile?.avatar_url ? <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" /> : initials}
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
@@ -192,7 +213,7 @@ export default function AppLayout({ children, hideSidebar = false, hideNavbar = 
                                     <span>Edit Profile</span>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-50">
+                                <DropdownMenuItem onClick={() => setSignOutAlertOpen(true)} className="cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-50">
                                     <LogOut className="mr-2 h-4 w-4" />
                                     <span>Sign Out</span>
                                 </DropdownMenuItem>
@@ -211,6 +232,20 @@ export default function AppLayout({ children, hideSidebar = false, hideNavbar = 
                 onClose={() => setEditProfileOpen(false)} 
                 profile={profile} 
             />
+            <AlertDialog open={signOutAlertOpen} onOpenChange={setSignOutAlertOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Sign Out</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to sign out of your account?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleSignOut} className="bg-red-600 hover:bg-red-700">Sign Out</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

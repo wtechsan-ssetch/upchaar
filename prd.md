@@ -1,9 +1,9 @@
-# Upchaar Health - Product Requirements Document (PRD)
+# Upchar Health - Product Requirements Document (PRD)
 
 ## 1. Product Mission & Purpose
 **Mission**: To revolutionize healthcare accessibility in India by providing a single, seamless digital ecosystem that connects patients with qualified doctors, clinics, and medical providers.
 
-**Purpose**: Upchaar Health serves as a centralized health-tech platform that simplifies medical consultations, appointment management, and healthcare provider onboarding, ensuring transparency and efficiency for all stakeholders.
+**Purpose**: Upchar Health serves as a centralized health-tech platform that simplifies medical consultations, appointment management, and healthcare provider onboarding, ensuring transparency and efficiency for all stakeholders.
 
 ---
 

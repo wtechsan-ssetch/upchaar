@@ -117,7 +117,7 @@ const LocationPermissionPrompt = ({ onAllow }) => {
                         Show Nearby Facilities
                     </CardTitle>
                     <CardDescription>
-                        To find the nearest emergency services, please allow Upchaar Health to access your current location.
+                        To find the nearest emergency services, please allow Upchar Health to access your current location.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

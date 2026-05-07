@@ -129,27 +129,67 @@ export default function DoctorDashboard() {
     };
 
     const handleEnd = async (appointmentId) => {
-        if (!canEndConsultation()) {
-            window.alert(`You can end the consultation at ${hoursTo}.`);
-            return;
-        }
-
         setUpdatingId(appointmentId);
         try {
-            const { error } = await supabase
+            const apt = appointments.find(a => a.id === appointmentId);
+            const isCurrentlyCompleted = apt?.status === 'Completed';
+            
+            const updateData = { status: 'Completed', ended_at: new Date().toISOString() };
+
+            let { error } = await supabase
                 .from('appointments')
-                .update({ status: 'Completed', ended_at: new Date().toISOString() })
+                .update(updateData)
                 .eq('id', appointmentId);
+
+            if (error?.message?.includes("Could not find the 'ended_at' column")) {
+                const { ended_at: _unusedEndedAt, ...fallbackData } = updateData;
+                ({ error } = await supabase
+                    .from('appointments')
+                    .update(fallbackData)
+                    .eq('id', appointmentId));
+            }
 
             if (error) throw error;
 
-            setAppointments(prev => prev.map(apt => (
-                apt.id === appointmentId ? { ...apt, status: 'Completed', ended_at: new Date().toISOString() } : apt
+            if (!isCurrentlyCompleted && apt?.fee) {
+                const { data: docData } = await supabase.from('doctors').select('total_revenue').eq('id', doctorRecord.id).single();
+                if (docData) {
+                    const newRev = (docData.total_revenue || 0) + Number(apt.fee);
+                    await supabase.from('doctors').update({ total_revenue: newRev }).eq('id', doctorRecord.id);
+                }
+            }
+
+            setAppointments(prev => prev.map(a => (
+                a.id === appointmentId ? { ...a, ...updateData } : a
             )));
             window.alert('Consultation ended successfully!');
         } catch (error) {
             console.error('Failed to end consultation:', error.message);
             window.alert('Failed to end consultation. Please try again.');
+        } finally {
+            setUpdatingId(null);
+        }
+    };
+
+    const handleCancel = async (appointmentId) => {
+        if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+
+        setUpdatingId(appointmentId);
+        try {
+            const { error } = await supabase
+                .from('appointments')
+                .update({ status: 'Cancelled' })
+                .eq('id', appointmentId);
+
+            if (error) throw error;
+
+            setAppointments(prev => prev.map(apt => (
+                apt.id === appointmentId ? { ...apt, status: 'Cancelled' } : apt
+            )));
+            window.alert('Appointment cancelled successfully!');
+        } catch (error) {
+            console.error('Failed to cancel appointment:', error.message);
+            window.alert('Failed to cancel appointment. Please try again.');
         } finally {
             setUpdatingId(null);
         }
@@ -178,34 +218,79 @@ export default function DoctorDashboard() {
                 setAppointments(aptData || []);
 
                 // 2. Fetch linked organizations
-                const { data: staffLinks, error: staffError } = await supabase
-                    .from('staff_links')
-                    .select('organization_id, organization_type')
-                    .eq('doctor_id', doctorRecord.id);
+                let staffLinks = [];
+                try {
+                    // Try to find links using both doctor_id and profile_id for compatibility
+                    const { data, error } = await supabase
+                        .from('staff_links')
+                        .select('organization_id, organization_type')
+                        .or(`doctor_id.eq.${doctorRecord.id},doctor_id.eq.${doctorRecord.profile_id}`);
 
-                if (staffError) throw staffError;
+                    if (error) {
+                        console.error('Error fetching staff links:', error);
+                    } else {
+                        staffLinks = data || [];
+                    }
+                } catch (err) {
+                    console.error('Unexpected error fetching staff links:', err);
+                }
 
-                const orgPromises = (staffLinks || []).map(async (link) => {
-                    const table = link.organization_type === 'medical' ? 'medicals' : 'clinics';
-                    const { data } = await supabase
-                        .from(table)
-                        .select('id, name, address, city, state')
-                        .eq('profile_id', link.organization_id)
-                        .maybeSingle();
-                    
-                    if (!data) return null;
+                if (staffLinks.length > 0) {
+                    // Filter out any null/undefined IDs and get unique list
+                    const orgIds = [...new Set(staffLinks.map(l => l.organization_id).filter(Boolean))];
 
-                    return {
-                        ...data,
-                        id: data.id, // Entry ID for timetables
-                        profile_id: link.organization_id, // Profile ID for appointments
-                        type: link.organization_type,
-                        displayName: data.name
-                    };
-                });
+                    if (orgIds.length > 0) {
+                        // Fetch all profiles in one go
+                        const { data: profiles, error: profileError } = await supabase
+                            .from('profiles')
+                            .select('id, full_name, profile_type')
+                            .in('id', orgIds);
 
-                const orgs = (await Promise.all(orgPromises)).filter(Boolean);
-                setLinkedOrgs(orgs);
+                        if (profileError) {
+                            console.error('Error fetching profiles:', profileError);
+                        }
+
+                        const enrichedOrgs = await Promise.all((profiles || []).map(async (profile) => {
+                            try {
+                                const link = staffLinks.find(l => l.organization_id === profile.id);
+                                const table = link?.organization_type === 'medical' ? 'medicals' : 'clinics';
+
+                                // Try to get more details from specialized table
+                                const { data: specialized } = await supabase
+                                    .from(table)
+                                    .select('id, name, address, city, state')
+                                    .eq('profile_id', profile.id)
+                                    .maybeSingle();
+
+                                return {
+                                    id: specialized?.id || profile.id,
+                                    profile_id: profile.id,
+                                    name: specialized?.name || profile.full_name || 'Unnamed Organization',
+                                    displayName: specialized?.name || profile.full_name || 'Unnamed Organization',
+                                    type: link?.organization_type || profile.profile_type,
+                                    address: specialized?.address,
+                                    city: specialized?.city,
+                                    state: specialized?.state
+                                };
+                            } catch (err) {
+                                console.error(`Error enriching org ${profile.id}:`, err);
+                                return {
+                                    id: profile.id,
+                                    profile_id: profile.id,
+                                    name: profile.full_name || 'Unnamed Organization',
+                                    displayName: profile.full_name || 'Unnamed Organization',
+                                    type: profile.profile_type
+                                };
+                            }
+                        }));
+
+                        setLinkedOrgs(enrichedOrgs.filter(Boolean));
+                    } else {
+                        setLinkedOrgs([]);
+                    }
+                } else {
+                    setLinkedOrgs([]);
+                }
 
             } catch (error) {
                 console.error('Failed to load dashboard data:', error.message);
@@ -241,6 +326,7 @@ export default function DoctorDashboard() {
 
             return {
                 ...org,
+                displayName: org.name || 'Unnamed Organization',
                 totalPatients: relatedAppointments.length,
                 todayPatients: relatedAppointments.filter(apt => String(apt.date || '').slice(0, 10) === today).length,
                 upcoming: relatedAppointments.find(apt => String(apt.date || '').slice(0, 10) >= today) || null,
@@ -248,6 +334,11 @@ export default function DoctorDashboard() {
             };
         });
     }, [appointments, linkedOrgs, today]);
+
+    const getClinicName = (apt) => {
+        const org = linkedOrgs.find(o => o.id === apt.organization_id || o.profile_id === apt.organization_id);
+        return org ? org.name : (apt.clinic_name || 'Main Clinic');
+    };
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto pb-8">
@@ -361,9 +452,62 @@ export default function DoctorDashboard() {
                 )}
             </div>
 
-            <Skeleton name="appointments" loading={loading}>
-                <div className="text-sm text-slate-400">Appointments ready.</div>
-            </Skeleton>
+            {/* Today's Appointments Section */}
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-5">
+                    <div>
+                        <h2 className="font-bold text-slate-800 text-lg">Today&apos;s Appointments</h2>
+                        <p className="text-sm text-slate-500 mt-1">Directly manage today&apos;s patient queue.</p>
+                    </div>
+                </div>
+
+                {loading ? (
+                    <div className="space-y-3">
+                        <Skeleton height={80} borderRadius={24} />
+                        <Skeleton height={80} borderRadius={24} />
+                    </div>
+                ) : todayAppointments.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+                        <CalendarDays size={28} className="mx-auto text-slate-300 mb-3" />
+                        <p className="text-sm font-medium text-slate-500">No appointments for today.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {todayAppointments.map((apt) => (
+                            <div key={apt.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50/50 gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-10 w-10 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
+                                        {apt.queue_number || '#'}
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-slate-800">{apt.patient_name || apt.patient || 'Patient'}</p>
+                                        <p className="text-xs text-slate-500">{apt.time_slot} · {apt.status}</p>
+                                        <div className="flex items-center gap-1 mt-1">
+                                            <Building2 size={12} className="text-teal-500" />
+                                            <p className="text-[10px] font-bold text-teal-600 uppercase tracking-tight">{getClinicName(apt)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {(apt.status === 'Scheduled' || apt.status === 'Confirmed' || apt.status === 'Pending') ? (
+                                        <button
+                                            onClick={() => handleStart(apt.id)}
+                                            disabled={updatingId === apt.id}
+                                            className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition-colors disabled:opacity-50"
+                                        >
+                                            {updatingId === apt.id ? 'Starting...' : 'Start'}
+                                        </button>
+                                    ) : (
+                                        <span className="text-xs font-medium text-slate-400 px-3 py-1 bg-slate-100 rounded-full">
+                                            {apt.status}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Integrated Appointment Management Modal */}
             <DoctorAppointmentsModal
@@ -372,6 +516,7 @@ export default function DoctorDashboard() {
                 doctor={doctorRecord}
                 orgId={selectedOrgForAppointments?.id}
                 orgProfileId={selectedOrgForAppointments?.profile_id}
+                orgName={selectedOrgForAppointments?.name}
             />
         </div>
     );

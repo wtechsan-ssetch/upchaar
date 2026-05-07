@@ -634,7 +634,7 @@ function AvatarImage({ path, supabase, className }) {
             return;
         }
 
-        supabase.storage.from('doctor-docs').createSignedUrl(path, 3600)
+        supabase.storage.from('doctor-avtar').createSignedUrl(path, 3600)
             .then(({ data, error }) => {
                 if (error || !data?.signedUrl) {
                     setError(true);

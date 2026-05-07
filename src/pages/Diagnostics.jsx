@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Card,
@@ -9,7 +9,8 @@ import {
     CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { diagnosticCenters } from '@/lib/data';
+import { supabase } from '@/lib/supabase.js';
+import { getStorageUrl } from '@/lib/uploadImage.js';
 import { Badge } from '@/components/ui/badge';
 import { 
     MapPin, 
@@ -28,8 +29,132 @@ import { Input } from '@/components/ui/input';
 export default function DiagnosticsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
+    const [diagnosticCenters, setDiagnosticCenters] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     const categories = ['All', 'Pathology', 'Radiology', 'MRI/CT Scan', 'Blood Test'];
+
+    useEffect(() => {
+        const fetchCenters = async () => {
+            setLoading(true);
+            try {
+                // Fetch from auth profiles
+                const { data: profilesData } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('profile_type', 'diagnostic');
+                
+                // Fetch from facilities table (added by admin)
+                const { data: facilitiesData } = await supabase
+                    .from('facilities')
+                    .select('*')
+                    .eq('type', 'diagnostic');
+
+                // Fetch from diagnostic_centers table (added via user signup)
+                const { data: diagnosticCentersData } = await supabase
+                    .from('diagnostic_centers')
+                    .select('*');
+
+                const allCenters = [];
+
+                if (profilesData) {
+                    profilesData.forEach(center => {
+                        allCenters.push({
+                            id: center.id,
+                            name: center.full_name || center.name || 'Diagnostic Center',
+                            location: [center.city, center.state].filter(Boolean).join(', ') || 'Location not specified',
+                            tests: ['Blood Test', 'Pathology', 'X-Ray'],
+                            logo: getStorageUrl(center.avatar_url, 'avatars'),
+                            dataAiHint: 'diagnostic center'
+                        });
+                    });
+                }
+
+                if (facilitiesData) {
+                    facilitiesData.forEach(center => {
+                        if (!allCenters.find(c => c.id === center.id)) {
+                            allCenters.push({
+                                id: center.id,
+                                name: center.name || 'Diagnostic Center',
+                                location: center.location || center.city ? `${center.city || ''} ${center.location || ''}`.trim() : 'Location not specified',
+                                tests: center.facilities && center.facilities.length > 0 ? center.facilities : ['Blood Test', 'Pathology', 'X-Ray'],
+                                logo: getStorageUrl(center.avatar_url, 'avatars'),
+                                dataAiHint: 'diagnostic center'
+                            });
+                        }
+                    });
+                }
+
+                if (diagnosticCentersData) {
+                    diagnosticCentersData.forEach(center => {
+                        if (!allCenters.find(c => c.id === center.profile_id || c.id === center.id)) {
+                            allCenters.push({
+                                id: center.id,
+                                name: center.name || 'Diagnostic Center',
+                                location: center.address || center.city ? `${center.city || ''} ${center.address || ''}`.trim() : 'Location not specified',
+                                tests: center.tests && center.tests.length > 0 ? center.tests : ['Blood Test', 'Pathology', 'X-Ray'],
+                                logo: getStorageUrl(center.avatar_url, 'avatars'),
+                                dataAiHint: 'diagnostic center'
+                            });
+                        }
+                    });
+                }
+
+                setDiagnosticCenters(allCenters);
+            } catch (err) {
+                console.error("Error fetching diagnostics centers:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCenters();
+
+        // Real-time subscription for profile changes
+        const channel = supabase
+            .channel('diagnostic-centers-realtime')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'profiles',
+                    filter: 'profile_type=eq.diagnostic'
+                },
+                (payload) => {
+                    console.log('Real-time update received:', payload);
+                    if (payload.eventType === 'INSERT') {
+                        const center = payload.new;
+                        const mapped = {
+                            id: center.id,
+                            name: center.full_name || center.name || 'Diagnostic Center',
+                            location: center.address || center.city ? `${center.city || ''} ${center.state || ''}`.trim() : 'Location not specified',
+                            tests: ['Blood Test', 'Pathology', 'X-Ray'],
+                            logo: getStorageUrl(center.avatar_url, 'avatars'),
+                            dataAiHint: 'diagnostic center'
+                        };
+                        setDiagnosticCenters(prev => [mapped, ...prev]);
+                    } else if (payload.eventType === 'UPDATE') {
+                        const center = payload.new;
+                        setDiagnosticCenters(prev => prev.map(c => 
+                            c.id === center.id ? {
+                                ...c,
+                                name: center.full_name || center.name || 'Diagnostic Center',
+                                location: center.address || center.city ? `${center.city || ''} ${center.state || ''}`.trim() : 'Location not specified',
+                                logo: getStorageUrl(center.avatar_url, 'avatars')
+                            } : c
+                        ));
+                    } else if (payload.eventType === 'DELETE') {
+                        setDiagnosticCenters(prev => prev.filter(c => c.id === payload.old.id));
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
 
     const filteredCenters = diagnosticCenters.filter(center => {
         const matchesSearch = center.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -98,12 +223,18 @@ export default function DiagnosticsPage() {
                         >
                             <Card className="group h-full flex flex-col border-slate-100 hover:border-emerald-500/20 transition-all duration-300 shadow-md hover:shadow-2xl overflow-hidden rounded-3xl">
                                 <div className="relative h-40 bg-slate-50 overflow-hidden">
-                                    <img 
-                                        src={center.logo} 
-                                        alt={center.name} 
-                                        className="h-full w-full object-contain p-8 group-hover:scale-110 transition-transform duration-500" 
-                                        data-ai-hint={center.dataAiHint} 
-                                    />
+                                    {center.logo ? (
+                                        <img 
+                                            src={center.logo} 
+                                            alt={center.name} 
+                                            className="h-full w-full object-cover p-0 group-hover:scale-110 transition-transform duration-500" 
+                                            data-ai-hint={center.dataAiHint} 
+                                        />
+                                    ) : (
+                                        <div className="h-full w-full flex items-center justify-center bg-slate-200 text-slate-400">
+                                            <FlaskConical className="w-12 h-12" />
+                                        </div>
+                                    )}
                                     <div className="absolute top-4 right-4">
                                         <Badge className="bg-white/90 backdrop-blur text-emerald-600 border-emerald-100 flex items-center gap-1 font-bold">
                                             <Star className="w-3 h-3 fill-emerald-600" /> 4.8

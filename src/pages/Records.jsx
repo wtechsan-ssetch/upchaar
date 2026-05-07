@@ -14,7 +14,6 @@ import {
     TabsList,
     TabsTrigger,
 } from '@/components/ui/tabs';
-import { healthRecords } from '@/lib/data';
 import { 
     Upload, 
     FileText, 
@@ -38,24 +37,67 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
+import { usePatient } from '../patient/context/PatientContext.jsx';
+import { supabase } from '@/lib/supabase.js';
+import { useNavigate } from 'react-router-dom';
+
 export default function RecordsPage() {
+    const { patient } = usePatient();
+    const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [formattedRecords, setFormattedRecords] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setFormattedRecords(
-            healthRecords.map(record => ({
-                ...record,
-                date: new Date(record.date).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric'
-                }),
-                fullDate: new Date(record.date),
-                fileSize: (Math.random() * (5.0 - 0.5) + 0.5).toFixed(1) + ' MB' // Simulating file size
-            }))
-        );
-    }, []);
+        async function fetchRecords() {
+            if (!patient?.id) {
+                setLoading(false);
+                return;
+            }
+            
+            setLoading(true);
+            try {
+                const { data, error } = await supabase
+                    .from('appointments')
+                    .select('*')
+                    .eq('patient_id', patient.id)
+                    .eq('status', 'Completed')
+                    .order('date', { ascending: false });
+                    
+                if (error) throw error;
+                
+                if (data) {
+                    const validPrescriptions = data.filter(apt => 
+                        (apt.diagnosis && apt.diagnosis.trim() !== '') || 
+                        (apt.medicines && apt.medicines.length > 0) || 
+                        (apt.issue && apt.issue.trim() !== '')
+                    );
+                    
+                    const mappedRecords = validPrescriptions.map(apt => ({
+                        id: apt.id,
+                        name: `Prescription - ${apt.doctor_name || 'Doctor'}`,
+                        type: 'Prescription',
+                        date: new Date(apt.date).toLocaleDateString('en-IN', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                        }),
+                        fileSize: 'Digital PDF',
+                        rawDate: new Date(apt.date),
+                        doctorId: apt.doctor_id
+                    }));
+                    
+                    setFormattedRecords(mappedRecords);
+                }
+            } catch (err) {
+                console.error("Error fetching records:", err);
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        fetchRecords();
+    }, [patient?.id]);
 
     const filteredRecords = formattedRecords.filter(r => 
         r.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -143,13 +185,13 @@ export default function RecordsPage() {
 
                 <AnimatePresence mode="wait">
                     <TabsContent value="all" className="mt-0">
-                        <RecordGrid records={filteredRecords} />
+                        <RecordGrid records={filteredRecords} navigate={navigate} />
                     </TabsContent>
                     <TabsContent value="prescriptions" className="mt-0">
-                        <RecordGrid records={prescriptions} />
+                        <RecordGrid records={prescriptions} navigate={navigate} />
                     </TabsContent>
                     <TabsContent value="reports" className="mt-0">
-                        <RecordGrid records={testReports} />
+                        <RecordGrid records={testReports} navigate={navigate} />
                     </TabsContent>
                 </AnimatePresence>
             </Tabs>
@@ -157,7 +199,7 @@ export default function RecordsPage() {
     );
 }
 
-function RecordGrid({ records }) {
+function RecordGrid({ records, navigate }) {
     if (records.length === 0) {
         return (
             <motion.div 
@@ -196,10 +238,10 @@ function RecordGrid({ records }) {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-48 rounded-xl p-1.5">
-                                        <DropdownMenuItem className="rounded-lg gap-2 cursor-pointer">
+                                        <DropdownMenuItem className="rounded-lg gap-2 cursor-pointer" onClick={() => navigate(`/prescription/${record.id}`)}>
                                             <Eye className="h-4 w-4" /> View Details
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="rounded-lg gap-2 cursor-pointer">
+                                        <DropdownMenuItem className="rounded-lg gap-2 cursor-pointer" onClick={() => window.open(`/prescription/${record.id}`, '_blank')}>
                                             <Download className="h-4 w-4" /> Download PDF
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
@@ -224,7 +266,7 @@ function RecordGrid({ records }) {
                                 <Clock className="h-3.5 w-3.5" />
                                 <span className="text-xs font-medium">{record.date}</span>
                             </div>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 rounded-lg text-emerald-600 hover:bg-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 rounded-lg text-emerald-600 hover:bg-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => navigate(`/prescription/${record.id}`)}>
                                 <Download className="h-4 w-4" />
                             </Button>
                         </CardContent>
