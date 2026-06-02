@@ -1009,11 +1009,15 @@ export default function BookAppointmentQueued() {
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="text-slate-500">Booking Charges</span>
-                                                <span className="font-bold">₹50</span>
+                                                <span className="font-bold text-emerald-600">Free</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-slate-500">Platform Fee</span>
+                                                <span className="font-bold text-emerald-600">Free</span>
                                             </div>
                                             <div className="flex justify-between items-center text-lg pt-4 border-t font-black">
                                                 <span className="text-slate-900">Total Payable</span>
-                                                <span className="text-blue-600">₹{(selectedDoctor.fees || 500) + 50}</span>
+                                                <span className="text-blue-600">₹{(selectedDoctor.fees || 500)}</span>
                                             </div>
                                         </div>
 

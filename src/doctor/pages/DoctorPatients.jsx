@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Users, Phone, Calendar, FileText, Loader2 } from 'lucide-react';
+import { Users, Phone, Calendar, FileText, Loader2, History, Pill } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase.js';
 import { useDoctor } from '../context/DoctorContext.jsx';
+import PatientHistoryModal from '@/components/dashboard/PatientHistoryModal';
 
 const formatDate = (value) => {
     if (!value) return '-';
@@ -25,6 +27,7 @@ export default function DoctorPatients() {
     const { doctorRecord } = useDoctor();
     const [patients, setPatients] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [historyModal, setHistoryModal] = useState({ isOpen: false, patient: null });
 
     const doctorId = doctorRecord?.id;
 
@@ -210,11 +213,34 @@ export default function DoctorPatients() {
                                         {p.visits} visits
                                     </div>
                                 </div>
+                                <div className="mt-4 flex justify-end">
+                                    <button 
+                                        onClick={() => setHistoryModal({ 
+                                            isOpen: true, 
+                                            patient: { 
+                                                name: p.name, 
+                                                phone: p.phone, 
+                                                id: p.patientId 
+                                            } 
+                                        })}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-teal-100 bg-teal-50 text-teal-700 text-[10px] font-bold hover:bg-teal-100 transition-all"
+                                    >
+                                        <History size={12} /> View History
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </motion.div>
                 ))}
             </div>
+
+            <PatientHistoryModal
+                isOpen={historyModal.isOpen}
+                onClose={() => setHistoryModal({ isOpen: false, patient: null })}
+                patientName={historyModal.patient?.name}
+                patientPhone={historyModal.patient?.phone}
+                patientId={historyModal.patient?.id}
+            />
         </div>
     );
 }

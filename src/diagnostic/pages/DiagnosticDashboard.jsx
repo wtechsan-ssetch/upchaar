@@ -69,6 +69,7 @@ export default function DiagnosticDashboard() {
             )
             .subscribe();
 
+<<<<<<< HEAD
         return () => {
             supabase.removeChannel(channel);
         };
@@ -86,6 +87,186 @@ export default function DiagnosticDashboard() {
         } catch (err) {
             console.error('Error updating status:', err);
             toast.error('Failed to update status');
+=======
+    const [tests, setTests] = useState([]);
+    const [testsLoading, setTestsLoading] = useState(true);
+    const [dcId, setDcId] = useState(null); // diagnostic_centers.id
+
+    // Load tests from Supabase on mount
+    useEffect(() => {
+        if (!profile?.id) return;
+        const loadTests = async () => {
+            setTestsLoading(true);
+            try {
+                // Get the current user ID directly from Supabase session as a backup
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                const userId = authUser?.id || profile?.id;
+
+                if (!userId) {
+                    console.log('No user ID found, skipping loadTests');
+                    setTestsLoading(false);
+                    return;
+                }
+
+                // Get all diagnostic_centers rows for this profile
+                const { data: centers, error: fetchError } = await supabase
+                    .from('diagnostic_centers')
+                    .select('*')
+                    .eq('profile_id', userId);
+
+                if (fetchError) {
+                    console.error('Fetch error in loadTests:', fetchError);
+                    toast.error('Error loading data: ' + fetchError.message);
+                    setTestsLoading(false);
+                    return;
+                }
+
+                console.log('Centers found for profile:', profile.id, centers);
+
+                // Find a row that already has tests, otherwise take the first one
+                let dc = centers?.find(c => Array.isArray(c.tests) && c.tests.length > 0) || (centers && centers.length > 0 ? centers[0] : null);
+
+                if (!dc) {
+                    console.log('No diagnostic center row found. Attempting to create one...');
+                    const { data: created, error: createError } = await supabase
+                        .from('diagnostic_centers')
+                        .insert([{ 
+                            profile_id: userId, 
+                            name: profile.full_name || 'Diagnostic Center',
+                            email: profile.email || '',
+                            status: 'Active'
+                        }])
+                        .select()
+                        .single();
+                    
+                    if (createError) {
+                        console.error('Error creating diagnostic center:', createError);
+                        // If it's a constraint error, maybe it was created in the meantime? 
+                        // Let's not toast error yet, just log it.
+                    } else {
+                        dc = created;
+                    }
+                }
+
+                if (dc) {
+                    console.log('Using diagnostic center row:', dc.id);
+                    setDcId(dc.id);
+                    
+                    let rawTests = [];
+                    if (typeof dc.tests === 'string') {
+                        try {
+                            rawTests = JSON.parse(dc.tests);
+                        } catch (e) {
+                            console.error('Error parsing tests string:', e);
+                            rawTests = [];
+                        }
+                    } else if (Array.isArray(dc.tests)) {
+                        rawTests = dc.tests;
+                    }
+                    
+                    // Handle case where tests might be stored as strings (including stringified JSON)
+                    const validTests = rawTests.map((t, index) => {
+                        if (t && typeof t === 'object' && t.name) return t;
+                        
+                        if (typeof t === 'string') {
+                            // Try to parse it as JSON first (Supabase might serialize objects into a text[] column)
+                            try {
+                                const parsed = JSON.parse(t);
+                                if (parsed && typeof parsed === 'object' && parsed.name) {
+                                    return parsed;
+                                }
+                            } catch (e) {
+                                // Not JSON, treat as regular string
+                            }
+                            
+                            // Fallback for simple string tests
+                            return {
+                                id: index + 1,
+                                name: t,
+                                price: '₹0',
+                                category: 'Other',
+                                status: 'Active',
+                                description: ''
+                            };
+                        }
+                        return null;
+                    }).filter(Boolean);
+                    
+                    setTests(validTests);
+                }
+            } catch (err) {
+                console.error('Unexpected error in loadTests:', err);
+            } finally {
+                setTestsLoading(false);
+            }
+        };
+        loadTests();
+    }, [profile?.id, refreshProfile]); // Added refreshProfile to dependencies
+
+    // Persist updated tests array back to Supabase
+    const persistTests = async (updatedTests) => {
+        // Optimistically update local state
+        const previousTests = [...tests];
+        setTests(updatedTests);
+        
+        try {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            const userId = authUser?.id || profile?.id;
+
+            if (!userId) {
+                toast.error('You must be logged in to save tests.');
+                setTests(previousTests);
+                return;
+            }
+
+            console.log('Saving tests for profile:', userId, 'dcId:', dcId, updatedTests);
+            
+            let query = supabase
+                .from('diagnostic_centers')
+                .update({ 
+                    tests: updatedTests,
+                    name: profile.full_name || 'Diagnostic Center'
+                });
+
+            if (dcId) {
+                query = query.eq('id', dcId);
+            } else {
+                query = query.eq('profile_id', userId);
+            }
+
+            const { data, error } = await query.select();
+
+            if (error) throw error;
+            
+            if (!data || data.length === 0) {
+                console.log('No row found to update. Attempting to insert...');
+                const { data: inserted, error: insertError } = await supabase
+                    .from('diagnostic_centers')
+                    .insert([{ 
+                        profile_id: userId, 
+                        tests: updatedTests,
+                        name: profile.full_name || 'Diagnostic Center'
+                    }])
+                    .select();
+                
+                if (insertError) throw insertError;
+                if (!inserted || inserted.length === 0) throw new Error('No data returned from insert operation.');
+                
+                console.log('Insert success:', inserted[0]);
+                if (inserted[0].id) setDcId(inserted[0].id);
+            } else {
+                console.log('Update success:', data[0]);
+                if (data[0].id) setDcId(data[0].id);
+            }
+
+            toast.success('Changes saved successfully');
+            
+        } catch (err) {
+            console.error('Error persisting tests:', err);
+            toast.error('Failed to save changes: ' + err.message);
+            // Rollback local state
+            setTests(previousTests);
+>>>>>>> 64023f85d45ed03e2297904c0ac5dabc376f1fe0
         }
     };
 
@@ -97,6 +278,55 @@ export default function DiagnosticDashboard() {
         return matchesSearch && matchesStatus;
     });
 
+<<<<<<< HEAD
+=======
+    const handleToggleStatus = (id) => {
+        const updated = tests.map(test =>
+            test.id === id ? { ...test, status: test.status === 'Active' ? 'Inactive' : 'Active' } : test
+        );
+        persistTests(updated);
+    };
+
+    const handleDeleteTest = () => {
+        if (testToDelete) {
+            persistTests(tests.filter(t => t.id !== testToDelete.id));
+            setTestToDelete(null);
+        }
+    };
+
+    const handleSaveNewTest = () => {
+        if (!newTest.name || !newTest.price) {
+            toast.error('Please provide at least a Test Name and Price.');
+            return;
+        }
+        
+        // Ensure price has the currency symbol if not already present
+        const displayPrice = newTest.price.startsWith('₹') ? newTest.price : `₹${newTest.price}`;
+        
+        const newId = tests.length > 0 ? Math.max(...tests.map(t => Number(t.id) || 0)) + 1 : 1;
+        const updated = [...tests, {
+            id: newId,
+            name: newTest.name,
+            price: displayPrice,
+            category: newTest.category,
+            status: newTest.status,
+            description: newTest.description || ''
+        }];
+        
+        persistTests(updated);
+        setNewTest({ name: '', price: '', category: 'Blood Test', description: '', status: 'Active' });
+        setIsAddTestModalOpen(false);
+    };
+
+    const navItems = [
+        { name: 'Dashboard', icon: LayoutDashboard },
+        { name: 'Available Tests', icon: TestTubes },
+        { name: 'Patients', icon: Users },
+        { name: 'Reports', icon: FileText },
+        { name: 'Settings', icon: Settings }
+    ];
+
+>>>>>>> 64023f85d45ed03e2297904c0ac5dabc376f1fe0
     return (
         <div className="space-y-8 pb-10">
             <Toaster richColors position="top-right" />
