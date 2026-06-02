@@ -107,7 +107,7 @@ export const Header = () => {
         { href: '/', name: 'Home' },
         { href: '/patient/dashboard', name: 'My Appointments' },
         { href: '/blogs', name: 'Blog' },
-        { href: '#features', name: 'Our Services' },
+        { href: '/services', name: 'Our Services' },
     ];
 
     const searchTransition = { duration: 0.4, ease: 'easeInOut' };
