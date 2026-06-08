@@ -338,30 +338,26 @@ export async function deleteFacility({ id, type, profile_id } = {}) {
         medical: 'medicals',
     };
 
-    const tryDelete = async (table) => {
-        try {
-            const { error } = await supabase.from(table).delete().eq('id', id);
-            if (!error) return true;
-            return false;
-        } catch {
-            return false;
-        }
-    };
-
-    // Prefer dedicated tables if present; fall back to profiles for hospital/diagnostic rows.
+    // 1. Try to delete from the dedicated table first
     if (type === 'diagnostic') {
-        if (await tryDelete('diagnostic_centers')) return;
-        if (await tryDelete('diagnostic_centres')) return;
+        await supabase.from('diagnostic_centers').delete().eq('id', id);
+        await supabase.from('diagnostic_centres').delete().eq('id', id);
+    } else {
+        const table = tableByType[type];
+        if (table) {
+            await supabase.from(table).delete().eq('id', id);
+        }
     }
 
-    const table = tableByType[type];
-    if (table) {
-        if (await tryDelete(table)) return;
-    }
+    // 2. Also try deleting from 'facilities' table (just in case they exist there as fallback)
+    await supabase.from('facilities').delete().eq('id', id);
 
-    // Profiles fallback (if the list came from `profiles` instead of a dedicated table)
-    const { error } = await supabase.from('profiles').delete().eq('id', profile_id || id);
-    if (error) throw new Error(error.message);
+    // 3. Finally, delete from profiles table
+    const profileTargetId = profile_id || id;
+    if (profileTargetId) {
+        const { error } = await supabase.from('profiles').delete().eq('id', profileTargetId);
+        if (error) throw new Error(error.message);
+    }
 }
 
 // ── Settings ─────────────────────────────────────────────────────────────────
