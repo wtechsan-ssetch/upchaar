@@ -19,6 +19,8 @@ import { normalisePhone } from '@/lib/otpService.js';
 
 const AuthContext = createContext(null);
 
+const ADMIN_URL = import.meta.env.VITE_ADMIN_URL || 'http://localhost:6001';
+
 export const PROFILE_TYPE_DASHBOARDS = {
     patient: '/patient/dashboard',
     doctor: '/doctor/dashboard',
@@ -27,8 +29,8 @@ export const PROFILE_TYPE_DASHBOARDS = {
     medical: '/medical/dashboard',
     hospital: '/hospital/dashboard',
     blogger: '/blogger/dashboard',
-    super_admin: '/admin/dashboard',
-    support_admin: '/admin/dashboard',
+    super_admin: `${ADMIN_URL}/admin/dashboard`,
+    support_admin: `${ADMIN_URL}/admin/dashboard`,
 };
 
 export function AuthProvider({ children }) {

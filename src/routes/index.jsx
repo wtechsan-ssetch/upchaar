@@ -25,7 +25,7 @@
  * ─────────────────────────────────────────────────
  */
 
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
 // ── Shared layout & guards (always needed, not lazy) ──
@@ -63,19 +63,7 @@ const PatientRegister  = lazy(() => import('@/patient/pages/PatientRegister.jsx'
 const PatientDashboard = lazy(() => import('@/patient/pages/PatientDashboard.jsx'));
 const PatientDiagnosticBookings = lazy(() => import('@/patient/pages/DiagnosticBookings.jsx'));
 
-// ── ADMIN pages ───────────────────────────────────────
-const AdminLogin              = lazy(() => import('@/admin/pages/AdminLogin.jsx'));
-const AdminLayout             = lazy(() => import('@/admin/layouts/AdminLayout.jsx'));
-const AdminDashboard          = lazy(() => import('@/admin/pages/AdminDashboard.jsx'));
-const DoctorManagement        = lazy(() => import('@/admin/pages/DoctorManagement.jsx'));
-const PatientManagement       = lazy(() => import('@/admin/pages/PatientManagement.jsx'));
-const AppointmentManagement   = lazy(() => import('@/admin/pages/AppointmentManagement.jsx'));
-const NotificationCenter      = lazy(() => import('@/admin/pages/NotificationCenter.jsx'));
-const ActivityLogs            = lazy(() => import('@/admin/pages/ActivityLogs.jsx'));
-const Settings                = lazy(() => import('@/admin/pages/Settings.jsx'));
-const FacilitiesManagement    = lazy(() => import('@/admin/pages/FacilitiesManagement.jsx'));
-const SupportAdminManagement  = lazy(() => import('@/admin/pages/SupportAdminManagement.jsx'));
-const BloggerManagement       = lazy(() => import('@/admin/pages/BloggerManagement.jsx'));
+// Admin module removed. Admin portal runs as a standalone project.
 
 // ── DOCTOR pages ──────────────────────────────────────
 const DoctorLayout       = lazy(() => import('@/doctor/layouts/DoctorLayout.jsx'));
@@ -115,6 +103,14 @@ const PageLoader = () => (
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
 );
+
+const AdminRedirect = () => {
+    useEffect(() => {
+        const ADMIN_URL = import.meta.env.VITE_ADMIN_URL || 'http://localhost:6001';
+        window.location.replace(`${ADMIN_URL}${window.location.pathname}${window.location.search}`);
+    }, []);
+    return null;
+};
 
 /**
  * AppRoutes
@@ -186,25 +182,9 @@ export function AppRoutes() {
 
             {/* ═══════════════════════════════════════
                 ADMIN ROUTES
-                /admin/login   — Standalone login page
-                /admin/*       — Protected via AdminLayout
-                Roles: super_admin (full), support_admin (limited)
+                Redirects to external admin app.
                 ═══════════════════════════════════════ */}
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="dashboard" element={<AdminDashboard />} />
-                <Route path="doctors" element={<DoctorManagement />} />
-                <Route path="patients" element={<PatientManagement />} />
-                <Route path="appointments" element={<AppointmentManagement />} />
-                <Route path="notifications" element={<NotificationCenter />} />
-                <Route path="logs" element={<ActivityLogs />} />
-                <Route path="settings" element={<Settings />} />
-                {/* Super Admin only — guarded inside AdminLayout by role check */}
-                <Route path="facilities" element={<FacilitiesManagement />} />
-                <Route path="support-admins" element={<SupportAdminManagement />} />
-                <Route path="bloggers" element={<BloggerManagement />} />
-            </Route>
+            <Route path="/admin/*" element={<AdminRedirect />} />
 
 
             {/* ═══════════════════════════════════════

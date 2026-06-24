@@ -40,6 +40,8 @@ export default function DashboardGate() {
     }
 
     // Logged in → redirect to their specific dashboard
+    const ADMIN_URL = import.meta.env.VITE_ADMIN_URL || 'http://localhost:6001';
+
     const dashboardRoutes = {
         patient: '/patient/dashboard',
         doctor: '/doctor/dashboard',
@@ -48,10 +50,16 @@ export default function DashboardGate() {
         hospital: '/hospital/dashboard',
         diagnostic: '/diagnostic/dashboard',
         blogger: '/blogger/dashboard',
-        super_admin: '/admin/dashboard',
-        support_admin: '/admin/dashboard',
+        super_admin: `${ADMIN_URL}/admin/dashboard`,
+        support_admin: `${ADMIN_URL}/admin/dashboard`,
     };
 
     const destination = dashboardRoutes[profile.profile_type] || '/';
+
+    if (destination.startsWith('http://') || destination.startsWith('https://')) {
+        window.location.replace(destination);
+        return null;
+    }
+
     return <Navigate to={destination} replace />;
 }

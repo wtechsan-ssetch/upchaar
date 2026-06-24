@@ -28,7 +28,6 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { PatientProvider } from '@/patient/context/PatientContext.jsx';
 import { DoctorProvider } from '@/doctor/context/DoctorContext.jsx';
 import { BlogProvider } from '@/blog/context/BlogContext.jsx';
-import { AdminProvider } from '@/admin/context/AdminContext.jsx';
 import { MedicalProvider } from '@/medical/context/MedicalContext.jsx';
 import { ClinicProvider } from '@/clinic/context/ClinicContext.jsx';
 
@@ -50,15 +49,13 @@ function App() {
           <PatientProvider>
             <DoctorProvider>
               <BlogProvider>
-                <AdminProvider>
-                  <MedicalProvider>
-                    <ClinicProvider>
-                      <AppRoutes />
-                      <Analytics />
-                      <SpeedInsights />
-                    </ClinicProvider>
-                  </MedicalProvider>
-                </AdminProvider>
+                <MedicalProvider>
+                  <ClinicProvider>
+                    <AppRoutes />
+                    <Analytics />
+                    <SpeedInsights />
+                  </ClinicProvider>
+                </MedicalProvider>
               </BlogProvider>
             </DoctorProvider>
           </PatientProvider>

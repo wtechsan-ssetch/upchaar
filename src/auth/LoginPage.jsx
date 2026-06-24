@@ -110,7 +110,12 @@ export default function LoginPage() {
             clearRateLimit('sign_in');
             const from = location.state?.from;
             const redirectMap = { patient: '/patient/dashboard', doctor: '/doctor/dashboard' };
-            navigate(from || (redirectMap[profile.profile_type] ?? getDashboardPath(profile)), { replace: true });
+            const dest = from || (redirectMap[profile.profile_type] ?? getDashboardPath(profile));
+            if (dest.startsWith('http://') || dest.startsWith('https://')) {
+                window.location.replace(dest);
+            } else {
+                navigate(dest, { replace: true });
+            }
         } catch (err) {
             setError(err.message || String(err));
         } finally {
