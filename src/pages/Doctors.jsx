@@ -28,6 +28,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth/AuthContext.jsx';
 import { supabase } from '@/lib/supabase.js';
 import { getStorageUrl } from '@/lib/uploadImage.js';
+import { cn } from '@/lib/utils';
 import Skeleton from 'react-loading-skeleton';
 
 export default function DoctorsPage() {
@@ -37,6 +38,8 @@ export default function DoctorsPage() {
     const [location, setLocation] = useState('all');
     const [selectedSpecialty, setSelectedSpecialty] = useState('All');
     const [maxPrice, setMaxPrice] = useState(5000);
+    const [filterToday, setFilterToday] = useState(false);
+    const [filterVideo, setFilterVideo] = useState(false);
 
     useEffect(() => {
         supabase
@@ -60,6 +63,9 @@ export default function DoctorsPage() {
                             .sort((a, b) => a.idx - b.idx)[0]?.day
                             || days[0] || null;
 
+                        const type = (d.consultation_type || '').toLowerCase();
+                        const hasVideo = type === 'online' || type === 'both' || type === 'virtual';
+
                         return {
                             id: d.id,
                             name: d.full_name,
@@ -76,6 +82,7 @@ export default function DoctorsPage() {
                             verified: true,
                             fees: d.consultation_fee || 0,
                             languages: d.languages || [],
+                            hasVideo,
                         };
                     }));
                 }
@@ -91,8 +98,14 @@ export default function DoctorsPage() {
         const matchesLocation = location === 'all' || doctor.city.includes(location);
         const matchesSpecialty = selectedSpecialty === 'All' || doctor.specialty === selectedSpecialty;
         const matchesPrice = doctor.fees <= maxPrice;
-        return matchesSearch && matchesLocation && matchesSpecialty && matchesPrice;
+        const matchesToday = !filterToday || doctor.availableToday;
+        const matchesVideo = !filterVideo || doctor.hasVideo;
+        return matchesSearch && matchesLocation && matchesSpecialty && matchesPrice && matchesToday && matchesVideo;
     });
+
+    const availableTodayCount = allDoctors.filter(d => d.availableToday).length;
+    const videoConsultCount = allDoctors.filter(d => d.hasVideo).length;
+    const formatCount = (num) => String(num).padStart(2, '0');
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -183,11 +196,11 @@ export default function DoctorsPage() {
                                     <Button className="w-full h-12 text-base font-bold bg-slate-900 hover:bg-emerald-600 shadow-xl shadow-slate-900/10 rounded-2xl transition-all">
                                         Search
                                     </Button>
-                                    {(searchTerm || location !== 'all' || selectedSpecialty !== 'All' || maxPrice < 5000) && (
+                                    {(searchTerm || location !== 'all' || selectedSpecialty !== 'All' || maxPrice < 5000 || filterToday || filterVideo) && (
                                         <Button 
                                             variant="ghost" 
                                             className="w-full h-10 text-sm font-bold text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl"
-                                            onClick={() => { setSearchTerm(''); setLocation('all'); setSelectedSpecialty('All'); setMaxPrice(5000); }}
+                                            onClick={() => { setSearchTerm(''); setLocation('all'); setSelectedSpecialty('All'); setMaxPrice(5000); setFilterToday(false); setFilterVideo(false); }}
                                         >
                                             Clear Filters
                                         </Button>
@@ -206,7 +219,7 @@ export default function DoctorsPage() {
                         <div>
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="font-extrabold text-xl font-headline">Filters</h3>
-                                <Button variant="ghost" size="sm" className="text-xs font-bold text-emerald-600 hover:text-emerald-700 p-0" onClick={() => { setSearchTerm(''); setLocation('all'); setSelectedSpecialty('All'); setMaxPrice(5000); }}>
+                                <Button variant="ghost" size="sm" className="text-xs font-bold text-emerald-600 hover:text-emerald-700 p-0" onClick={() => { setSearchTerm(''); setLocation('all'); setSelectedSpecialty('All'); setMaxPrice(5000); setFilterToday(false); setFilterVideo(false); }}>
                                     Reset All
                                 </Button>
                             </div>
@@ -217,17 +230,31 @@ export default function DoctorsPage() {
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between group cursor-pointer">
                                             <div className="flex items-center space-x-3">
-                                                <Checkbox id="today" className="rounded-md border-slate-200" />
+                                                <Checkbox 
+                                                    id="today" 
+                                                    className="rounded-md border-slate-200" 
+                                                    checked={filterToday}
+                                                    onCheckedChange={(checked) => setFilterToday(!!checked)}
+                                                />
                                                 <label htmlFor="today" className="text-sm font-bold text-slate-700 group-hover:text-emerald-600 transition-colors">Available Today</label>
                                             </div>
-                                            <Badge variant="secondary" className="bg-emerald-50 text-emerald-600 border-0 h-5 px-1.5 font-bold">12</Badge>
+                                            <Badge variant="secondary" className={cn("border-0 h-5 px-1.5 font-bold", availableTodayCount > 0 ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-400")}>
+                                                {formatCount(availableTodayCount)}
+                                            </Badge>
                                         </div>
                                         <div className="flex items-center justify-between group cursor-pointer">
                                             <div className="flex items-center space-x-3">
-                                                <Checkbox id="online" className="rounded-md border-slate-200" />
+                                                <Checkbox 
+                                                    id="online" 
+                                                    className="rounded-md border-slate-200" 
+                                                    checked={filterVideo}
+                                                    onCheckedChange={(checked) => setFilterVideo(!!checked)}
+                                                />
                                                 <label htmlFor="online" className="text-sm font-bold text-slate-700 group-hover:text-emerald-600 transition-colors">Video Consultation</label>
                                             </div>
-                                            <Badge variant="secondary" className="bg-slate-50 text-slate-400 border-0 h-5 px-1.5 font-bold">08</Badge>
+                                            <Badge variant="secondary" className={cn("border-0 h-5 px-1.5 font-bold", videoConsultCount > 0 ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-400")}>
+                                                {formatCount(videoConsultCount)}
+                                            </Badge>
                                         </div>
                                     </div>
                                 </div>
@@ -316,7 +343,7 @@ export default function DoctorsPage() {
                                         <p className="text-slate-500 font-medium max-w-xs mx-auto">Try broadening your search or clearing some filters to find your ideal specialist.</p>
                                         <Button 
                                             variant="outline" 
-                                            onClick={() => { setSearchTerm(''); setLocation('all'); setSelectedSpecialty('All'); setMaxPrice(5000); }} 
+                                            onClick={() => { setSearchTerm(''); setLocation('all'); setSelectedSpecialty('All'); setMaxPrice(5000); setFilterToday(false); setFilterVideo(false); }} 
                                             className="mt-8 rounded-2xl font-bold border-slate-200 px-8 h-12"
                                         >
                                             Clear All Filters

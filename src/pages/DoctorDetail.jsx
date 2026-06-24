@@ -395,11 +395,12 @@ export default function DoctorDetailPage() {
                 return;
             }
 
-            // Count existing appointments for this doctor on this date to compute queue#
+            // Count existing appointments for this doctor on this date AND time slot to compute queue#
             const { count, error: countErr } = await supabase
                 .from('appointments')
                 .select('id', { count: 'exact', head: true })
                 .eq('doctor_id', id)
+                .eq('time_slot', selectedSlot)
                 .gte('date', new Date(selectedDate + 'T00:00:00').toISOString())
                 .lt('date', new Date(selectedDate + 'T23:59:59').toISOString());
 

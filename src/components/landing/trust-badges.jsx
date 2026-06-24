@@ -28,7 +28,7 @@ export const TrustBadges = () => {
                 ))}
                 <div className="bg-white p-4 rounded-lg shadow-md col-span-2 md:col-span-1 flex flex-col items-center justify-center">
                     <p className="text-lg font-bold text-gray-700 mb-2">About Us</p>
-                    <img src="/msme.png" alt="MSME Logo" width={80} height={40} />
+                    {/* <img src="/msme.png" alt="MSME Logo" width={80} height={40} /> */}
                 </div>
                 {diagnosticStats.map(stat => (
                     <div key={stat.label} className="bg-white p-4 rounded-lg shadow-md">

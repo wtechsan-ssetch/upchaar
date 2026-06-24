@@ -39,6 +39,7 @@ const DashboardGate  = lazy(() => import('@/auth/DashboardGate.jsx'));
 
 // ── PUBLIC pages ──────────────────────────────────────
 const LandingPage     = lazy(() => import('@/pages/Landing'));
+const ServicesPage    = lazy(() => import('@/pages/Services.jsx'));
 const DashboardPage   = lazy(() => import('@/pages/Dashboard'));
 const DoctorsPage     = lazy(() => import('@/pages/Doctors'));
 const DoctorDetailPage = lazy(() => import('@/pages/DoctorDetail.jsx'));
@@ -147,6 +148,7 @@ export function AppRoutes() {
 
             {/* Home / Landing */}
             <Route path="/" element={<LandingPage />} />
+            <Route path="/services" element={<ServicesPage />} />
 
             {/* Feature pages share the AppLayout (sidebar/topbar) */}
             <Route path="/doctors" element={<ProtectedRoute><AppLayout><DoctorsPage /></AppLayout></ProtectedRoute>} />
@@ -231,7 +233,7 @@ export function AppRoutes() {
                 ═══════════════════════════════════════ */}
             <Route path="/medical/dashboard" element={<RequireAuth><MedicalDashboard /></RequireAuth>} />
             <Route path="/clinic/dashboard" element={<RequireAuth><ClinicDashboard /></RequireAuth>} />
-            <Route path="/diagnostic/dashboard" element={<RequireAuth><DiagnosticDashboard /></RequireAuth>} />
+            <Route path="/diagnostic/dashboard" element={<RequireAuth><AppLayout><DiagnosticDashboard /></AppLayout></RequireAuth>} />
 
         </Routes>
         </Suspense>

@@ -100,6 +100,39 @@ export async function uploadBlogImage(file, userId) {
 }
 
 /**
+ * uploadPrescription
+ * Uploads a patient's prescription to the `diag_presc` bucket.
+ *
+ * Path: diag_presc/{userId}/{timestamp}.{ext}
+ *
+ * @param {File}   file    - The prescription File (image or PDF)
+ * @param {string} userId  - Supabase auth user ID (UUID)
+ * @returns {Promise<string>} The public URL of the uploaded prescription
+ */
+export async function uploadPrescription(file, userId) {
+    if (!file || !userId) throw new Error('File and user ID are required.');
+
+    const ext = getExtension(file);
+    const timestamp = Date.now();
+    const path = `${userId}/${timestamp}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('diag_presc')
+        .upload(path, file, {
+            contentType: file.type,
+            upsert: false,
+        });
+
+    if (uploadError) {
+        console.error('[uploadPrescription]', uploadError.message);
+        throw new Error('Failed to upload prescription. Please try again.');
+    }
+
+    const { data } = supabase.storage.from('diag_presc').getPublicUrl(path);
+    return data.publicUrl;
+}
+
+/**
  * getStorageUrl
  * Resolves a storage path or URL into a final public URL.
  * 

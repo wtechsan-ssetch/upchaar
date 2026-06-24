@@ -108,7 +108,7 @@ export const Header = () => {
         { href: '/patient/dashboard', name: 'My Appointments' },
         { href: '/patient/diagnostic-bookings', name: 'Diagnostic Tests' },
         { href: '/blogs', name: 'Blog' },
-        { href: '#features', name: 'Our Services' },
+        { href: '/services', name: 'Our Services' },
     ];
 
     const searchTransition = { duration: 0.4, ease: 'easeInOut' };
@@ -189,7 +189,7 @@ export const Header = () => {
             <div className="relative z-50 w-full max-w-[1360px] mx-auto flex h-16 sm:h-20 items-center justify-between rounded-full bg-white/90 backdrop-blur-md px-3 sm:px-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-200/50 transition-all duration-300">
                 {/* Left Section - Logo */}
                 <Link to="/" className="flex items-center gap-3 flex-shrink-0 group select-none">
-                    <motion.div 
+                    <motion.div
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full border-2 border-[#a7f3d0] bg-white shadow-sm transition-all overflow-hidden p-1.5"
@@ -317,7 +317,7 @@ export const Header = () => {
                             <Button
                                 variant="outline"
                                 onClick={() => setIsDoctorModalOpen(true)}
-                                className="hidden lg:flex rounded-full border-teal-200 text-teal-600 hover:bg-teal-50 hover:border-teal-300 gap-1.5 text-xs lg:text-sm h-8 lg:h-10 transition-all font-bold"
+                                className="lg:flex rounded-full border-teal-200 text-teal-600 hover:bg-teal-50 hover:border-teal-300 gap-1.5 text-xs lg:text-sm h-8 lg:h-10 transition-all font-bold"
                             >
                                 <Stethoscope className="h-3 w-3 lg:h-4 lg:w-4" />
                                 Join as a Doctor
@@ -371,10 +371,10 @@ export const Header = () => {
                             {navLinks.map(link => {
                                 if (link.href.startsWith('#')) {
                                     return (
-                                        <a 
-                                            key={link.href} 
-                                            href={link.href} 
-                                            className="text-foreground font-medium py-2" 
+                                        <a
+                                            key={link.href}
+                                            href={link.href}
+                                            className="text-foreground font-medium py-2"
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 const target = document.querySelector(link.href);
@@ -410,7 +410,7 @@ export const Header = () => {
                                         </div>
                                         <Button
                                             variant="outline"
-                                                className="w-full rounded-full border-teal-300 text-teal-700 gap-2"
+                                            className="w-full rounded-full border-teal-300 text-teal-700 gap-2"
                                             onClick={() => {
                                                 setIsMenuOpen(false);
                                                 navigate(ROLE_DASHBOARD[activeProfile?.profile_type] ?? '/');

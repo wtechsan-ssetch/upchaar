@@ -12,8 +12,10 @@ import { toast, Toaster } from 'sonner';
 import {
     MapPin, FlaskConical, Search, Star, Clock,
     Phone, ChevronRight, CheckCircle2, X,
-    Calendar, User, ArrowRight, CheckCircle, Loader2, Camera
+    Calendar, User, ArrowRight, CheckCircle, Loader2,
+    FileUp, Paperclip
 } from 'lucide-react';
+import { uploadPrescription } from '@/lib/uploadImage.js';
 
 // ── Booking Modal ─────────────────────────────────────────────────
 function BookingModal({ center, onClose }) {
@@ -28,6 +30,8 @@ function BookingModal({ center, onClose }) {
     const [patientName, setPatientName] = useState(user?.user_metadata?.full_name || '');
     const [patientPhone, setPatientPhone] = useState(user?.user_metadata?.phone || '');
     const [booking, setBooking] = useState(false);
+    const [prescriptionFile, setPrescriptionFile] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const slots = ['08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '02:00 PM', '03:00 PM', '04:00 PM'];
 
@@ -45,13 +49,18 @@ function BookingModal({ center, onClose }) {
         }
         setBooking(true);
         try {
-            let uploadedUrl = null;
+            let prescriptionUrl = null;
             if (prescriptionFile) {
-                const { uploadPrescription } = await import('@/lib/uploadImage.js');
-                uploadedUrl = await uploadPrescription(prescriptionFile, user?.id || 'guest');
+                setIsUploading(true);
+                try {
+                    prescriptionUrl = await uploadPrescription(prescriptionFile, user?.id || 'anonymous');
+                } catch (uploadErr) {
+                    console.error('Prescription upload failed:', uploadErr);
+                    toast.error('Failed to upload prescription. Proceeding without it.');
+                } finally {
+                    setIsUploading(false);
+                }
             }
-
-            const finalTest = selectedTest || manualTest || (prescriptionFile ? 'Prescription Uploaded' : 'Unknown Test');
 
             const { error } = await supabase.from('appointments').insert([{
                 patient_id: user?.id || null,
@@ -66,7 +75,8 @@ function BookingModal({ center, onClose }) {
                 status: 'Confirmed',
                 type: 'diagnostic',
                 fee: 0,
-                notes: uploadedUrl ? `Diagnostic test: ${finalTest} at ${center.name}\nPrescription: ${uploadedUrl}` : `Diagnostic test: ${finalTest} at ${center.name}`,
+                notes: `Diagnostic test: ${selectedTest} at ${center.name}`,
+                prescription_url: prescriptionUrl,
             }]);
             if (error) throw error;
             setStep(3);
@@ -118,11 +128,36 @@ function BookingModal({ center, onClose }) {
                     {step === 1 && (
                         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                             {/* Select Test */}
-                            <div className="space-y-4">
-                                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                    <FlaskConical size={16} className="text-emerald-500" /> Select Test or Upload Prescription
-                                </label>
-                                {center.tests.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-end">
+                                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                        <FlaskConical size={16} className="text-emerald-500" /> Select Test
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            id="prescription-upload"
+                                            className="hidden"
+                                            accept="image/*,application/pdf"
+                                            onChange={(e) => setPrescriptionFile(e.target.files[0])}
+                                        />
+                                        <label
+                                            htmlFor="prescription-upload"
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                                                prescriptionFile
+                                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                                                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-emerald-300'
+                                            }`}
+                                        >
+                                            {prescriptionFile ? (
+                                                <><Paperclip size={14} /> {prescriptionFile.name.slice(0, 15)}...</>
+                                            ) : (
+                                                <><FileUp size={14} /> Upload Prescription</>
+                                            )}
+                                        </label>
+                                    </div>
+                                </div>
+                                {center.tests.length > 0 ? (
                                     <>
                                         <div className="relative">
                                             <Search size={14} className="absolute left-3 top-3 text-slate-400" />
@@ -365,6 +400,14 @@ function BookingModal({ center, onClose }) {
                                     <span className="text-slate-500 font-medium">Time</span>
                                     <span className="font-bold text-slate-800">{selectedSlot}</span>
                                 </div>
+                                {prescriptionFile && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-slate-500 font-medium">Prescription</span>
+                                        <span className="font-bold text-emerald-600 flex items-center gap-1">
+                                            <Paperclip size={12} /> Attached
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between text-sm">
                                     <span className="text-slate-500 font-medium">Patient</span>
                                     <span className="font-bold text-slate-800">{patientName}</span>
@@ -380,6 +423,23 @@ function BookingModal({ center, onClose }) {
         </div>
     );
 }
+
+const parseTest = (t) => {
+    if (typeof t === 'object' && t !== null) {
+        return t;
+    }
+    if (typeof t === 'string') {
+        try {
+            const parsed = JSON.parse(t);
+            if (typeof parsed === 'object' && parsed !== null) {
+                return parsed;
+            }
+        } catch (e) {
+            // Not a JSON string
+        }
+    }
+    return t;
+};
 
 // ── Main Page ─────────────────────────────────────────────────────
 export default function DiagnosticsPage() {
@@ -407,23 +467,10 @@ export default function DiagnosticsPage() {
                 const merged = (profileData || []).map(p => {
                     const dc = centerMap[p.id];
                     // Tests stored as [{id,name,price,category,status}] or plain strings
-                    let parsedTests = [];
-                    try {
-                        parsedTests = typeof dc?.tests === 'string' ? JSON.parse(dc.tests) : (dc?.tests || []);
-                    } catch (e) {
-                        parsedTests = [];
-                    }
-                    const rawTests = Array.isArray(parsedTests) ? parsedTests : [];
+                    const rawTests = (Array.isArray(dc?.tests) ? dc.tests : []).map(parseTest);
                     const activeTestNames = rawTests
-                        .map(t => {
-                            if (typeof t === 'string') {
-                                try { const pt = JSON.parse(t); return typeof pt === 'object' && pt !== null ? pt : { name: t }; } 
-                                catch (e) { return { name: t }; }
-                            }
-                            return t;
-                        })
-                        .filter(t => t && (t.status === 'Active' || !t.status))
-                        .map(t => t.name || String(t));
+                        .filter(t => typeof t === 'object' && t !== null ? t.status === 'Active' : true)
+                        .map(t => typeof t === 'object' && t !== null ? t.name : t);
                     return {
                         id: p.id,
                         name: dc?.name || p.full_name || 'Diagnostic Center',
@@ -441,23 +488,10 @@ export default function DiagnosticsPage() {
 
                 (centerData || []).forEach(dc => {
                     if (!merged.find(m => m.id === dc.profile_id)) {
-                        let parsedTests = [];
-                        try {
-                            parsedTests = typeof dc?.tests === 'string' ? JSON.parse(dc.tests) : (dc?.tests || []);
-                        } catch (e) {
-                            parsedTests = [];
-                        }
-                        const rawTests = Array.isArray(parsedTests) ? parsedTests : [];
+                        const rawTests = (Array.isArray(dc.tests) ? dc.tests : []).map(parseTest);
                         const activeTestNames = rawTests
-                            .map(t => {
-                                if (typeof t === 'string') {
-                                    try { const pt = JSON.parse(t); return typeof pt === 'object' && pt !== null ? pt : { name: t }; } 
-                                    catch (e) { return { name: t }; }
-                                }
-                                return t;
-                            })
-                            .filter(t => t && (t.status === 'Active' || !t.status))
-                            .map(t => t.name || String(t));
+                            .filter(t => typeof t === 'object' && t !== null ? t.status === 'Active' : true)
+                            .map(t => typeof t === 'object' && t !== null ? t.name : t);
                         merged.push({
                             id: dc.id,
                             name: dc.name || 'Diagnostic Center',
@@ -666,25 +700,20 @@ export default function DiagnosticsPage() {
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Available Tests</p>
                                             {center.tests.length > 0 ? (
                                                 <div className="flex flex-wrap gap-2">
-                                                    {center.tests.slice(0, 3).map(test => (
-                                                        <Badge
-                                                            key={test}
-                                                            variant="secondary"
-                                                            onClick={() => setBookingCenter(center)}
-                                                            className="bg-slate-50 text-slate-600 border-slate-100 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer truncate max-w-full"
-                                                        >
-                                                            {test}
-                                                        </Badge>
-                                                    ))}
-                                                    {center.tests.length > 3 && (
-                                                        <Badge
-                                                            variant="secondary"
-                                                            onClick={() => setBookingCenter(center)}
-                                                            className="bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 transition-colors cursor-pointer font-bold"
-                                                        >
-                                                            +{center.tests.length - 3} More
-                                                        </Badge>
-                                                    )}
+                                                    {center.tests.map(test => {
+                                                        const raw = (center.rawTests || []).find(r => r.name === test);
+                                                        return (
+                                                            <Badge
+                                                                key={test}
+                                                                variant="secondary"
+                                                                onClick={() => setBookingCenter(center)}
+                                                                className="bg-slate-50 text-slate-600 border-slate-100 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer flex items-center gap-1 font-semibold"
+                                                            >
+                                                                <span>{test}</span>
+                                                                {raw?.price && <span className="text-emerald-600 font-bold">({raw.price})</span>}
+                                                            </Badge>
+                                                        );
+                                                    })}
                                                 </div>
                                             ) : (
                                                 <p className="text-sm text-slate-400 italic">No tests listed yet.</p>
