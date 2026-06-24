@@ -30,7 +30,6 @@ function BookingModal({ center, onClose }) {
     const [patientName, setPatientName] = useState(user?.user_metadata?.full_name || '');
     const [patientPhone, setPatientPhone] = useState(user?.user_metadata?.phone || '');
     const [booking, setBooking] = useState(false);
-    const [prescriptionFile, setPrescriptionFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
 
     const slots = ['08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '02:00 PM', '03:00 PM', '04:00 PM'];
@@ -61,6 +60,8 @@ function BookingModal({ center, onClose }) {
                     setIsUploading(false);
                 }
             }
+
+            const finalTest = selectedTest || manualTest || (prescriptionFile ? 'Prescription Uploaded' : 'Unknown Test');
 
             const { error } = await supabase.from('appointments').insert([{
                 patient_id: user?.id || null,
@@ -157,7 +158,7 @@ function BookingModal({ center, onClose }) {
                                         </label>
                                     </div>
                                 </div>
-                                {center.tests.length > 0 ? (
+                                {center.tests.length > 0 && (
                                     <>
                                         <div className="relative">
                                             <Search size={14} className="absolute left-3 top-3 text-slate-400" />
