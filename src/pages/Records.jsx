@@ -107,80 +107,80 @@ export default function RecordsPage() {
     const testReports = filteredRecords.filter(r => r.type === 'Test Report');
 
     return (
-        <div className="space-y-8 max-w-7xl mx-auto pb-12">
+        <div className="space-y-4 sm:space-y-6 md:space-y-8 max-w-7xl mx-auto pb-8 md:pb-12">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
                 <div>
-                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight font-headline text-slate-900 flex items-center gap-2">
-                        <Shield className="text-emerald-500 h-8 w-8" />
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-headline text-slate-900 flex items-center gap-2">
+                        <Shield className="text-emerald-500 h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0" />
                         Medical Vault
                     </h1>
-                    <p className="text-slate-500 text-lg mt-1 font-medium">Your health data, encrypted and accessible anywhere.</p>
+                    <p className="text-slate-500 text-sm sm:text-base md:text-lg mt-1 font-medium">Your health data, encrypted and accessible anywhere.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative group w-full md:w-64">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                    <div className="relative group w-full sm:w-64">
                         <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
                         <Input 
                             placeholder="Search records..." 
-                            className="pl-10 h-10 rounded-xl border-slate-200 bg-white/50 focus:bg-white transition-all shadow-sm"
+                            className="pl-10 h-10 rounded-xl border-slate-200 bg-white/50 focus:bg-white transition-all shadow-sm w-full"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <Button className="rounded-xl h-10 px-5 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 whitespace-nowrap">
+                    <Button className="rounded-xl h-10 px-5 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 whitespace-nowrap w-full sm:w-auto">
                         <Upload className="mr-2 h-4 w-4" /> Upload
                     </Button>
                 </div>
             </div>
 
             {/* Quick Stats / Latest Activities */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-gradient-to-br from-indigo-500 to-violet-600 border-none shadow-xl shadow-indigo-500/20 rounded-2xl text-white">
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
-                                <History className="h-5 w-5" />
+            <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+                <Card className="bg-gradient-to-br from-indigo-500 to-violet-600 border-none shadow-xl shadow-indigo-500/20 rounded-xl sm:rounded-2xl text-white">
+                    <CardContent className="p-3 sm:p-4 md:pt-6 md:px-6">
+                        <div className="flex items-center justify-between mb-2 sm:mb-4">
+                            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-white/20 flex items-center justify-center">
+                                <History className="h-4 w-4 sm:h-5 sm:w-5" />
                             </div>
-                            <Badge className="bg-white/20 text-white border-0">All Time</Badge>
+                            <Badge className="bg-white/20 text-white border-0 hidden sm:inline-flex">All Time</Badge>
                         </div>
-                        <div className="text-3xl font-bold mb-1">{formattedRecords.length}</div>
-                        <div className="text-sm text-indigo-100 font-medium">Total Records Stored</div>
+                        <div className="text-xl sm:text-2xl md:text-3xl font-bold mb-0.5 sm:mb-1">{formattedRecords.length}</div>
+                        <div className="text-[10px] sm:text-xs md:text-sm text-indigo-100 font-medium leading-tight">Total Records</div>
                     </CardContent>
                 </Card>
                 
-                <Card className="bg-white border-slate-100 shadow-lg shadow-slate-200/50 rounded-2xl">
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-                                <FileText className="h-5 w-5" />
+                <Card className="bg-white border-slate-100 shadow-lg shadow-slate-200/50 rounded-xl sm:rounded-2xl">
+                    <CardContent className="p-3 sm:p-4 md:pt-6 md:px-6">
+                        <div className="flex items-center justify-between mb-2 sm:mb-4">
+                            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                                <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
                             </div>
-                            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Storage</span>
+                            <span className="text-[9px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider hidden sm:inline">Storage</span>
                         </div>
-                        <div className="text-3xl font-bold mb-1 text-slate-900">{prescriptions.length}</div>
-                        <div className="text-sm text-slate-500 font-medium">Prescriptions Uploaded</div>
+                        <div className="text-xl sm:text-2xl md:text-3xl font-bold mb-0.5 sm:mb-1 text-slate-900">{prescriptions.length}</div>
+                        <div className="text-[10px] sm:text-xs md:text-sm text-slate-500 font-medium leading-tight">Prescriptions</div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-white border-slate-100 shadow-lg shadow-slate-200/50 rounded-2xl">
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-                                <Clock className="h-5 w-5" />
+                <Card className="bg-white border-slate-100 shadow-lg shadow-slate-200/50 rounded-xl sm:rounded-2xl">
+                    <CardContent className="p-3 sm:p-4 md:pt-6 md:px-6">
+                        <div className="flex items-center justify-between mb-2 sm:mb-4">
+                            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                                <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
                             </div>
-                            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Reports</span>
+                            <span className="text-[9px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider hidden sm:inline">Reports</span>
                         </div>
-                        <div className="text-3xl font-bold mb-1 text-slate-900">{testReports.length}</div>
-                        <div className="text-sm text-slate-500 font-medium">Lab Reports Available</div>
+                        <div className="text-xl sm:text-2xl md:text-3xl font-bold mb-0.5 sm:mb-1 text-slate-900">{testReports.length}</div>
+                        <div className="text-[10px] sm:text-xs md:text-sm text-slate-500 font-medium leading-tight">Lab Reports</div>
                     </CardContent>
                 </Card>
             </div>
 
             {/* Records Tabs */}
             <Tabs defaultValue="all" className="w-full">
-                <TabsList className="mb-6 p-1 bg-slate-100 rounded-xl h-11 w-full md:w-auto flex justify-start">
-                    <TabsTrigger value="all" className="rounded-lg px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">All Files</TabsTrigger>
-                    <TabsTrigger value="prescriptions" className="rounded-lg px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Prescriptions</TabsTrigger>
-                    <TabsTrigger value="reports" className="rounded-lg px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Test Reports</TabsTrigger>
+                <TabsList className="mb-4 sm:mb-6 p-1 bg-slate-100 rounded-xl h-10 sm:h-11 w-full md:w-auto flex justify-start overflow-x-auto scrollbar-none">
+                    <TabsTrigger value="all" className="rounded-lg px-3 sm:px-6 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm flex-shrink-0">All Files</TabsTrigger>
+                    <TabsTrigger value="prescriptions" className="rounded-lg px-3 sm:px-6 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm flex-shrink-0">Prescriptions</TabsTrigger>
+                    <TabsTrigger value="reports" className="rounded-lg px-3 sm:px-6 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm flex-shrink-0">Test Reports</TabsTrigger>
                 </TabsList>
 
                 <AnimatePresence mode="wait">

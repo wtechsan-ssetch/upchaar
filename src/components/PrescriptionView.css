@@ -406,6 +406,209 @@
   flex: 2;
 }
 
+/* ========== MOBILE RESPONSIVE ========== */
+@media screen and (max-width: 820px) {
+  .prescription-page {
+    width: 100%;
+    min-height: auto;
+    margin: 16px auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  }
+
+  .prescription-page .rx-header {
+    padding: 24px 24px 16px 24px;
+  }
+
+  .prescription-page .header-divider {
+    margin: 0 24px;
+    margin-bottom: 8px;
+  }
+
+  .prescription-page .patient-fields {
+    padding: 8px 24px 12px 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .prescription-page .clinical-section {
+    padding: 8px 24px 16px 24px;
+    min-height: 360px;
+  }
+
+  .prescription-page .rx-footer {
+    padding: 14px 24px 10px 24px;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .prescription-page {
+    margin: 8px auto;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+  }
+
+  /* Header: stack doctor info and logo vertically */
+  .prescription-page .rx-header {
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px 16px 14px 16px;
+    align-items: flex-start;
+  }
+
+  .prescription-page .doctor-name {
+    font-size: 22px;
+  }
+
+  .prescription-page .doctor-degree,
+  .prescription-page .doctor-specialty {
+    font-size: 12px;
+  }
+
+  .prescription-page .doctor-title,
+  .prescription-page .doctor-college {
+    font-size: 11px;
+  }
+
+  .prescription-page .upchar-logo img {
+    width: 120px !important;
+  }
+
+  /* Divider */
+  .prescription-page .header-divider {
+    margin: 0 16px;
+    margin-bottom: 6px;
+  }
+
+  /* Patient fields: wrap onto multiple lines */
+  .prescription-page .patient-fields {
+    flex-direction: column;
+    padding: 6px 16px 10px 16px;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .prescription-page .field-group {
+    width: 100%;
+  }
+
+  .prescription-page .name-field {
+    flex: unset;
+  }
+
+  .prescription-page .field-line {
+    min-width: unset;
+    flex: 1;
+  }
+
+  .prescription-page .field-dots {
+    width: auto;
+    flex: 1;
+  }
+
+  .prescription-page .short-field {
+    flex-shrink: unset;
+  }
+
+  /* Clinical section: stack vertically */
+  .prescription-page .clinical-section {
+    flex-direction: column;
+    padding: 8px 16px 14px 16px;
+    min-height: auto;
+    gap: 20px;
+  }
+
+  .prescription-page .clinical-left {
+    width: 100%;
+    flex-shrink: unset;
+    padding-right: 0 !important;
+    border-right: none !important;
+    border-bottom: 2px solid rgba(230, 57, 70, 0.1);
+    padding-bottom: 16px;
+  }
+
+  .prescription-page .clinical-right {
+    padding-left: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  .prescription-page .clinical-title {
+    font-size: 14px;
+  }
+
+  /* Watermark: scale down */
+  .prescription-page .watermark img {
+    width: 200px !important;
+  }
+
+  /* Footer */
+  .prescription-page .rx-footer {
+    padding: 12px 16px 10px 16px;
+    gap: 8px;
+  }
+
+  .prescription-page .footer-item {
+    gap: 10px;
+  }
+
+  .prescription-page .footer-icon svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .prescription-page .footer-content {
+    font-size: 12px;
+  }
+
+  /* Corner accents: smaller on mobile */
+  .prescription-page .accent-stripe {
+    height: 8px;
+  }
+
+  .prescription-page .accent-stripe.red,
+  .prescription-page .accent-stripe.teal {
+    width: 40px;
+  }
+
+  .prescription-page .accent-stripe.dark {
+    width: 24px;
+  }
+
+  .prescription-page .corner-accent.bottom-right,
+  .prescription-page .corner-accent.bottom-left {
+    bottom: 30px;
+  }
+
+  .prescription-page .bottom-bar {
+    height: 10px;
+  }
+}
+
+/* Also fix the PrescriptionPage wrapper buttons for mobile */
+@media screen and (max-width: 480px) {
+  .prescription-page .rx-header {
+    padding: 16px 12px 12px 12px;
+  }
+
+  .prescription-page .header-divider {
+    margin: 0 12px;
+  }
+
+  .prescription-page .patient-fields {
+    padding: 6px 12px 10px 12px;
+  }
+
+  .prescription-page .clinical-section {
+    padding: 8px 12px 12px 12px;
+  }
+
+  .prescription-page .rx-footer {
+    padding: 10px 12px 8px 12px;
+  }
+
+  .prescription-page .doctor-name {
+    font-size: 20px;
+  }
+}
+
 /* Print styles */
 @media print {
   @page {
