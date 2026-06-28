@@ -309,6 +309,9 @@ export default function DoctorDetailPage() {
                             id:   data.id || orgId,
                             name: data.name || data.full_name || 'Unnamed Facility',
                             type: orgType,
+                            address: data.address || '',
+                            city: data.city || '',
+                            state: data.state || '',
                         };
                     });
                     const list = (await Promise.all(orgPromises)).filter(Boolean);
@@ -473,7 +476,6 @@ export default function DoctorDetailPage() {
                 type: bookingType,
                 organization_id: selectedClinic?.id ?? null,
                 organization_type: selectedClinic?.type ?? 'clinic',
-                clinic_name: selectedClinic?.name || doctor.clinicName || null,
                 fee: Number(doctor.fees) + Number(doctor.bookingCharges) + Number(doctor.platformFee),
                 platform_revenue: Number(doctor.platformFee),
             };
@@ -481,13 +483,6 @@ export default function DoctorDetailPage() {
             let { error: insertErr } = await supabase
                 .from('appointments')
                 .insert(appointmentPayload);
-
-            if (insertErr?.message?.includes("Could not find the 'clinic_name' column")) {
-                const { clinic_name: _unused, ...fallbackPayload } = appointmentPayload;
-                ({ error: insertErr } = await supabase
-                    .from('appointments')
-                    .insert(fallbackPayload));
-            }
 
             if (insertErr) throw insertErr;
 
@@ -636,58 +631,91 @@ export default function DoctorDetailPage() {
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {(doctor.clinicNames.length > 0 ? doctor.clinicNames : [doctor.clinicName || 'Main Clinic']).map((cName, idx) => (
-                                    <Card key={idx} className="border-0 shadow-sm ring-1 ring-black/5 rounded-2xl bg-white overflow-hidden group hover:ring-teal-200 transition-all">
-                                        <CardContent className="p-0">
-                                            <div className="bg-teal-50/50 px-5 py-4 border-b border-teal-50">
-                                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                                    <div className="h-7 w-7 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                                                        <Hospital className="h-4 w-4 text-teal-600" />
-                                                    </div>
-                                                    {cName}
-                                                </h3>
-                                            </div>
-                                            <div className="p-5 space-y-4">
-                                                <div className="flex gap-3">
-                                                    <MapPin className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-                                                    <p className="text-sm text-gray-600 leading-relaxed">
-                                                        {doctor.city}, {doctor.state || 'India'}
-                                                    </p>
+                                {(doctor.clinics?.length > 0
+                                    ? doctor.clinics
+                                    : [{ id: null, name: doctor.clinicName || 'Main Clinic', type: 'clinic', address: '', city: doctor.city, state: '' }]
+                                ).map((clinic, idx) => {
+                                    // Get timetables specific to this clinic
+                                    const clinicTimetables = doctorTimetables.filter(t => t.org_id === clinic.id);
+                                    const clinicDays = [...new Set(clinicTimetables.map(t => t.day))];
+                                    // Group timetables by day for display
+                                    const timetableByDay = clinicDays.map(day => {
+                                        const slots = clinicTimetables.filter(t => t.day === day);
+                                        return {
+                                            day,
+                                            times: slots.map(s => `${s.time_from} – ${s.time_to}`),
+                                        };
+                                    });
+                                    const clinicAddress = [clinic.address, clinic.city, clinic.state].filter(Boolean).join(', ') || `${doctor.city || ''}, India`;
+
+                                    return (
+                                        <Card key={clinic.id || idx} className="border-0 shadow-sm ring-1 ring-black/5 rounded-2xl bg-white overflow-hidden group hover:ring-teal-200 transition-all">
+                                            <CardContent className="p-0">
+                                                <div className="bg-teal-50/50 px-5 py-4 border-b border-teal-50">
+                                                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                                        <div className="h-7 w-7 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                                            <Hospital className="h-4 w-4 text-teal-600" />
+                                                        </div>
+                                                        {clinic.name}
+                                                    </h3>
+                                                    <span className="text-[10px] uppercase tracking-wide font-bold text-teal-600/60 ml-9">{clinic.type}</span>
                                                 </div>
-                                                
-                                                <div className="pt-3 border-t border-slate-50 space-y-3">
-                                                    <div className="flex items-center justify-between">
+                                                <div className="p-5 space-y-4">
+                                                    <div className="flex gap-3">
+                                                        <MapPin className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                                                        <p className="text-sm text-gray-600 leading-relaxed">
+                                                            {clinicAddress}
+                                                        </p>
+                                                    </div>
+                                                    
+                                                    <div className="pt-3 border-t border-slate-50 space-y-3">
                                                         <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
                                                             <CalendarDays className="h-3.5 w-3.5" />
-                                                            Available Days
+                                                            Available Days & Timings
                                                         </div>
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {doctor.availableDays.length > 0 ? (
-                                                            doctor.availableDays.map(day => (
-                                                                <Badge key={day} variant="secondary" className="bg-white border border-teal-100 text-teal-700 text-[10px] px-2 py-0">
-                                                                    {day}
-                                                                </Badge>
-                                                            ))
+                                                        {timetableByDay.length > 0 ? (
+                                                            <div className="space-y-2">
+                                                                {timetableByDay.map(({ day, times }) => (
+                                                                    <div key={day} className="flex items-start justify-between gap-3">
+                                                                        <Badge variant="secondary" className="bg-white border border-teal-100 text-teal-700 text-[10px] px-2 py-0 shrink-0">
+                                                                            {day}
+                                                                        </Badge>
+                                                                        <div className="text-right">
+                                                                            {times.map((time, ti) => (
+                                                                                <span key={ti} className="text-xs font-bold text-teal-600 block">{time}</span>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : doctor.availableDays.length > 0 ? (
+                                                            <>
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    {doctor.availableDays.map(day => (
+                                                                        <Badge key={day} variant="secondary" className="bg-white border border-teal-100 text-teal-700 text-[10px] px-2 py-0">
+                                                                            {day}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
+                                                                <div className="flex items-center justify-between pt-1">
+                                                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                                                        <Clock className="h-3.5 w-3.5" />
+                                                                        Consultation Hours
+                                                                    </div>
+                                                                    <span className="text-xs font-bold text-teal-600">
+                                                                        {doctor.hoursFrom} – {doctor.hoursTo}
+                                                                    </span>
+                                                                </div>
+                                                            </>
                                                         ) : (
                                                             <span className="text-xs text-gray-400 italic">Schedule not specified</span>
                                                         )}
                                                     </div>
-                                                    
-                                                    <div className="flex items-center justify-between pt-1">
-                                                        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                                            <Clock className="h-3.5 w-3.5" />
-                                                            Consultation Hours
-                                                        </div>
-                                                        <span className="text-xs font-bold text-teal-600">
-                                                            {doctor.hoursFrom} – {doctor.hoursTo}
-                                                        </span>
-                                                    </div>
                                                 </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
