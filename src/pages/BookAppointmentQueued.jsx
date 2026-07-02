@@ -319,7 +319,6 @@ export default function BookAppointmentQueued() {
         setBookingLoading(true);
         
         try {
-            const normalizedPhone = patientInfo.phone?.trim() || null;
 
             // Helper functions for time parsing
             const parseTimeToMinutes = (timeStr) => {
@@ -357,7 +356,7 @@ export default function BookAppointmentQueued() {
             // 2. Fetch all appointments for the day to check duplicates AND calculate queue
             let dayAppointmentsQuery = supabase
                 .from('appointments')
-                .select('id, time_slot, patient_id, patient_phone')
+                .select('id, time_slot, patient_id')
                 .eq('doctor_id', selectedDoctor.id)
                 .eq('date', selectedDate)
                 .neq('status', 'Cancelled');
@@ -389,8 +388,6 @@ export default function BookAppointmentQueued() {
                         // Check if it's the same patient
                         if (user?.id && app.patient_id === user.id) {
                             isDuplicate = true;
-                        } else if (!user?.id && normalizedPhone && app.patient_phone === normalizedPhone) {
-                            isDuplicate = true;
                         }
                     }
                 }
@@ -400,8 +397,6 @@ export default function BookAppointmentQueued() {
                     if (app.time_slot === selectedSlot) {
                         queueCount++; // Count for queue
                         if (user?.id && app.patient_id === user.id) {
-                            isDuplicate = true;
-                        } else if (!user?.id && normalizedPhone && app.patient_phone === normalizedPhone) {
                             isDuplicate = true;
                         }
                     }
@@ -421,7 +416,6 @@ export default function BookAppointmentQueued() {
             const appointmentData = {
                 patient_id: user?.id || null,
                 patient_name: patientInfo.name,
-                patient_phone: normalizedPhone,
                 doctor_id: selectedDoctor.id,
                 doctor_name: selectedDoctor.full_name,
                 organization_id: selectedClinic?.id,
@@ -437,11 +431,6 @@ export default function BookAppointmentQueued() {
             };
 
             let { error } = await supabase.from('appointments').insert([appointmentData]);
-
-            if (error?.message?.includes("Could not find the 'patient_phone' column")) {
-                const { patient_phone: _unusedPhone, ...fallbackAppointmentData } = appointmentData;
-                ({ error } = await supabase.from('appointments').insert([fallbackAppointmentData]));
-            }
         
             if (!error) {
                 setBookingSuccess(true);
@@ -455,15 +444,15 @@ export default function BookAppointmentQueued() {
                 if (error?.code === '23505' || error?.message?.toLowerCase().includes('duplicate')) {
                     toast.error('You have already booked the appointment');
                 } else {
-                    toast.error("Error booking appointment. Please try again.");
+                    toast.error(`Booking failed: ${error?.message || 'Unknown error'}`);
                 }
             }
         } catch (err) {
-            console.error("Unexpected error:", err);
+            console.error("Unexpected booking error:", err);
             if (err?.code === '23505' || err?.message?.toLowerCase().includes('duplicate')) {
                 toast.error('You have already booked the appointment');
             } else {
-                toast.error("Something went wrong. Please try again.");
+                toast.error(`Booking failed: ${err?.message || 'Something went wrong. Please try again.'}`);
             }
         } finally {
             setBookingLoading(false);
