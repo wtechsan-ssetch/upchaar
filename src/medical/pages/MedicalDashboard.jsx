@@ -76,8 +76,50 @@ export default function MedicalDashboard() {
   const sidebarRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  if (profile?.status?.toLowerCase() === 'pending' || profile?.status?.toLowerCase() === 'rejected' || profile?.status?.toLowerCase() === 'suspended') {
-      return <ProviderPendingPage profile={profile} />;
+  // ── Fetch medical record from `medicals` table to get the real approval status ──
+  // Admin approval/rejection updates the `medicals` table, NOT `profiles.status`.
+  const [medicalRecord, setMedicalRecord] = useState(null);
+  const [medicalStatusLoading, setMedicalStatusLoading] = useState(true);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    let mounted = true;
+    supabase
+      .from('medicals')
+      .select('id, status, metadata')
+      .eq('profile_id', profile.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (mounted) {
+          setMedicalRecord(data);
+          setMedicalStatusLoading(false);
+        }
+      })
+      .catch(() => { if (mounted) setMedicalStatusLoading(false); });
+    return () => { mounted = false; };
+  }, [profile?.id]);
+
+  // Show spinner while fetching medical approval status
+  if (medicalStatusLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: '50%',
+          border: '3px solid #e2e8f0',
+          borderTopColor: '#14b8a6',
+          animation: 'spin 0.7s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // Block access if medical store is not yet approved by admin.
+  // Read status from `medicals` table — this is what admin updates.
+  const medicalStatus = (medicalRecord?.status || 'Pending').toLowerCase();
+  if (medicalStatus === 'pending' || medicalStatus === 'rejected' || medicalStatus === 'suspended') {
+    const pendingProfile = { ...profile, status: medicalRecord?.status || 'Pending', metadata: medicalRecord?.metadata };
+    return <ProviderPendingPage profile={pendingProfile} />;
   }
 
   const handleQuickAvatarChange = async (e) => {
