@@ -54,6 +54,12 @@ const RATE_LIMIT_CONFIG = {
         cooldownMs: 2 * 60 * 1000,    // 2 minute cooldown
         label: 'API request',
     },
+    forgot_password: {
+        maxAttempts: 3,
+        windowMs: 10 * 60 * 1000,     // 10 minutes
+        cooldownMs: 10 * 60 * 1000,   // 10 minute lockout
+        label: 'Password reset',
+    },
 };
 
 /** Persists lockouts in sessionStorage so page refresh doesn't bypass them. */

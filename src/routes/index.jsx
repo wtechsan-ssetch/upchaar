@@ -39,6 +39,7 @@ const DashboardGate  = lazy(() => import('@/auth/DashboardGate.jsx'));
 
 // ── PUBLIC pages ──────────────────────────────────────
 const LandingPage     = lazy(() => import('@/pages/Landing'));
+const AboutUsPage     = lazy(() => import('@/pages/AboutUs'));
 const ServicesPage    = lazy(() => import('@/pages/Services.jsx'));
 const DashboardPage   = lazy(() => import('@/pages/Dashboard'));
 const DoctorsPage     = lazy(() => import('@/pages/Doctors'));
@@ -148,6 +149,7 @@ export function AppRoutes() {
 
             {/* Home / Landing */}
             <Route path="/" element={<LandingPage />} />
+            <Route path="/about-us" element={<AboutUsPage />} />
             <Route path="/services" element={<ServicesPage />} />
 
             {/* Feature pages share the AppLayout (sidebar/topbar) */}

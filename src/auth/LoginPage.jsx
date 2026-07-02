@@ -21,6 +21,7 @@ import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '@/lib/auth.js';
 import { sendOtp, verifyOtp, normalisePhone } from '@/lib/otpService.js';
 import { supabase } from '@/lib/supabase.js';
 import { checkRateLimit, clearRateLimit } from '@/lib/rateLimit.js';
+import ForgotPasswordModal from './ForgotPasswordModal.jsx';
 import {
     Heart, Mail, Lock, Eye, EyeOff, Loader2, AlertCircle,
     User, Phone, ChevronDown, Building2, Activity,
@@ -83,6 +84,7 @@ export default function LoginPage() {
     const [error,    setError]    = useState('');
     const [success,  setSuccess]  = useState(successMsg);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [isForgotOpen, setIsForgotOpen] = useState(false);
 
     // ── Helpers ───────────────────────────────────
     const handleSignInChange  = e => setSignInForm(f  => ({ ...f,  [e.target.name]: e.target.value }));
@@ -416,6 +418,13 @@ export default function LoginPage() {
                                             {showSignInPass ? <EyeOff size={15} /> : <Eye size={15} />}
                                         </button>
                                     </div>
+                                    {/* Forgot password — right-aligned, below password field */}
+                                    <div className="flex justify-end mt-1.5">
+                                        <button type="button" onClick={() => setIsForgotOpen(true)}
+                                            className="text-xs text-teal-600 font-semibold hover:underline transition">
+                                            Forgot password?
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <button type="submit" disabled={loading}
@@ -696,6 +705,9 @@ export default function LoginPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* ── Forgot Password Modal ── */}
+            {isForgotOpen && <ForgotPasswordModal onClose={() => setIsForgotOpen(false)} />}
         </div>
     );
 }
