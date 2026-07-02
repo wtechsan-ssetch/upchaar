@@ -17,6 +17,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { supabase } from '@/lib/supabase.js';
 import { useAuth } from '@/auth/AuthContext.jsx';
 import { getStorageUrl } from '@/lib/uploadImage.js';
+import RazorpayCheckout from '@/components/RazorpayCheckout.jsx';
 
 // ── Static Data ──────────────────────────────────────
 // Constants will be fetched dynamically
@@ -315,11 +316,8 @@ export default function BookAppointmentQueued() {
         }, 1500);
     };
 
-    const handleConfirmBooking = async () => {
-        setBookingLoading(true);
-        
+    const handleValidateBooking = async () => {
         try {
-
             // Helper functions for time parsing
             const parseTimeToMinutes = (timeStr) => {
                 if (!timeStr) return 0;
@@ -371,9 +369,8 @@ export default function BookAppointmentQueued() {
 
             if (dayAppointmentsError) throw dayAppointmentsError;
 
-            // 3. Check for duplicates in the same range and count queue
+            // 3. Check for duplicates in the same range
             let isDuplicate = false;
-            let queueCount = 0;
             const existingAppts = dayAppointments || [];
 
             if (currentRange) {
@@ -383,8 +380,6 @@ export default function BookAppointmentQueued() {
                 for (const app of existingAppts) {
                     const appMin = parseTimeToMinutes(app.time_slot);
                     if (appMin >= startMin && appMin < endMin) {
-                        queueCount++; // Count for queue
-
                         // Check if it's the same patient
                         if (user?.id && app.patient_id === user.id) {
                             isDuplicate = true;
@@ -395,7 +390,6 @@ export default function BookAppointmentQueued() {
                 // Fallback if no range found: check exact time slot
                 for (const app of existingAppts) {
                     if (app.time_slot === selectedSlot) {
-                        queueCount++; // Count for queue
                         if (user?.id && app.patient_id === user.id) {
                             isDuplicate = true;
                         }
@@ -407,12 +401,89 @@ export default function BookAppointmentQueued() {
                 toast.error('You have already booked the appointment', {
                     description: 'You cannot book another appointment with this doctor in the same time block.',
                 });
-                return;
+                return false;
+            }
+            return true;
+        } catch (err) {
+            console.error('Validation error:', err);
+            toast.error(`Validation failed: ${err?.message || 'Please try again.'}`);
+            return false;
+        }
+    };
+
+    const handlePaymentSuccess = async () => {
+        setBookingLoading(true);
+        try {
+            // Helper functions for time parsing
+            const parseTimeToMinutes = (timeStr) => {
+                if (!timeStr) return 0;
+                const [time, ampm] = timeStr.split(' ');
+                if (!time || !ampm) return 0;
+                let [h, m] = time.split(':').map(Number);
+                if (ampm === 'PM' && h !== 12) h += 12;
+                if (ampm === 'AM' && h === 12) h = 0;
+                return h * 60 + m;
+            };
+
+            const parseTimetableTime = (timeStr) => {
+                if (!timeStr) return 0;
+                let [h, m] = timeStr.split(':').map(Number);
+                return h * 60 + m;
+            };
+
+            const slotMin = parseTimeToMinutes(selectedSlot);
+            const dStr = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' });
+            const matchedOrgId = selectedClinic?.id;
+            const matchedRanges = doctorTimetables.filter(t => t.org_id === matchedOrgId && t.day === dStr);
+
+            let currentRange = null;
+            for (const range of matchedRanges) {
+                const startMin = parseTimetableTime(range.time_from);
+                const endMin = parseTimetableTime(range.time_to);
+                if (slotMin >= startMin && slotMin < endMin) {
+                    currentRange = range;
+                    break;
+                }
+            }
+
+            // Calculate queue
+            let dayAppointmentsQuery = supabase
+                .from('appointments')
+                .select('id, time_slot, patient_id')
+                .eq('doctor_id', selectedDoctor.id)
+                .eq('date', selectedDate)
+                .neq('status', 'Cancelled');
+
+            if (selectedClinic?.id) {
+                dayAppointmentsQuery = dayAppointmentsQuery.eq('organization_id', selectedClinic.id);
+            } else {
+                dayAppointmentsQuery = dayAppointmentsQuery.is('organization_id', null);
+            }
+
+            const { data: dayAppointments } = await dayAppointmentsQuery;
+            
+            let queueCount = 0;
+            const existingAppts = dayAppointments || [];
+
+            if (currentRange) {
+                const startMin = parseTimetableTime(currentRange.time_from);
+                const endMin = parseTimetableTime(currentRange.time_to);
+                for (const app of existingAppts) {
+                    const appMin = parseTimeToMinutes(app.time_slot);
+                    if (appMin >= startMin && appMin < endMin) {
+                        queueCount++;
+                    }
+                }
+            } else {
+                for (const app of existingAppts) {
+                    if (app.time_slot === selectedSlot) {
+                        queueCount++;
+                    }
+                }
             }
 
             const realQueueNumber = queueCount + 1;
 
-            // Sync to appointments table
             const appointmentData = {
                 patient_id: user?.id || null,
                 patient_name: patientInfo.name,
@@ -448,7 +519,7 @@ export default function BookAppointmentQueued() {
                 }
             }
         } catch (err) {
-            console.error("Unexpected booking error:", err);
+            console.error('Unexpected booking error:', err);
             if (err?.code === '23505' || err?.message?.toLowerCase().includes('duplicate')) {
                 toast.error('You have already booked the appointment');
             } else {
@@ -1027,13 +1098,25 @@ export default function BookAppointmentQueued() {
                                             </div>
                                         </div>
 
-                                        <Button 
-                                            className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold shadow-xl shadow-emerald-500/20"
-                                            onClick={handleConfirmBooking}
-                                            disabled={bookingLoading}
-                                        >
-                                            {bookingLoading ? <Loader2 className="animate-spin mr-2" /> : 'Confirm and Pay Cash'}
-                                        </Button>
+                                        {bookingLoading ? (
+                                            <Button disabled className="w-full h-14 bg-emerald-600 opacity-50">
+                                                <Loader2 className="animate-spin mr-2" /> Processing...
+                                            </Button>
+                                        ) : (
+                                            <RazorpayCheckout 
+                                                amount={totalFee * 100} 
+                                                currency="INR"
+                                                receipt={`receipt_${new Date().getTime()}`}
+                                                onBeforePayment={handleValidateBooking}
+                                                onSuccess={handlePaymentSuccess}
+                                                onError={(err) => {
+                                                    toast.error('Payment Failed', { description: 'Your payment was not completed.' });
+                                                    setBookingLoading(false);
+                                                }}
+                                                className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold shadow-xl shadow-emerald-500/20 rounded-md"
+                                                buttonText="Pay Now & Confirm"
+                                            />
+                                        )}
                                         <p className="text-[10px] text-center text-slate-400">
                                             By clicking confirm, you agree to our terms of service and refund policy.
                                         </p>

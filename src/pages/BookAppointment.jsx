@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase.js';
 import { useAuth } from '@/auth/AuthContext.jsx';
 import { getStorageUrl } from '@/lib/uploadImage.js';
+import RazorpayCheckout from '@/components/RazorpayCheckout.jsx';
 
 // ── Static Data ──────────────────────────────────────
 // Constants will be fetched dynamically
@@ -292,9 +293,7 @@ export default function BookAppointment() {
         }, 1500);
     };
 
-    const handleConfirmBooking = async () => {
-        setBookingLoading(true);
-        
+    const handleValidateBooking = async () => {
         try {
 
             // Helper functions for time parsing
@@ -374,9 +373,20 @@ export default function BookAppointment() {
                 toast.error('You have already booked the appointment', {
                     description: 'You cannot book another appointment with this doctor in the same time block.',
                 });
-                return;
+                return false;
             }
+            return true;
+        } catch (err) {
+            console.error('Validation error:', err);
+            toast.error(`Validation failed: ${err?.message || 'Please try again.'}`);
+            return false;
+        }
+    };
 
+    const handlePaymentSuccess = async () => {
+        setBookingLoading(true);
+        
+        try {
             // For guest (non-logged-in) users patient_id must be explicitly null
             // so the RLS "Allow guest appointment booking" policy passes.
             // For logged-in users it must match auth.uid().
@@ -984,13 +994,25 @@ export default function BookAppointment() {
                                             </div>
                                         </div>
 
-                                        <Button 
-                                            className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold shadow-xl shadow-emerald-500/20"
-                                            onClick={handleConfirmBooking}
-                                            disabled={bookingLoading}
-                                        >
-                                            {bookingLoading ? <Loader2 className="animate-spin mr-2" /> : 'Confirm and Pay Cash'}
-                                        </Button>
+                                        {bookingLoading ? (
+                                            <Button disabled className="w-full h-14 bg-emerald-600 opacity-50">
+                                                <Loader2 className="animate-spin mr-2" /> Processing...
+                                            </Button>
+                                        ) : (
+                                            <RazorpayCheckout 
+                                                amount={totalFee * 100} 
+                                                currency="INR"
+                                                receipt={`receipt_${new Date().getTime()}`}
+                                                onBeforePayment={handleValidateBooking}
+                                                onSuccess={handlePaymentSuccess}
+                                                onError={(err) => {
+                                                    toast.error('Payment Failed', { description: 'Your payment was not completed.' });
+                                                    setBookingLoading(false);
+                                                }}
+                                                className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold shadow-xl shadow-emerald-500/20 rounded-md"
+                                                buttonText="Pay Now & Confirm"
+                                            />
+                                        )}
                                         <p className="text-[10px] text-center text-slate-400">
                                             By clicking confirm, you agree to our terms of service and refund policy.
                                         </p>
