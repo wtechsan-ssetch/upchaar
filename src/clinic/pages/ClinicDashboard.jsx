@@ -62,7 +62,7 @@ export default function ClinicDashboard() {
   const [cropImageSrc, setCropImageSrc] = useState(null);
   const [doctorSecretKey, setDoctorSecretKey] = useState('');
   const [addingDoctor, setAddingDoctor] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true); 
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const [signOutAlertOpen, setSignOutAlertOpen] = useState(false);
   const [appointments, setAppointments] = useState(null);
@@ -75,10 +75,53 @@ export default function ClinicDashboard() {
   const sidebarRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // ── Fetch clinic record from `clinics` table to get the real approval status ──
+  // Admin approval/rejection updates the `clinics` table, NOT `profiles.status`.
+  const [clinicRecord, setClinicRecord] = useState(null);
+  const [clinicStatusLoading, setClinicStatusLoading] = useState(true);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    let mounted = true;
+    supabase
+      .from('clinics')
+      .select('id, status, metadata')
+      .eq('profile_id', profile.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (mounted) {
+          setClinicRecord(data);
+          setClinicStatusLoading(false);
+        }
+      })
+      .catch(() => { if (mounted) setClinicStatusLoading(false); });
+    return () => { mounted = false; };
+  }, [profile?.id]);
+
   const displayName = profile?.full_name || profile?.name || 'Clinic Center';
 
-  if (profile?.status?.toLowerCase() === 'pending' || profile?.status?.toLowerCase() === 'rejected' || profile?.status?.toLowerCase() === 'suspended') {
-      return <ProviderPendingPage profile={profile} />;
+  // Show spinner while fetching clinic approval status
+  if (clinicStatusLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: '50%',
+          border: '3px solid #e2e8f0',
+          borderTopColor: '#14b8a6',
+          animation: 'spin 0.7s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // Block access if clinic is not yet approved by admin.
+  // Read status from `clinics` table — this is what admin updates.
+  const clinicStatus = (clinicRecord?.status || 'Pending').toLowerCase();
+  if (clinicStatus === 'pending' || clinicStatus === 'rejected' || clinicStatus === 'suspended') {
+    // Pass a merged profile with the real status so ProviderPendingPage shows correct info
+    const pendingProfile = { ...profile, status: clinicRecord?.status || 'Pending', metadata: clinicRecord?.metadata };
+    return <ProviderPendingPage profile={pendingProfile} />;
   }
 
   const handleQuickAvatarChange = async (e) => {

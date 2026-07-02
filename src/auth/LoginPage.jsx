@@ -109,7 +109,14 @@ export default function LoginPage() {
             // On success, clear the rate limit counter
             clearRateLimit('sign_in');
             const from = location.state?.from;
-            const redirectMap = { patient: '/patient/dashboard', doctor: '/doctor/dashboard' };
+            const redirectMap = {
+                patient:    '/patient/dashboard',
+                doctor:     '/doctor/dashboard',
+                clinic:     '/clinic/dashboard',
+                medical:    '/medical/dashboard',
+                diagnostic: '/diagnostic/dashboard',
+                hospital:   '/hospital/dashboard',
+            };
             const dest = from || (redirectMap[profile.profile_type] ?? getDashboardPath(profile));
             if (dest.startsWith('http://') || dest.startsWith('https://')) {
                 window.location.replace(dest);
@@ -172,7 +179,8 @@ export default function LoginPage() {
                 setShowSuccessModal(false);
                 setTab('signin');
                 setSignupStep('form');
-                setSuccess(`🎉 Account created! Please sign in${signUpForm.profileType === 'doctor' ? ' — pending admin review.' : '.'}`);
+                const needsApproval = ['doctor', 'clinic', 'medical', 'diagnostic', 'hospital'].includes(signUpForm.profileType);
+                setSuccess(`🎉 Account created! Please sign in${needsApproval ? ' — your account is pending admin approval. You will see a status page after signing in.' : '.'}`);
                 setSignUpForm({ fullName:'', email:'', phone:'', whatsappNumber:'', password:'', confirmPassword:'', profileType:'patient' });
                 setOtp(['','','','','','']);
             }, 2200);

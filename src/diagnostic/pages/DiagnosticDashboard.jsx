@@ -47,6 +47,11 @@ export default function DiagnosticDashboard() {
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const fileInputRef = useRef(null);
 
+    // ── Fetch diagnostic center record from `diagnostic_centers` table ──
+    // Admin approval/rejection updates the `diagnostic_centers` table, NOT `profiles.status`.
+    const [diagnosticRecord, setDiagnosticRecord] = useState(null);
+    const [diagnosticStatusLoading, setDiagnosticStatusLoading] = useState(true);
+
     useEffect(() => {
         if (profile) {
             setProfileData({
@@ -59,8 +64,45 @@ export default function DiagnosticDashboard() {
         }
     }, [profile]);
 
-    if (profile?.status?.toLowerCase() === 'pending' || profile?.status?.toLowerCase() === 'rejected' || profile?.status?.toLowerCase() === 'suspended') {
-        return <ProviderPendingPage profile={profile} />;
+    useEffect(() => {
+        if (!profile?.id) return;
+        let mounted = true;
+        supabase
+            .from('diagnostic_centers')
+            .select('id, status, metadata')
+            .eq('profile_id', profile.id)
+            .maybeSingle()
+            .then(({ data }) => {
+                if (mounted) {
+                    setDiagnosticRecord(data);
+                    setDiagnosticStatusLoading(false);
+                }
+            })
+            .catch(() => { if (mounted) setDiagnosticStatusLoading(false); });
+        return () => { mounted = false; };
+    }, [profile?.id]);
+
+    // Show spinner while fetching diagnostic approval status
+    if (diagnosticStatusLoading) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+                <div style={{
+                    width: 40, height: 40, borderRadius: '50%',
+                    border: '3px solid #e2e8f0',
+                    borderTopColor: '#14b8a6',
+                    animation: 'spin 0.7s linear infinite',
+                }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
+    }
+
+    // Block access if diagnostic center is not yet approved by admin.
+    // Read status from `diagnostic_centers` table — this is what admin updates.
+    const diagnosticStatus = (diagnosticRecord?.status || 'Pending').toLowerCase();
+    if (diagnosticStatus === 'pending' || diagnosticStatus === 'rejected' || diagnosticStatus === 'suspended') {
+        const pendingProfile = { ...profile, status: diagnosticRecord?.status || 'Pending', metadata: diagnosticRecord?.metadata };
+        return <ProviderPendingPage profile={pendingProfile} />;
     }
 
     const handleUpdateProfile = async (e) => {
