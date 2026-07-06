@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Building2, CalendarDays, Clock3, IndianRupee, Users, ChevronRight, AlertCircle, MapPin, History, Phone, Pill
+    Building2, CalendarDays, Clock3, IndianRupee, Users, ChevronRight, AlertCircle, MapPin, History, Phone, Pill, CheckCircle2
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase.js';
 import { useDoctor } from '../context/DoctorContext.jsx';
@@ -76,6 +76,7 @@ export default function DoctorDashboard() {
     const [appointments, setAppointments] = useState([]);
     const [linkedOrgs, setLinkedOrgs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [totalReleased, setTotalReleased] = useState(0);
     const [selectedOrgForAppointments, setSelectedOrgForAppointments] = useState(null);
     const [updatingId, setUpdatingId] = useState(null);
     const [historyModal, setHistoryModal] = useState({ isOpen: false, patient: null });
@@ -219,6 +220,19 @@ export default function DoctorDashboard() {
                 if (aptError) throw aptError;
                 setAppointments(aptData || []);
 
+                // Fetch total released fee
+                try {
+                    const { data: releaseData } = await supabase
+                        .from('fee_release_requests')
+                        .select('amount')
+                        .eq('doctor_id', doctorRecord.id)
+                        .eq('status', 'Released');
+                    const released = (releaseData || []).reduce((s, r) => s + Number(r.amount || 0), 0);
+                    setTotalReleased(released);
+                } catch {
+                    // ignore
+                }
+
                 // 2. Fetch linked organizations
                 let staffLinks = [];
                 try {
@@ -315,7 +329,8 @@ export default function DoctorDashboard() {
         { label: 'Today Appointments', value: todayAppointments.length, icon: CalendarDays, tone: 'text-blue-600 bg-blue-50' },
         { label: 'Completed Today', value: todayAppointments.filter(item => item.status === 'Completed').length, icon: Clock3, tone: 'text-emerald-600 bg-emerald-50' },
         { label: 'Total Revenue', value: `Rs. ${(doctorRecord?.total_revenue || doctor?.totalRevenue || 0).toLocaleString()}`, icon: IndianRupee, tone: 'text-amber-600 bg-amber-50' },
-    ], [linkedOrgs.length, todayAppointments, doctorRecord?.total_revenue, doctor?.totalRevenue]);
+        { label: 'Total Released', value: `Rs. ${totalReleased.toLocaleString()}`, icon: CheckCircle2, tone: 'text-purple-600 bg-purple-50' },
+    ], [linkedOrgs.length, todayAppointments, doctorRecord?.total_revenue, doctor?.totalRevenue, totalReleased]);
 
     const orgCards = useMemo(() => {
         if (!linkedOrgs.length) return [];
@@ -380,7 +395,7 @@ export default function DoctorDashboard() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {loading ? (
                     Array(4).fill(0).map((_, i) => (
                         <Skeleton key={i} height={120} borderRadius={24} />
