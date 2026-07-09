@@ -82,12 +82,12 @@ function SectionHeading({ label, title, subtitle, inView }) {
 
 // ─── DATA ───────────────────────────────────────────────────────────────────
 const STATS = [
-    { value: 500, suffix: '+', label: 'Registered Doctors' },
-    { value: 120, suffix: '+', label: 'Partner Clinics' },
-    { value: 75,  suffix: '+', label: 'Diagnostic Centres' },
-    { value: 60,  suffix: '+', label: 'Medical Stores' },
-    { value: 30,  suffix: '+', label: 'Hospitals' },
-    { value: 25000, suffix: '+', label: 'Patients Served' },
+    { value: 3, suffix: '', label: 'Registered Doctors' },
+    { value: 0, suffix: '', label: 'Partner Clinics' },
+    { value: 0,  suffix: '', label: 'Diagnostic Centres' },
+    { value: 0,  suffix: '', label: 'Medical Stores' },
+    { value: 0,  suffix: '', label: 'Hospitals' },
+    { value: 500, suffix: '', label: 'Patients Served' },
 ];
 
 const VALUES = [

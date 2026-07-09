@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { motionVariants } from '@/lib/animations';
 
 const stats = [
-    { value: '25+', label: 'Verified Doctors' },
-    { value: '14+', label: 'Partner Hospitals' },
+    { value: '3', label: 'Verified Doctors' },
+    { value: '0', label: 'Partner Hospitals' },
 ];
 
 const diagnosticStats = [
-    { value: '18+', label: 'Partner Diagnostic Centers' },
-    { value: '10+', label: 'Partner Medical Clinics' },
+    { value: '0', label: 'Partner Diagnostic Centers' },
+    { value: '0', label: 'Partner Medical Clinics' },
 ];
 
 export const TrustBadges = () => {
