@@ -12,6 +12,7 @@ import { NewsletterSignUp } from '@/components/landing/newsletter-signup';
 import { FeedbackForm } from '@/components/landing/feedback-form';
 import { Footer } from '@/components/landing/Footer';
 import { Header } from '@/components/landing/Header';
+import { MarqueeBanner } from '@/components/landing/MarqueeBanner';
 
 const LandingPage = React.memo(function LandingPage() {
     return (
@@ -29,6 +30,7 @@ const LandingPage = React.memo(function LandingPage() {
                 <div className="p-4">
                     <Header />
                 </div>
+                <MarqueeBanner />
                 <main className="flex-1">
                     <Hero />
                     <div className="py-12">

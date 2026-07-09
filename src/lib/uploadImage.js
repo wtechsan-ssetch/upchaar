@@ -99,6 +99,7 @@ export async function uploadBlogImage(file, userId) {
     return data.publicUrl;
 }
 
+
 /**
  * getStorageUrl
  * Resolves a storage path or URL into a final public URL.
@@ -119,4 +120,41 @@ export function getStorageUrl(path, bucket = 'avatars') {
         console.error('[getStorageUrl] Error resolving path:', path, err);
         return null;
     }
+}
+
+/**
+ * uploadPrescription
+ * Uploads a prescription document/image to the `avatars` bucket under prescriptions/ path.
+ *
+ * @param {File}   file    - The image/pdf File selected by the user
+ * @param {string} userId  - Supabase auth user ID (UUID)
+ * @returns {Promise<string>} The public URL of the uploaded prescription
+ */
+export async function uploadPrescription(file, userId) {
+    if (!file || !userId) throw new Error('File and user ID are required.');
+
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+        throw new Error('Prescription file size must be under 5MB.');
+    }
+
+    const type = file.type || '';
+    const ext = type === 'application/pdf' ? 'pdf' : getExtension(file);
+    const timestamp = Date.now();
+    const path = `${userId}_${timestamp}.${ext}`; // Removed 'prescriptions/' prefix as bucket is dedicated
+
+    const { error: uploadError } = await supabase.storage
+        .from('diagnostic_prescriptions')
+        .upload(path, file, {
+            contentType: file.type,
+            upsert: false,
+        });
+
+    if (uploadError) {
+        console.error('[uploadPrescription]', uploadError.message);
+        throw new Error('Failed to upload prescription. Please try again.');
+    }
+
+    const { data } = supabase.storage.from('diagnostic_prescriptions').getPublicUrl(path);
+    return data.publicUrl;
 }

@@ -20,6 +20,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '@/lib/auth.js';
 import { sendOtp, verifyOtp, normalisePhone } from '@/lib/otpService.js';
 import { supabase } from '@/lib/supabase.js';
+import { checkRateLimit, clearRateLimit } from '@/lib/rateLimit.js';
+import ForgotPasswordModal from './ForgotPasswordModal.jsx';
 import {
     Heart, Mail, Lock, Eye, EyeOff, Loader2, AlertCircle,
     User, Phone, ChevronDown, Building2, Activity,
@@ -82,6 +84,7 @@ export default function LoginPage() {
     const [error,    setError]    = useState('');
     const [success,  setSuccess]  = useState(successMsg);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [isForgotOpen, setIsForgotOpen] = useState(false);
 
     // ── Helpers ───────────────────────────────────
     const handleSignInChange  = e => setSignInForm(f  => ({ ...f,  [e.target.name]: e.target.value }));
@@ -102,10 +105,26 @@ export default function LoginPage() {
         setSuccess('');
         setLoading(true);
         try {
+            // Rate limit: 5 attempts per 5 minutes
+            checkRateLimit('sign_in');
             const { profile } = await signIn(signInForm.email, signInForm.password);
+            // On success, clear the rate limit counter
+            clearRateLimit('sign_in');
             const from = location.state?.from;
-            const redirectMap = { patient: '/patient/dashboard', doctor: '/doctor/dashboard' };
-            navigate(from || (redirectMap[profile.profile_type] ?? getDashboardPath(profile)), { replace: true });
+            const redirectMap = {
+                patient:    '/patient/dashboard',
+                doctor:     '/doctor/dashboard',
+                clinic:     '/clinic/dashboard',
+                medical:    '/medical/dashboard',
+                diagnostic: '/diagnostic/dashboard',
+                hospital:   '/hospital/dashboard',
+            };
+            const dest = from || (redirectMap[profile.profile_type] ?? getDashboardPath(profile));
+            if (dest.startsWith('http://') || dest.startsWith('https://')) {
+                window.location.replace(dest);
+            } else {
+                navigate(dest, { replace: true });
+            }
         } catch (err) {
             setError(err.message || String(err));
         } finally {
@@ -123,6 +142,9 @@ export default function LoginPage() {
         if (signUpForm.password.length < 6)                     { setError('Password must be at least 6 characters.'); return; }
         if (!isStrongPassword(signUpForm.password))             { setError(PASSWORD_RULE_MESSAGE); return; }
         if (!signUpForm.phone.trim())                           { setError('Phone number is required.'); return; }
+
+        // Rate limit: 3 sign-up attempts per 10 minutes
+        try { checkRateLimit('sign_up'); } catch (err) { setError(err.message); return; }
 
         setLoading(true);
         try {
@@ -159,7 +181,8 @@ export default function LoginPage() {
                 setShowSuccessModal(false);
                 setTab('signin');
                 setSignupStep('form');
-                setSuccess(`🎉 Account created! Please sign in${signUpForm.profileType === 'doctor' ? ' — pending admin review.' : '.'}`);
+                const needsApproval = ['doctor', 'clinic', 'medical', 'diagnostic', 'hospital'].includes(signUpForm.profileType);
+                setSuccess(`🎉 Account created! Please sign in${needsApproval ? ' — your account is pending admin approval. You will see a status page after signing in.' : '.'}`);
                 setSignUpForm({ fullName:'', email:'', phone:'', whatsappNumber:'', password:'', confirmPassword:'', profileType:'patient' });
                 setOtp(['','','','','','']);
             }, 2200);
@@ -395,6 +418,13 @@ export default function LoginPage() {
                                             {showSignInPass ? <EyeOff size={15} /> : <Eye size={15} />}
                                         </button>
                                     </div>
+                                    {/* Forgot password — right-aligned, below password field */}
+                                    <div className="flex justify-end mt-1.5">
+                                        <button type="button" onClick={() => setIsForgotOpen(true)}
+                                            className="text-xs text-teal-600 font-semibold hover:underline transition">
+                                            Forgot password?
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <button type="submit" disabled={loading}
@@ -453,8 +483,27 @@ export default function LoginPage() {
                                     </div>
                                 </div>
 
-                                {/* Full Name */}
-                                <div>
+                                {signUpForm.profileType === 'hospital' ? (
+                                    <div className="py-6 flex flex-col items-center text-center space-y-4">
+                                        <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
+                                            <HospitalIcon size={32} />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-slate-800">Hospital Integration Not Started</h3>
+                                        <p className="text-sm text-slate-500 max-w-sm">
+                                            Currently, hospital integration has not started on our platform. 
+                                            If you represent a hospital, please contact our team for early access or partnerships.
+                                        </p>
+                                        <a 
+                                            href="mailto:mainupchaarhealth@gmail.com"
+                                            className="mt-4 px-6 py-2.5 rounded-xl bg-slate-800 text-white font-semibold text-sm hover:bg-slate-700 transition"
+                                        >
+                                            Contact Us
+                                        </a>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Full Name */}
+                                        <div>
                                     <label className="block text-xs font-semibold text-slate-600 mb-2">Full Name</label>
                                     <div className="relative">
                                         <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -532,7 +581,9 @@ export default function LoginPage() {
                                     {loading
                                         ? <><Loader2 size={16} className="animate-spin" />Creating Account…</>
                                         : <><ShieldCheck size={16} />Create Account</>}
-                                </button>
+                                    </button>
+                                    </>
+                                )}
 
                                 <p className="text-center text-sm text-slate-500">
                                     Already have an account?{' '}
@@ -654,6 +705,9 @@ export default function LoginPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* ── Forgot Password Modal ── */}
+            {isForgotOpen && <ForgotPasswordModal onClose={() => setIsForgotOpen(false)} />}
         </div>
     );
 }

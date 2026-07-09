@@ -12,7 +12,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth/AuthContext.jsx';
 
 export default function RequireAuth({ children }) {
-    const { user, loading } = useAuth();
+    const { user, profile, loading, getDashboardPath } = useAuth();
     const location = useLocation();
 
     // Wait for the session to be restored before deciding
@@ -33,6 +33,16 @@ export default function RequireAuth({ children }) {
     // Not authenticated → redirect to /login, remember where we came from
     if (!user) {
         return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+    }
+
+    // Role-based dashboard enforcement
+    if (profile && location.pathname.includes('/dashboard')) {
+        const correctPath = getDashboardPath(profile);
+        
+        // If the user is trying to access a dashboard that is NOT theirs
+        if (location.pathname !== correctPath && location.pathname !== '/dashboard') {
+            return <Navigate to={correctPath} replace />;
+        }
     }
 
     return children;

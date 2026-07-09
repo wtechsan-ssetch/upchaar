@@ -8,6 +8,7 @@ import ChangePasswordModal from '@/components/ChangePasswordModal.jsx';
 import ImageCropperModal from '@/components/ImageCropperModal.jsx';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
+import ProviderPendingPage from '@/components/ProviderPendingPage.jsx';
 
 import {
   AlertDialog,
@@ -45,17 +46,12 @@ const circumference = 2 * Math.PI * 54;
 
 // Linked staff will be fetched from database
 
-const MOCK_ACTIVITY = [
-  { id: 1, title: 'Walk-in: Priya Mehta', sub: 'Assigned to Dr. Patel', time: 'Today, 09:15 AM', badge: 'CHECKED IN', badgeClass: 'bg-teal-50 text-teal-700 border border-teal-100', isLast: false },
-  { id: 2, title: 'Report Uploaded: Kiran S.', sub: 'Blood work — Lab results', time: '1 hour ago', badge: 'REPORT', badgeClass: 'bg-blue-50 text-blue-700 border border-blue-100', isLast: false },
-  { id: 3, title: 'Discharge: Ramesh Kumar', sub: 'OPD visit complete', time: 'Yesterday, 6:30 PM', badge: 'DISCHARGED', badgeClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100', isLast: true },
-];
+// Linked staff will be fetched from database
 
 export default function ClinicDashboard() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [staffDoctors, setStaffDoctors] = useState([]);
-  const [clinics, setClinics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeNav, setActiveNav] = useState('Dashboard');
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,7 +62,7 @@ export default function ClinicDashboard() {
   const [cropImageSrc, setCropImageSrc] = useState(null);
   const [doctorSecretKey, setDoctorSecretKey] = useState('');
   const [addingDoctor, setAddingDoctor] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true); 
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const [signOutAlertOpen, setSignOutAlertOpen] = useState(false);
   const [appointments, setAppointments] = useState(null);
@@ -79,7 +75,54 @@ export default function ClinicDashboard() {
   const sidebarRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // ── Fetch clinic record from `clinics` table to get the real approval status ──
+  // Admin approval/rejection updates the `clinics` table, NOT `profiles.status`.
+  const [clinicRecord, setClinicRecord] = useState(null);
+  const [clinicStatusLoading, setClinicStatusLoading] = useState(true);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    let mounted = true;
+    supabase
+      .from('clinics')
+      .select('id, status, metadata')
+      .eq('profile_id', profile.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (mounted) {
+          setClinicRecord(data);
+          setClinicStatusLoading(false);
+        }
+      })
+      .catch(() => { if (mounted) setClinicStatusLoading(false); });
+    return () => { mounted = false; };
+  }, [profile?.id]);
+
   const displayName = profile?.full_name || profile?.name || 'Clinic Center';
+
+  // Show spinner while fetching clinic approval status
+  if (clinicStatusLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: '50%',
+          border: '3px solid #e2e8f0',
+          borderTopColor: '#14b8a6',
+          animation: 'spin 0.7s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // Block access if clinic is not yet approved by admin.
+  // Read status from `clinics` table — this is what admin updates.
+  const clinicStatus = (clinicRecord?.status || 'Pending').toLowerCase();
+  if (clinicStatus === 'pending' || clinicStatus === 'rejected' || clinicStatus === 'suspended') {
+    // Pass a merged profile with the real status so ProviderPendingPage shows correct info
+    const pendingProfile = { ...profile, status: clinicRecord?.status || 'Pending', metadata: clinicRecord?.metadata };
+    return <ProviderPendingPage profile={pendingProfile} />;
+  }
 
   const handleQuickAvatarChange = async (e) => {
     const file = e.target.files?.[0];
@@ -254,20 +297,6 @@ export default function ClinicDashboard() {
     }
   }, [profile?.id]);
 
-  const fetchClinics = useCallback(async () => {
-    if (!profile?.id) return;
-    try {
-      const { data, error } = await supabase
-        .from('facilities')
-        .select('*')
-        .eq('type', 'clinic')
-        .limit(10);
-      if (error) throw error;
-      setClinics(data || []);
-    } catch (err) {
-      console.error('Error fetching clinics:', err.message);
-    }
-  }, [profile?.id]);
 
   const handleAddDoctor = useCallback(async (e) => {
     e.preventDefault();
@@ -365,10 +394,9 @@ export default function ClinicDashboard() {
   useEffect(() => { 
     if (profile?.id && appointments === null) {
       fetchStaff();
-      fetchClinics();
       fetchAppointments();
     }
-  }, [profile?.id, fetchStaff, fetchClinics, fetchAppointments, appointments]);
+  }, [profile?.id, fetchStaff, fetchAppointments, appointments]);
 
   // Patient avatars
   useEffect(() => {
@@ -569,12 +597,12 @@ export default function ClinicDashboard() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
                 {loading ? (
                   Array(4).fill(0).map((_, i) => (
-                    <div key={i} className="bg-white p-4 sm:p-6 rounded-2xl border-l-4 border-teal-500 shadow-sm animate-pulse">
+                    <div key={i} className="bg-white p-4 sm:p-6 rounded-2xl border-l-4 border-teal-500 shadow-sm">
                       <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-100 rounded-xl" />
+                        <Skeleton circle width={48} height={48} />
                         <div className="flex-1">
-                           <div className="h-3 bg-gray-100 rounded w-16 mb-2" />
-                           <div className="h-6 bg-gray-100 rounded w-12" />
+                           <Skeleton width="60%" height={12} className="mb-2" />
+                           <Skeleton width="40%" height={24} />
                         </div>
                       </div>
                     </div>
@@ -611,10 +639,10 @@ export default function ClinicDashboard() {
                       {loading ? (
                         Array(2).fill(0).map((_, i) => (
                           <div key={i} className="bg-white p-5 sm:p-6 rounded-2xl text-center flex flex-col items-center shadow-sm">
-                            <div className="w-20 h-20 rounded-full bg-gray-100 mb-4 animate-pulse" />
-                            <div className="h-4 bg-gray-100 rounded w-32 mb-2 animate-pulse" />
-                            <div className="h-3 bg-gray-100 rounded w-24 mb-4 animate-pulse" />
-                            <div className="w-full h-8 bg-gray-50 rounded-lg animate-pulse" />
+                            <Skeleton circle width={80} height={80} className="mb-4" />
+                            <Skeleton width="120px" height={16} className="mb-2" />
+                            <Skeleton width="80px" height={12} className="mb-4" />
+                            <Skeleton width="100%" height={32} />
                           </div>
                         ))
                       ) : staffDoctors.length > 0 ? (
@@ -654,38 +682,42 @@ export default function ClinicDashboard() {
 
                       <div>
                         <h3 className="text-base sm:text-lg font-bold flex items-center gap-2 mb-4 text-gray-700">
-                          <span className="material-symbols-outlined text-teal-600">table_view</span> Registered Nodes
+                          <span className="material-symbols-outlined text-teal-600">table_view</span> Recent Appointments
                         </h3>
                         <div className="bg-white rounded-2xl overflow-x-auto" style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
                           <table className="w-full text-sm min-w-[480px]">
                             <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
                               <tr>
-                                <th className="px-4 sm:px-6 py-3 text-left font-semibold">Branch</th>
-                                <th className="px-4 sm:px-6 py-3 text-left font-semibold">City</th>
+                                <th className="px-4 sm:px-6 py-3 text-left font-semibold">Patient</th>
+                                <th className="px-4 sm:px-6 py-3 text-left font-semibold">Doctor</th>
+                                <th className="px-4 sm:px-6 py-3 text-left font-semibold">Date & Time</th>
                                 <th className="px-4 sm:px-6 py-3 text-left font-semibold">Status</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                              {clinics.length > 0 ? (
-                                clinics.map((clinic) => (
-                                  <tr key={clinic.id} className="hover:bg-gray-50 transition-colors">
+                              {appointments && appointments.length > 0 ? (
+                                appointments.slice(0, 5).map((apt) => (
+                                  <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-4 sm:px-6 py-4">
-                                      <p className="font-semibold text-gray-900">{clinic.name}</p>
-                                      <p className="text-xs text-gray-500">{clinic.email}</p>
+                                      <p className="font-semibold text-gray-900">{apt.patient_name || apt.patientName || apt.patient || 'Unknown'}</p>
                                     </td>
-                                    <td className="px-4 sm:px-6 py-4 text-gray-600">{clinic.city || '—'}</td>
+                                    <td className="px-4 sm:px-6 py-4 text-gray-600">{apt.doctor_name || apt.doctorName || apt.doctor || 'Unknown'}</td>
+                                    <td className="px-4 sm:px-6 py-4 text-gray-600">
+                                      <p>{new Date(apt.date).toLocaleDateString()}</p>
+                                      <p className="text-xs text-gray-400">{apt.time_slot}</p>
+                                    </td>
                                     <td className="px-4 sm:px-6 py-4">
                                       <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                                        clinic.status === 'Approved' ? 'bg-teal-50 text-teal-700' :
-                                        clinic.status === 'Rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
-                                      }`}>{clinic.status}</span>
+                                        apt.status === 'Completed' ? 'bg-teal-50 text-teal-700' :
+                                        apt.status === 'Cancelled' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                                      }`}>{apt.status || 'Pending'}</span>
                                     </td>
                                   </tr>
                                 ))
                               ) : (
                                 <tr>
-                                  <td colSpan="3" className="px-4 sm:px-6 py-8 text-center text-gray-500">
-                                    No registered nodes yet.
+                                  <td colSpan="4" className="px-4 sm:px-6 py-8 text-center text-gray-500">
+                                    No appointments yet.
                                   </td>
                                 </tr>
                               )}
@@ -716,7 +748,20 @@ export default function ClinicDashboard() {
                     </h3>
                   </div>
                   <div className="bg-white rounded-2xl p-5 sm:p-6" style={{ boxShadow: '0 4px 6px -1px rgb(0 0 0/0.05)' }}>
-                    {appointments && appointments.length > 0 ? (
+                    {loading || appointments === null ? (
+                      <div className="space-y-6">
+                        {Array(3).fill(0).map((_, i) => (
+                          <div key={i} className="flex gap-4">
+                            <Skeleton circle width={12} height={12} className="mt-1" />
+                            <div className="flex-1">
+                              <Skeleton width="70%" height={14} className="mb-1" />
+                              <Skeleton width="40%" height={10} className="mb-2" />
+                              <Skeleton width="50%" height={12} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : appointments.length > 0 ? (
                       appointments.slice(0, 5).map((item, idx) => (
                         <div key={item.id} className="flex gap-4 mb-6 last:mb-0">
                           <div className="relative flex-shrink-0">

@@ -40,16 +40,36 @@ export default function QueueStatusCard({ appointment, currentServing, onAction 
         return `${dh.toString().padStart(2, '0')}:${rm.toString().padStart(2, '0')} ${rp}`;
     };
 
+    // Check if appointment is today
+    const isToday = (dateStr) => {
+        if (!dateStr) return false;
+        const today = new Date().toISOString().split('T')[0];
+        const appDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+        return today === appDate;
+    };
+    const apptIsToday = isToday(appointment.date);
+
     const expectedTime = getExpectedTime(appointment.time_slot, appointment.queue_number);
     const estimatedWait = Math.max(0, ((appointment.queue_number || 1) - currentServing) * 10); // minutes
 
     const myNumber = appointment.queue_number || 1;
-    const isServing = myNumber === currentServing;
-    const isNext = myNumber === currentServing + 1;
-    const hasPassed = myNumber < currentServing;
-    const position = myNumber - currentServing;
+    const isServing = apptIsToday && myNumber === currentServing;
+    const isNext = apptIsToday && myNumber === currentServing + 1;
+    const hasPassed = apptIsToday && myNumber < currentServing;
+    const position = apptIsToday ? myNumber - currentServing : myNumber - 1;
 
     if (hasPassed) return null; // Or show "Completed" state
+
+    const titleText = !apptIsToday 
+        ? `Scheduled for ${new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`
+        : isServing ? "It's your turn!" : isNext ? "You're next!" : `${position}${position === 2 ? 'nd' : position === 3 ? 'rd' : 'th'} in line`;
+
+    const subText = !apptIsToday
+        ? "We'll notify you on the day of your visit"
+        : isServing ? "Proceed to the doctor's cabin" : "Please stay nearby the clinic";
+
+    const expectedText = !apptIsToday ? 'On Date' : (isServing ? 'NOW' : expectedTime);
+    const currentQueueDisplay = !apptIsToday ? '-' : currentServing;
 
     return (
         <motion.div
@@ -64,12 +84,20 @@ export default function QueueStatusCard({ appointment, currentServing, onAction 
                 {/* Header: Status & Live Badge */}
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-teal-500 animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-teal-600">Live Status</span>
+                        {apptIsToday ? (
+                            <div className="h-2 w-2 rounded-full bg-teal-500 animate-pulse" />
+                        ) : (
+                            <div className="h-2 w-2 rounded-full bg-slate-400" />
+                        )}
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${apptIsToday ? 'text-teal-600' : 'text-slate-500'}`}>
+                            {apptIsToday ? 'Live Status' : 'Upcoming'}
+                        </span>
                     </div>
                     <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-50 border border-slate-100">
                         <Timer size={12} className="text-slate-400" />
-                        <span className="text-[10px] font-semibold text-slate-500">Updated just now</span>
+                        <span className="text-[10px] font-semibold text-slate-500">
+                            {apptIsToday ? 'Updated just now' : 'Queue tracking starts on date'}
+                        </span>
                     </div>
                 </div>
 
@@ -96,8 +124,8 @@ export default function QueueStatusCard({ appointment, currentServing, onAction 
                                     fill="transparent"
                                     strokeDasharray="276"
                                     initial={{ strokeDashoffset: 276 }}
-                                    animate={{ strokeDashoffset: 276 - (276 * (currentServing / myNumber)) }}
-                                    className="text-teal-500"
+                                    animate={{ strokeDashoffset: 276 - (276 * (apptIsToday ? (currentServing / myNumber) : 0)) }}
+                                    className={apptIsToday ? "text-teal-500" : "text-slate-300"}
                                 />
                             </svg>
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -108,10 +136,10 @@ export default function QueueStatusCard({ appointment, currentServing, onAction 
 
                         <div>
                             <h3 className="text-xl font-bold text-slate-800 leading-tight">
-                                {isServing ? "It's your turn!" : isNext ? "You're next!" : `${position}${position === 2 ? 'nd' : position === 3 ? 'rd' : 'th'} in line`}
+                                {titleText}
                             </h3>
                             <p className="text-sm text-slate-500 mt-1">
-                                {isServing ? "Proceed to the doctor's cabin" : "Please stay nearby the clinic"}
+                                {subText}
                             </p>
                         </div>
                     </div>
@@ -120,17 +148,17 @@ export default function QueueStatusCard({ appointment, currentServing, onAction 
                     <div className="grid grid-cols-2 gap-3">
                         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/50">
                             <div className="flex items-center gap-2 mb-1">
-                                <Users size={14} className="text-teal-500" />
+                                <Users size={14} className={apptIsToday ? "text-teal-500" : "text-slate-400"} />
                                 <span className="text-[10px] font-bold text-slate-400 uppercase">Current</span>
                             </div>
-                            <p className="text-lg font-bold text-slate-700">#{currentServing}</p>
+                            <p className="text-lg font-bold text-slate-700">#{currentQueueDisplay}</p>
                         </div>
                         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/50">
                             <div className="flex items-center gap-2 mb-1">
-                                <Clock size={14} className="text-amber-500" />
+                                <Clock size={14} className={apptIsToday ? "text-amber-500" : "text-slate-400"} />
                                 <span className="text-[10px] font-bold text-slate-400 uppercase">Expected At</span>
                             </div>
-                            <p className="text-lg font-bold text-slate-700">{isServing ? 'NOW' : expectedTime}</p>
+                            <p className="text-lg font-bold text-slate-700">{expectedText}</p>
                         </div>
                     </div>
                 </div>

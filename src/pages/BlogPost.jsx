@@ -5,6 +5,7 @@ import { Heart, Eye, Clock, ArrowLeft, Share2, Calendar, Stethoscope, BookOpen }
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+import DOMPurify from 'dompurify';
 
 function safeDate(val) {
     try { const d = new Date(val); return isNaN(d.getTime()) ? null : d; } catch { return null; }
@@ -142,7 +143,7 @@ export default function BlogPost() {
                     <div
                         className="prose prose-slate prose-headings:font-bold prose-headings:text-slate-800 prose-p:text-slate-600 prose-p:leading-relaxed prose-li:text-slate-600 prose-blockquote:border-primary prose-blockquote:text-slate-600 prose-blockquote:italic max-w-none text-sm sm:text-base"
                         style={{ lineHeight: 1.8 }}
-                        dangerouslySetInnerHTML={{ __html: post.content }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
                     />
 
                     {/* Action bar */}

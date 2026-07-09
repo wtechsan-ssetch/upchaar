@@ -1,6 +1,6 @@
 import { useAuth } from '@/auth/AuthContext.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { SignOutModal } from '@/components/landing/SignOutModal';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -9,9 +9,10 @@ import {
     ChevronLeft, ChevronRight, Menu, Plus, X, Filter, Trash2,
     Camera, Loader2, User, Phone, MapPin, Globe, Save
 } from 'lucide-react';
-import { uploadAvatar, getStorageUrl } from '@/lib/uploadImage.js';
 import { supabase } from '@/lib/supabase.js';
+import { uploadAvatar, getStorageUrl } from '@/lib/uploadImage.js';
 import { toast, Toaster } from 'sonner';
+import ProviderPendingPage from '@/components/ProviderPendingPage.jsx';
 
 export default function DiagnosticDashboard() {
     const { profile, signOut, refreshProfile } = useAuth();
@@ -46,6 +47,11 @@ export default function DiagnosticDashboard() {
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const fileInputRef = useRef(null);
 
+    // ── Fetch diagnostic center record from `diagnostic_centers` table ──
+    // Admin approval/rejection updates the `diagnostic_centers` table, NOT `profiles.status`.
+    const [diagnosticRecord, setDiagnosticRecord] = useState(null);
+    const [diagnosticStatusLoading, setDiagnosticStatusLoading] = useState(true);
+
     useEffect(() => {
         if (profile) {
             setProfileData({
@@ -57,6 +63,47 @@ export default function DiagnosticDashboard() {
             });
         }
     }, [profile]);
+
+    useEffect(() => {
+        if (!profile?.id) return;
+        let mounted = true;
+        supabase
+            .from('diagnostic_centers')
+            .select('id, status, metadata')
+            .eq('profile_id', profile.id)
+            .maybeSingle()
+            .then(({ data }) => {
+                if (mounted) {
+                    setDiagnosticRecord(data);
+                    setDiagnosticStatusLoading(false);
+                }
+            })
+            .catch(() => { if (mounted) setDiagnosticStatusLoading(false); });
+        return () => { mounted = false; };
+    }, [profile?.id]);
+
+    // Show spinner while fetching diagnostic approval status
+    if (diagnosticStatusLoading) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+                <div style={{
+                    width: 40, height: 40, borderRadius: '50%',
+                    border: '3px solid #e2e8f0',
+                    borderTopColor: '#14b8a6',
+                    animation: 'spin 0.7s linear infinite',
+                }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
+    }
+
+    // Block access if diagnostic center is not yet approved by admin.
+    // Read status from `diagnostic_centers` table — this is what admin updates.
+    const diagnosticStatus = (diagnosticRecord?.status || 'Pending').toLowerCase();
+    if (diagnosticStatus === 'pending' || diagnosticStatus === 'rejected' || diagnosticStatus === 'suspended') {
+        const pendingProfile = { ...profile, status: diagnosticRecord?.status || 'Pending', metadata: diagnosticRecord?.metadata };
+        return <ProviderPendingPage profile={pendingProfile} />;
+    }
 
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
@@ -133,59 +180,238 @@ export default function DiagnosticDashboard() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const stats = [
+    const stats = useMemo(() => [
         { title: "Today's Tests", value: "0", icon: Clock, color: "text-blue-600", bg: "bg-blue-100" },
         { title: "Today's Revenue", value: "₹0", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-100" },
         { title: "Lifetime Tests", value: "0", icon: Activity, color: "text-purple-600", bg: "bg-purple-100" },
         { title: "Lifetime Revenue", value: "₹0", icon: DollarSign, color: "text-orange-600", bg: "bg-orange-100" }
-    ];
+    ], []);
 
-    const [tests, setTests] = useState([
-        { id: 1, name: 'Complete Blood Count (CBC)', price: '₹500', category: 'Blood Test', status: 'Active' },
-        { id: 2, name: 'Lipid Profile', price: '₹800', category: 'Blood Test', status: 'Active' },
-        { id: 3, name: 'Chest X-Ray', price: '₹600', category: 'Radiology', status: 'Active' },
-        { id: 4, name: 'MRI Brain', price: '₹5000', category: 'Radiology', status: 'Inactive' },
-        { id: 5, name: 'Thyroid Profile', price: '₹700', category: 'Pathology', status: 'Active' },
-        { id: 6, name: 'Ultrasound Abdomen', price: '₹1200', category: 'Imaging', status: 'Active' }
-    ]);
+
+    const [tests, setTests] = useState([]);
+    const [testsLoading, setTestsLoading] = useState(true);
+    const [dcId, setDcId] = useState(null); // diagnostic_centers.id
+
+    // Load tests from Supabase on mount
+    useEffect(() => {
+        if (!profile?.id) return;
+        const loadTests = async () => {
+            setTestsLoading(true);
+            try {
+                // Get the current user ID directly from Supabase session as a backup
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                const userId = authUser?.id || profile?.id;
+
+                if (!userId) {
+                    console.log('No user ID found, skipping loadTests');
+                    setTestsLoading(false);
+                    return;
+                }
+
+                // Get all diagnostic_centers rows for this profile
+                const { data: centers, error: fetchError } = await supabase
+                    .from('diagnostic_centers')
+                    .select('*')
+                    .eq('profile_id', userId);
+
+                if (fetchError) {
+                    console.error('Fetch error in loadTests:', fetchError);
+                    toast.error('Error loading data: ' + fetchError.message);
+                    setTestsLoading(false);
+                    return;
+                }
+
+                console.log('Centers found for profile:', profile.id, centers);
+
+                // Find a row that already has tests, otherwise take the first one
+                let dc = centers?.find(c => Array.isArray(c.tests) && c.tests.length > 0) || (centers && centers.length > 0 ? centers[0] : null);
+
+                if (!dc) {
+                    console.log('No diagnostic center row found. Attempting to create one...');
+                    const { data: created, error: createError } = await supabase
+                        .from('diagnostic_centers')
+                        .insert([{ 
+                            profile_id: userId, 
+                            name: profile.full_name || 'Diagnostic Center',
+                            email: profile.email || '',
+                            status: 'Active'
+                        }])
+                        .select()
+                        .single();
+                    
+                    if (createError) {
+                        console.error('Error creating diagnostic center:', createError);
+                        // If it's a constraint error, maybe it was created in the meantime? 
+                        // Let's not toast error yet, just log it.
+                    } else {
+                        dc = created;
+                    }
+                }
+
+                if (dc) {
+                    console.log('Using diagnostic center row:', dc.id);
+                    setDcId(dc.id);
+                    
+                    let rawTests = [];
+                    if (typeof dc.tests === 'string') {
+                        try {
+                            rawTests = JSON.parse(dc.tests);
+                        } catch (e) {
+                            console.error('Error parsing tests string:', e);
+                            rawTests = [];
+                        }
+                    } else if (Array.isArray(dc.tests)) {
+                        rawTests = dc.tests;
+                    }
+                    
+                    // Handle case where tests might be stored as strings (including stringified JSON)
+                    const validTests = rawTests.map((t, index) => {
+                        if (t && typeof t === 'object' && t.name) return t;
+                        
+                        if (typeof t === 'string') {
+                            // Try to parse it as JSON first (Supabase might serialize objects into a text[] column)
+                            try {
+                                const parsed = JSON.parse(t);
+                                if (parsed && typeof parsed === 'object' && parsed.name) {
+                                    return parsed;
+                                }
+                            } catch (e) {
+                                // Not JSON, treat as regular string
+                            }
+                            
+                            // Fallback for simple string tests
+                            return {
+                                id: index + 1,
+                                name: t,
+                                price: '₹0',
+                                category: 'Other',
+                                status: 'Active',
+                                description: ''
+                            };
+                        }
+                        return null;
+                    }).filter(Boolean);
+                    
+                    setTests(validTests);
+                }
+            } catch (err) {
+                console.error('Unexpected error in loadTests:', err);
+            } finally {
+                setTestsLoading(false);
+            }
+        };
+        loadTests();
+    }, [profile?.id, refreshProfile]); // Added refreshProfile to dependencies
+
+    // Persist updated tests array back to Supabase
+    const persistTests = async (updatedTests) => {
+        // Optimistically update local state
+        const previousTests = [...tests];
+        setTests(updatedTests);
+        
+        try {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            const userId = authUser?.id || profile?.id;
+
+            if (!userId) {
+                toast.error('You must be logged in to save tests.');
+                setTests(previousTests);
+                return;
+            }
+
+            console.log('Saving tests for profile:', userId, 'dcId:', dcId, updatedTests);
+            
+            let query = supabase
+                .from('diagnostic_centers')
+                .update({ 
+                    tests: updatedTests,
+                    name: profile.full_name || 'Diagnostic Center'
+                });
+
+            if (dcId) {
+                query = query.eq('id', dcId);
+            } else {
+                query = query.eq('profile_id', userId);
+            }
+
+            const { data, error } = await query.select();
+
+            if (error) throw error;
+            
+            if (!data || data.length === 0) {
+                console.log('No row found to update. Attempting to insert...');
+                const { data: inserted, error: insertError } = await supabase
+                    .from('diagnostic_centers')
+                    .insert([{ 
+                        profile_id: userId, 
+                        tests: updatedTests,
+                        name: profile.full_name || 'Diagnostic Center'
+                    }])
+                    .select();
+                
+                if (insertError) throw insertError;
+                if (!inserted || inserted.length === 0) throw new Error('No data returned from insert operation.');
+                
+                console.log('Insert success:', inserted[0]);
+                if (inserted[0].id) setDcId(inserted[0].id);
+            } else {
+                console.log('Update success:', data[0]);
+                if (data[0].id) setDcId(data[0].id);
+            }
+
+            toast.success('Changes saved successfully');
+            
+        } catch (err) {
+            console.error('Error persisting tests:', err);
+            toast.error('Failed to save changes: ' + err.message);
+            // Rollback local state
+            setTests(previousTests);
+        }
+    };
 
     const filteredTests = tests.filter(test => {
-        const matchesSearch = test.name.toLowerCase().includes(searchTerm.toLowerCase()) || test.category.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCategory = filterCategory === 'All' || test.category === filterCategory;
+        const name = test?.name || '';
+        const category = test?.category || '';
+        const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            category.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesCategory = filterCategory === 'All' || category === filterCategory;
         return matchesSearch && matchesCategory;
     });
 
     const handleToggleStatus = (id) => {
-        setTests(tests.map(test => {
-            if (test.id === id) {
-                return { ...test, status: test.status === 'Active' ? 'Inactive' : 'Active' };
-            }
-            return test;
-        }));
+        const updated = tests.map(test =>
+            test.id === id ? { ...test, status: test.status === 'Active' ? 'Inactive' : 'Active' } : test
+        );
+        persistTests(updated);
     };
 
     const handleDeleteTest = () => {
         if (testToDelete) {
-            setTests(tests.filter(t => t.id !== testToDelete.id));
+            persistTests(tests.filter(t => t.id !== testToDelete.id));
             setTestToDelete(null);
         }
     };
 
     const handleSaveNewTest = () => {
         if (!newTest.name || !newTest.price) {
-            alert('Please provide at least a Test Name and Price.');
+            toast.error('Please provide at least a Test Name and Price.');
             return;
         }
-
-        const newId = tests.length > 0 ? Math.max(...tests.map(t => t.id)) + 1 : 1;
-        setTests([...tests, {
+        
+        // Ensure price has the currency symbol if not already present
+        const displayPrice = newTest.price.startsWith('₹') ? newTest.price : `₹${newTest.price}`;
+        
+        const newId = tests.length > 0 ? Math.max(...tests.map(t => Number(t.id) || 0)) + 1 : 1;
+        const updated = [...tests, {
             id: newId,
             name: newTest.name,
-            price: `₹${newTest.price}`,
+            price: displayPrice,
             category: newTest.category,
-            status: newTest.status
-        }]);
-
+            status: newTest.status,
+            description: newTest.description || ''
+        }];
+        
+        persistTests(updated);
         setNewTest({ name: '', price: '', category: 'Blood Test', description: '', status: 'Active' });
         setIsAddTestModalOpen(false);
     };
@@ -432,7 +658,16 @@ export default function DiagnosticDashboard() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
-                                            {tests.length === 0 ? (
+                                            {testsLoading ? (
+                                                <tr>
+                                                    <td colSpan="5" className="px-6 py-12 text-center text-slate-400">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <div className="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                                                            Loading tests...
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : tests.length === 0 ? (
                                                 <tr>
                                                     <td colSpan="5" className="px-6 py-16 text-center">
                                                         <div className="flex flex-col items-center justify-center">
@@ -861,17 +1096,31 @@ export default function DiagnosticDashboard() {
                                 <form className="space-y-5">
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1">Test Name</label>
-                                        <input type="text" defaultValue={editingTest.name} className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all" />
+                                        <input 
+                                            type="text" 
+                                            value={editingTest.name} 
+                                            onChange={(e) => setEditingTest({...editingTest, name: e.target.value})}
+                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all" 
+                                        />
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-slate-700 mb-1">Price</label>
-                                            <input type="text" defaultValue={editingTest.price} className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all" />
+                                            <input 
+                                                type="text" 
+                                                value={editingTest.price} 
+                                                onChange={(e) => setEditingTest({...editingTest, price: e.target.value})}
+                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all" 
+                                            />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-                                            <select defaultValue={editingTest.category} className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all bg-white">
+                                            <select 
+                                                value={editingTest.category} 
+                                                onChange={(e) => setEditingTest({...editingTest, category: e.target.value})}
+                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all bg-white"
+                                            >
                                                 <option>Blood Test</option>
                                                 <option>Radiology</option>
                                                 <option>Pathology</option>
@@ -890,7 +1139,8 @@ export default function DiagnosticDashboard() {
                                             <input
                                                 type="checkbox"
                                                 className="sr-only peer"
-                                                defaultChecked={editingTest.status === 'Active'}
+                                                checked={editingTest.status === 'Active'}
+                                                onChange={(e) => setEditingTest({...editingTest, status: e.target.checked ? 'Active' : 'Inactive'})}
                                             />
                                             <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                                         </label>
@@ -906,7 +1156,15 @@ export default function DiagnosticDashboard() {
                                 >
                                     Cancel
                                 </button>
-                                <button type="button" className="px-5 py-2.5 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors shadow-sm">
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        const updated = tests.map(t => t.id === editingTest.id ? editingTest : t);
+                                        persistTests(updated);
+                                        setEditingTest(null);
+                                    }}
+                                    className="px-5 py-2.5 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors shadow-sm"
+                                >
                                     Save Changes
                                 </button>
                             </div>
@@ -959,6 +1217,7 @@ export default function DiagnosticDashboard() {
                 )}
             </AnimatePresence>
 
+            {/* Toaster & Modals */}
             <Toaster position="top-right" richColors />
             <SignOutModal
                 isOpen={isSignOutModalOpen}

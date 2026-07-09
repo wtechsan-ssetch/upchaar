@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -228,7 +228,7 @@ export default function DoctorDetailPage() {
     const [selectedSlot, setSelectedSlot] = useState('');
     const [selectedDate, setSelectedDate] = useState(today());
     const [bookingType, setBookingType] = useState('In-person');
-    const [selectedClinic, setSelectedClinic] = useState('');
+    const [selectedClinic, setSelectedClinic] = useState(null); // full object { id, name, type }
 
     // Step 1: pre-booking warning modal
     const [showWarning, setShowWarning] = useState(false);
@@ -236,6 +236,9 @@ export default function DoctorDetailPage() {
     const [confirmed, setConfirmed] = useState(null);   // { date, time, queue }
     // Booking in-progress spinner
     const [booking, setBooking] = useState(false);
+    
+    // Dynamically fetched doctor timetables
+    const [doctorTimetables, setDoctorTimetables] = useState([]);
 
     useEffect(() => {
         const fetchDoctorDetails = async () => {
@@ -252,27 +255,68 @@ export default function DoctorDetailPage() {
                     return;
                 }
 
-                // Fetch linked clinics via staff_links
+                // Fetch linked clinics/medicals via staff_links (3-strategy robust lookup)
                 const { data: staffData, error: staffError } = await supabase
                     .from('staff_links')
                     .select('organization_id, organization_type')
                     .eq('doctor_id', id);
 
+                let fetchedClinics = [];   // full objects { id, name, type }
                 let fetchedClinicNames = [];
                 if (!staffError && staffData && staffData.length > 0) {
                     const orgPromises = staffData.map(async (link) => {
-                        const table = link.organization_type === 'medical' ? 'medicals' : 'clinics';
-                        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(link.organization_id));
-                        const { data: orgData } = await supabase
-                            .from(table)
-                            .select('name')
-                            .eq(isUUID ? 'profile_id' : 'id', link.organization_id)
-                            .maybeSingle();
-                        
-                        return orgData?.name || null;
+                        const orgId  = link.organization_id;
+                        const orgType = link.organization_type;
+                        const table  = orgType === 'medical' ? 'medicals' : 'clinics';
+                        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(orgId));
+
+                        let data = null;
+
+                        // Strategy 1: UUID → match via profile_id column
+                        if (isUUID) {
+                            const { data: d1 } = await supabase
+                                .from(table).select('id, name, address, city, state')
+                                .eq('profile_id', orgId).maybeSingle();
+                            data = d1 || null;
+                        }
+
+                        // Strategy 2: try matching via id column directly
+                        if (!data) {
+                            const { data: d2 } = await supabase
+                                .from(table).select('id, name, address, city, state')
+                                .eq('id', orgId).maybeSingle();
+                            data = d2 || null;
+                        }
+
+                        // Strategy 3: fall back to profiles table
+                        if (!data && isUUID) {
+                            const { data: profileData } = await supabase
+                                .from('profiles')
+                                .select('id, full_name, name, city, state')
+                                .eq('id', orgId).maybeSingle();
+                            if (profileData) {
+                                data = {
+                                    id: profileData.id,
+                                    name: profileData.full_name || profileData.name || 'Unnamed Facility',
+                                    city: profileData.city || '',
+                                    state: profileData.state || '',
+                                };
+                            }
+                        }
+
+                        if (!data) return null;
+                        return {
+                            id:   data.id || orgId,
+                            name: data.name || data.full_name || 'Unnamed Facility',
+                            type: orgType,
+                            address: data.address || '',
+                            city: data.city || '',
+                            state: data.state || '',
+                        };
                     });
                     const list = (await Promise.all(orgPromises)).filter(Boolean);
-                    fetchedClinicNames = [...new Set(list)];
+                    fetchedClinics    = list;
+                    fetchedClinicNames = [...new Set(list.map(o => o.name))];
                 }
 
                 if (fetchedClinicNames.length === 0) {
@@ -288,11 +332,13 @@ export default function DoctorDetailPage() {
                     avatar: data.avatar_url || null,
                     experience: data.experience || 0,
                     rating: Number(data.rating) || 4.5,
-                    reviews: data.total_appointments || 0,
                     verified: true,
                     fees: data.consultation_fee || 0,
+                    bookingCharges: data.booking_charges || 0,
+                    platformFee: data.platform_fee || 0,
                     clinicName: data.clinic_name || '',
                     clinicNames: fetchedClinicNames,
+                    clinics: fetchedClinics,
                     languages: data.languages || [],
                     availableDays: data.available_days || [],
                     hoursFrom: data.hours_from || '09:00',
@@ -303,6 +349,17 @@ export default function DoctorDetailPage() {
                     institution: data.institution,
                     city: data.city,
                 });
+
+                // Fetch doctor timetables
+                const { data: ttData, error: ttError } = await supabase
+                    .from('doctor_timetables')
+                    .select('*')
+                    .eq('doctor_id', id)
+                    .eq('is_active', true);
+
+                if (!ttError) {
+                    setDoctorTimetables(ttData || []);
+                }
             } catch (err) {
                 console.error(err);
             } finally {
@@ -314,12 +371,50 @@ export default function DoctorDetailPage() {
     }, [id]);
 
     useEffect(() => {
-        if (doctor?.clinicNames?.length) {
-            setSelectedClinic(prev => prev || doctor.clinicNames[0]);
+        if (doctor?.clinics?.length) {
+            setSelectedClinic(prev => prev || doctor.clinics[0]);
         } else if (doctor?.clinicName) {
-            setSelectedClinic(prev => prev || doctor.clinicName);
+            // fallback: wrap plain name as object
+            setSelectedClinic(prev => prev || { id: null, name: doctor.clinicName, type: 'clinic' });
         }
     }, [doctor]);
+
+    // Calculate dynamic available slots for the selected clinic and date
+    const availableSlots = useMemo(() => {
+        if (!selectedClinic || !selectedDate) return [];
+        const dStr = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' });
+
+        const matchedOrgId = selectedClinic.id;
+        const matched = doctorTimetables.filter(t => t.org_id === matchedOrgId && t.day === dStr);
+        if (matched.length === 0) return [];
+
+        const slots = [];
+        matched.forEach(t => {
+            let [h1, m1] = t.time_from.split(':').map(Number);
+            let [h2, m2] = t.time_to.split(':').map(Number);
+            let start = h1 * 60 + m1;
+            let end = h2 * 60 + m2;
+            
+            for (let min = start; min < end; min += 30) {
+                let hh = Math.floor(min / 60);
+                let mm = min % 60;
+                let ampm = hh >= 12 ? 'PM' : 'AM';
+                let dh = hh % 12 || 12;
+                slots.push(`${dh.toString().padStart(2,'0')}:${mm.toString().padStart(2,'0')} ${ampm}`);
+            }
+        });
+        
+        return [...new Set(slots)];
+    }, [selectedClinic, selectedDate, doctorTimetables]);
+
+    // Which days have at least one active slot in that clinic?
+    const daysWithSlots = useMemo(() => {
+        if (!selectedClinic) return new Set();
+        const matchedOrgId = selectedClinic.id;
+        return new Set(doctorTimetables.filter(t => t.org_id === matchedOrgId).map(t => {
+            return t.day.substring(0, 3);
+        }));
+    }, [selectedClinic, doctorTimetables]);
 
     /* ── Step 1: open warning modal ── */
     const handleBookClick = (type) => {
@@ -355,11 +450,12 @@ export default function DoctorDetailPage() {
                 return;
             }
 
-            // Count existing appointments for this doctor on this date to compute queue#
+            // Count existing appointments for this doctor on this date AND time slot to compute queue#
             const { count, error: countErr } = await supabase
                 .from('appointments')
                 .select('id', { count: 'exact', head: true })
                 .eq('doctor_id', id)
+                .eq('time_slot', selectedSlot)
                 .gte('date', new Date(selectedDate + 'T00:00:00').toISOString())
                 .lt('date', new Date(selectedDate + 'T23:59:59').toISOString());
 
@@ -378,21 +474,15 @@ export default function DoctorDetailPage() {
                 queue_number: queueNumber,
                 status: 'Confirmed',
                 type: bookingType,
-                clinic_name: selectedClinic || doctor.clinicName || null,
-                fee: doctor.fees,
-                platform_revenue: 50,
+                organization_id: selectedClinic?.id ?? null,
+                organization_type: selectedClinic?.type ?? 'clinic',
+                fee: Number(doctor.fees) + Number(doctor.bookingCharges) + Number(doctor.platformFee),
+                platform_revenue: Number(doctor.platformFee),
             };
 
             let { error: insertErr } = await supabase
                 .from('appointments')
                 .insert(appointmentPayload);
-
-            if (insertErr?.message?.includes("Could not find the 'clinic_name' column")) {
-                const { clinic_name: _unused, ...fallbackPayload } = appointmentPayload;
-                ({ error: insertErr } = await supabase
-                    .from('appointments')
-                    .insert(fallbackPayload));
-            }
 
             if (insertErr) throw insertErr;
 
@@ -541,58 +631,91 @@ export default function DoctorDetailPage() {
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {(doctor.clinicNames.length > 0 ? doctor.clinicNames : [doctor.clinicName || 'Main Clinic']).map((cName, idx) => (
-                                    <Card key={idx} className="border-0 shadow-sm ring-1 ring-black/5 rounded-2xl bg-white overflow-hidden group hover:ring-teal-200 transition-all">
-                                        <CardContent className="p-0">
-                                            <div className="bg-teal-50/50 px-5 py-4 border-b border-teal-50">
-                                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                                    <div className="h-7 w-7 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                                                        <Hospital className="h-4 w-4 text-teal-600" />
-                                                    </div>
-                                                    {cName}
-                                                </h3>
-                                            </div>
-                                            <div className="p-5 space-y-4">
-                                                <div className="flex gap-3">
-                                                    <MapPin className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-                                                    <p className="text-sm text-gray-600 leading-relaxed">
-                                                        {doctor.city}, {doctor.state || 'India'}
-                                                    </p>
+                                {(doctor.clinics?.length > 0
+                                    ? doctor.clinics
+                                    : [{ id: null, name: doctor.clinicName || 'Main Clinic', type: 'clinic', address: '', city: doctor.city, state: '' }]
+                                ).map((clinic, idx) => {
+                                    // Get timetables specific to this clinic
+                                    const clinicTimetables = doctorTimetables.filter(t => t.org_id === clinic.id);
+                                    const clinicDays = [...new Set(clinicTimetables.map(t => t.day))];
+                                    // Group timetables by day for display
+                                    const timetableByDay = clinicDays.map(day => {
+                                        const slots = clinicTimetables.filter(t => t.day === day);
+                                        return {
+                                            day,
+                                            times: slots.map(s => `${s.time_from} – ${s.time_to}`),
+                                        };
+                                    });
+                                    const clinicAddress = [clinic.address, clinic.city, clinic.state].filter(Boolean).join(', ') || `${doctor.city || ''}, India`;
+
+                                    return (
+                                        <Card key={clinic.id || idx} className="border-0 shadow-sm ring-1 ring-black/5 rounded-2xl bg-white overflow-hidden group hover:ring-teal-200 transition-all">
+                                            <CardContent className="p-0">
+                                                <div className="bg-teal-50/50 px-5 py-4 border-b border-teal-50">
+                                                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                                        <div className="h-7 w-7 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                                            <Hospital className="h-4 w-4 text-teal-600" />
+                                                        </div>
+                                                        {clinic.name}
+                                                    </h3>
+                                                    <span className="text-[10px] uppercase tracking-wide font-bold text-teal-600/60 ml-9">{clinic.type}</span>
                                                 </div>
-                                                
-                                                <div className="pt-3 border-t border-slate-50 space-y-3">
-                                                    <div className="flex items-center justify-between">
+                                                <div className="p-5 space-y-4">
+                                                    <div className="flex gap-3">
+                                                        <MapPin className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                                                        <p className="text-sm text-gray-600 leading-relaxed">
+                                                            {clinicAddress}
+                                                        </p>
+                                                    </div>
+                                                    
+                                                    <div className="pt-3 border-t border-slate-50 space-y-3">
                                                         <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
                                                             <CalendarDays className="h-3.5 w-3.5" />
-                                                            Available Days
+                                                            Available Days & Timings
                                                         </div>
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {doctor.availableDays.length > 0 ? (
-                                                            doctor.availableDays.map(day => (
-                                                                <Badge key={day} variant="secondary" className="bg-white border border-teal-100 text-teal-700 text-[10px] px-2 py-0">
-                                                                    {day}
-                                                                </Badge>
-                                                            ))
+                                                        {timetableByDay.length > 0 ? (
+                                                            <div className="space-y-2">
+                                                                {timetableByDay.map(({ day, times }) => (
+                                                                    <div key={day} className="flex items-start justify-between gap-3">
+                                                                        <Badge variant="secondary" className="bg-white border border-teal-100 text-teal-700 text-[10px] px-2 py-0 shrink-0">
+                                                                            {day}
+                                                                        </Badge>
+                                                                        <div className="text-right">
+                                                                            {times.map((time, ti) => (
+                                                                                <span key={ti} className="text-xs font-bold text-teal-600 block">{time}</span>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : doctor.availableDays.length > 0 ? (
+                                                            <>
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    {doctor.availableDays.map(day => (
+                                                                        <Badge key={day} variant="secondary" className="bg-white border border-teal-100 text-teal-700 text-[10px] px-2 py-0">
+                                                                            {day}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
+                                                                <div className="flex items-center justify-between pt-1">
+                                                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                                                        <Clock className="h-3.5 w-3.5" />
+                                                                        Consultation Hours
+                                                                    </div>
+                                                                    <span className="text-xs font-bold text-teal-600">
+                                                                        {doctor.hoursFrom} – {doctor.hoursTo}
+                                                                    </span>
+                                                                </div>
+                                                            </>
                                                         ) : (
                                                             <span className="text-xs text-gray-400 italic">Schedule not specified</span>
                                                         )}
                                                     </div>
-                                                    
-                                                    <div className="flex items-center justify-between pt-1">
-                                                        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                                            <Clock className="h-3.5 w-3.5" />
-                                                            Consultation Hours
-                                                        </div>
-                                                        <span className="text-xs font-bold text-teal-600">
-                                                            {doctor.hoursFrom} – {doctor.hoursTo}
-                                                        </span>
-                                                    </div>
                                                 </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -607,27 +730,33 @@ export default function DoctorDetailPage() {
 
                             <div className="px-6 pb-5 text-center">
                                 <p className="text-[11px] text-teal-600/80 uppercase tracking-widest font-bold mb-1">Consultation Fee</p>
-                                <p className="text-4xl font-bold text-teal-600">₹{doctor.fees}</p>
+                                <p className="text-4xl font-bold text-teal-600">₹{Number(doctor.fees) + Number(doctor.bookingCharges) + Number(doctor.platformFee)}</p>
                             </div>
 
                             <div className="px-6 pb-6">
                                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                                    Select Clinic
+                                    Select Clinic / Medical
                                 </label>
                                 <div className="grid grid-cols-1 gap-2">
-                                    {(doctor.clinicNames.length > 0 ? doctor.clinicNames : [doctor.clinicName || 'Main Clinic']).map(name => (
+                                    {(doctor.clinics?.length > 0
+                                        ? doctor.clinics
+                                        : [{ id: null, name: doctor.clinicName || 'Main Clinic', type: 'clinic' }]
+                                    ).map(org => (
                                         <button
-                                            key={name}
-                                            onClick={() => setSelectedClinic(name)}
+                                            key={org.id || org.name}
+                                            onClick={() => setSelectedClinic(org)}
                                             className={cn(
-                                                "w-full px-4 py-3 rounded-xl border text-left text-sm font-medium transition-all flex items-center justify-between",
-                                                selectedClinic === name 
+                                                "w-full px-4 py-3 rounded-xl border text-left text-sm font-medium transition-all flex items-center justify-between gap-3",
+                                                selectedClinic?.name === org.name
                                                     ? "bg-teal-50 border-teal-500 text-teal-700 ring-4 ring-teal-500/10"
                                                     : "bg-white border-slate-100 text-slate-600 hover:border-teal-200"
                                             )}
                                         >
-                                            <span className="truncate">{name}</span>
-                                            {selectedClinic === name && <CheckCircle className="h-4 w-4 text-teal-500 shrink-0" />}
+                                            <div className="min-w-0">
+                                                <span className="truncate block font-semibold">{org.name}</span>
+                                                <span className="text-[10px] uppercase tracking-wide font-bold text-slate-400">{org.type}</span>
+                                            </div>
+                                            {selectedClinic?.name === org.name && <CheckCircle className="h-4 w-4 text-teal-500 shrink-0" />}
                                         </button>
                                     ))}
                                 </div>
@@ -666,19 +795,25 @@ export default function DoctorDetailPage() {
                                         Select Time Slot
                                     </p>
                                     <div className="grid grid-cols-2 gap-3 mt-4">
-                                        {['09:00 AM', '11:30 AM', '02:00 PM', '04:30 PM'].map((time) => (
-                                            <Button
-                                                key={time}
-                                                variant={selectedSlot === time ? 'default' : 'outline'}
-                                                className={selectedSlot === time
-                                                    ? 'bg-teal-600 hover:bg-teal-700 shadow-md font-semibold text-white ring-1 ring-teal-700'
-                                                    : 'border-gray-200 hover:border-teal-600 hover:bg-teal-50 hover:text-teal-700 text-gray-600 font-medium'
-                                                }
-                                                onClick={() => setSelectedSlot(time)}
-                                            >
-                                                {time}
-                                            </Button>
-                                        ))}
+                                        {availableSlots.length > 0 ? (
+                                            availableSlots.map((time) => (
+                                                <Button
+                                                    key={time}
+                                                    variant={selectedSlot === time ? 'default' : 'outline'}
+                                                    className={selectedSlot === time
+                                                        ? 'bg-teal-600 hover:bg-teal-700 shadow-md font-semibold text-white ring-1 ring-teal-700'
+                                                        : 'border-gray-200 hover:border-teal-600 hover:bg-teal-50 hover:text-teal-700 text-gray-600 font-medium'
+                                                    }
+                                                    onClick={() => setSelectedSlot(time)}
+                                                >
+                                                    {time}
+                                                </Button>
+                                            ))
+                                        ) : (
+                                            <div className="col-span-2 text-center text-sm text-gray-500 italic py-2">
+                                                No slots available for this date.
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -721,12 +856,16 @@ export default function DoctorDetailPage() {
                                     <span>₹{doctor.fees}.00</span>
                                 </div>
                                 <div className="flex justify-between text-sm text-gray-600 font-medium">
+                                    <span>Booking Charges:</span>
+                                    <span>{Number(doctor.bookingCharges) === 0 ? 'FREE' : `₹${doctor.bookingCharges}.00`}</span>
+                                </div>
+                                <div className="flex justify-between text-sm text-gray-600 font-medium">
                                     <span>Platform Fee:</span>
-                                    <span>₹50.00</span>
+                                    <span>{Number(doctor.platformFee) === 0 ? 'FREE' : `₹${doctor.platformFee}.00`}</span>
                                 </div>
                                 <div className="flex justify-between font-bold text-gray-900 pt-3 border-t border-gray-200 mt-3 text-base">
                                     <span>Total Payable:</span>
-                                    <span className="text-teal-600">₹{parseInt(doctor.fees) + 50}.00</span>
+                                    <span className="text-teal-600">₹{Number(doctor.fees) + Number(doctor.bookingCharges) + Number(doctor.platformFee)}.00</span>
                                 </div>
                             </div>
                         </div>

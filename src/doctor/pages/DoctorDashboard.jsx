@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Building2, CalendarDays, Clock3, IndianRupee, Users, ChevronRight, AlertCircle, MapPin
+    Building2, CalendarDays, Clock3, IndianRupee, Users, ChevronRight, AlertCircle, MapPin, History, Phone, Pill, CheckCircle2
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase.js';
 import { useDoctor } from '../context/DoctorContext.jsx';
 import { cn } from '@/lib/utils';
 import DoctorAppointmentsModal from '@/components/dashboard/DoctorAppointmentsModal';
+import PatientHistoryModal from '@/components/dashboard/PatientHistoryModal';
 import Skeleton from 'react-loading-skeleton';
 
 const parseClinics = (clinicValue) => {
@@ -75,8 +76,10 @@ export default function DoctorDashboard() {
     const [appointments, setAppointments] = useState([]);
     const [linkedOrgs, setLinkedOrgs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [totalReleased, setTotalReleased] = useState(0);
     const [selectedOrgForAppointments, setSelectedOrgForAppointments] = useState(null);
     const [updatingId, setUpdatingId] = useState(null);
+    const [historyModal, setHistoryModal] = useState({ isOpen: false, patient: null });
 
     const availableDays = doctor?.availableDays || doctorRecord?.available_days || FIXED_AVAILABLE_DAYS;
     const hoursFrom = doctor?.hoursFrom || doctorRecord?.hours_from || FIXED_HOURS_FROM;
@@ -217,6 +220,19 @@ export default function DoctorDashboard() {
                 if (aptError) throw aptError;
                 setAppointments(aptData || []);
 
+                // Fetch total released fee
+                try {
+                    const { data: releaseData } = await supabase
+                        .from('fee_release_requests')
+                        .select('amount')
+                        .eq('doctor_id', doctorRecord.id)
+                        .eq('status', 'Released');
+                    const released = (releaseData || []).reduce((s, r) => s + Number(r.amount || 0), 0);
+                    setTotalReleased(released);
+                } catch {
+                    // ignore
+                }
+
                 // 2. Fetch linked organizations
                 let staffLinks = [];
                 try {
@@ -313,7 +329,8 @@ export default function DoctorDashboard() {
         { label: 'Today Appointments', value: todayAppointments.length, icon: CalendarDays, tone: 'text-blue-600 bg-blue-50' },
         { label: 'Completed Today', value: todayAppointments.filter(item => item.status === 'Completed').length, icon: Clock3, tone: 'text-emerald-600 bg-emerald-50' },
         { label: 'Total Revenue', value: `Rs. ${(doctorRecord?.total_revenue || doctor?.totalRevenue || 0).toLocaleString()}`, icon: IndianRupee, tone: 'text-amber-600 bg-amber-50' },
-    ], [linkedOrgs.length, todayAppointments, doctorRecord?.total_revenue, doctor?.totalRevenue]);
+        { label: 'Total Released', value: `Rs. ${totalReleased.toLocaleString()}`, icon: CheckCircle2, tone: 'text-purple-600 bg-purple-50' },
+    ], [linkedOrgs.length, todayAppointments, doctorRecord?.total_revenue, doctor?.totalRevenue, totalReleased]);
 
     const orgCards = useMemo(() => {
         if (!linkedOrgs.length) return [];
@@ -378,7 +395,7 @@ export default function DoctorDashboard() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {loading ? (
                     Array(4).fill(0).map((_, i) => (
                         <Skeleton key={i} height={120} borderRadius={24} />
@@ -482,9 +499,17 @@ export default function DoctorDashboard() {
                                     <div>
                                         <p className="font-semibold text-slate-800">{apt.patient_name || apt.patient || 'Patient'}</p>
                                         <p className="text-xs text-slate-500">{apt.time_slot} · {apt.status}</p>
-                                        <div className="flex items-center gap-1 mt-1">
-                                            <Building2 size={12} className="text-teal-500" />
-                                            <p className="text-[10px] font-bold text-teal-600 uppercase tracking-tight">{getClinicName(apt)}</p>
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                                            {apt.patient_phone && (
+                                                <div className="flex items-center gap-1">
+                                                    <Phone size={10} className="text-blue-500" />
+                                                    <p className="text-[10px] font-medium text-slate-500">{apt.patient_phone}</p>
+                                                </div>
+                                            )}
+                                            <div className="flex items-center gap-1">
+                                                <Building2 size={10} className="text-teal-500" />
+                                                <p className="text-[10px] font-bold text-teal-600 uppercase tracking-tight">{getClinicName(apt)}</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -502,6 +527,29 @@ export default function DoctorDashboard() {
                                             {apt.status}
                                         </span>
                                     )}
+                                    {apt.status === 'Completed' && (
+                                        <Link
+                                            to={`/prescription/${apt.id}`}
+                                            className="h-9 w-9 rounded-xl border border-blue-200 text-blue-500 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition-all"
+                                            title="View Prescription"
+                                        >
+                                            <Pill size={16} />
+                                        </Link>
+                                    )}
+                                    <button
+                                        onClick={() => setHistoryModal({ 
+                                            isOpen: true, 
+                                            patient: { 
+                                                name: apt.patient_name || apt.patient, 
+                                                phone: apt.patient_phone,
+                                                id: apt.patient_id 
+                                            } 
+                                        })}
+                                        className="h-9 w-9 rounded-xl border border-slate-200 text-slate-400 hover:text-teal-600 hover:bg-teal-50 flex items-center justify-center transition-all"
+                                        title="View History"
+                                    >
+                                        <History size={16} />
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -517,6 +565,14 @@ export default function DoctorDashboard() {
                 orgId={selectedOrgForAppointments?.id}
                 orgProfileId={selectedOrgForAppointments?.profile_id}
                 orgName={selectedOrgForAppointments?.name}
+            />
+
+            <PatientHistoryModal
+                isOpen={historyModal.isOpen}
+                onClose={() => setHistoryModal({ isOpen: false, patient: null })}
+                patientName={historyModal.patient?.name}
+                patientPhone={historyModal.patient?.phone}
+                patientId={historyModal.patient?.id}
             />
         </div>
     );

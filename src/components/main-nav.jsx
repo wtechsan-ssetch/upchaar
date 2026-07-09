@@ -18,6 +18,7 @@ const menuItems = [
     { href: '/doctors', label: 'Find Doctors', icon: Stethoscope },
     { href: '/diagnostics', label: 'Diagnostics', icon: FlaskConical },
     { href: '/hospitals', label: 'Hospitals', icon: Hospital },
+    { href: '/patient/diagnostic-bookings', label: 'My Tests', icon: FileText },
     { href: '/records', label: 'Health Records', icon: FileText },
 ];
 

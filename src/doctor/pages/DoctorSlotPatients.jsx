@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase.js';
 import {
     ArrowLeft, CalendarDays, Clock, Phone, Stethoscope,
-    CheckCircle, XCircle, FileText, Users, Bell, ChevronDown, ChevronUp, Lock, Timer
+    CheckCircle, XCircle, FileText, Users, Bell, ChevronDown, ChevronUp, Lock, Timer, History, Pill
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
+import PatientHistoryModal from '@/components/dashboard/PatientHistoryModal';
 
 /* ── constants ──────────────────────────────── */
 const LOCK_DURATION_MS = 2 * 60 * 1000; // 2 minutes in ms
@@ -154,6 +155,7 @@ export default function DoctorSlotPatients() {
     const [diagnosisText, setDiagnosisText]           = useState('');
     const [prescriptionText, setPrescriptionText]     = useState('');
     const [savingRx, setSavingRx]                     = useState(false);
+    const [historyModal, setHistoryModal]             = useState({ isOpen: false, patient: null });
 
     const [toast, setToast] = useState(null);
 
@@ -545,6 +547,27 @@ export default function DoctorSlotPatients() {
                                                     >
                                                         <FileText size={13} /> Write Prescription
                                                     </button>
+                                                    {status === 'Completed' && (
+                                                        <Link
+                                                            to={`/prescription/${apt.id}`}
+                                                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold hover:bg-indigo-100 active:scale-95 transition-all"
+                                                        >
+                                                            <Pill size={13} /> View Prescription
+                                                        </Link>
+                                                    )}
+                                                    <button
+                                                        onClick={() => setHistoryModal({ 
+                                                            isOpen: true, 
+                                                            patient: { 
+                                                                name: apt.patient_name || apt.patient, 
+                                                                phone: apt.patient_phone,
+                                                                id: apt.patient_id 
+                                                            } 
+                                                        })}
+                                                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-slate-400 hover:text-teal-600 hover:bg-teal-50 text-xs font-bold transition-all"
+                                                    >
+                                                        <History size={13} /> History
+                                                    </button>
                                                 </div>
 
                                                 {/* ── Prescription form ── */}
@@ -625,6 +648,14 @@ export default function DoctorSlotPatients() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <PatientHistoryModal
+                isOpen={historyModal.isOpen}
+                onClose={() => setHistoryModal({ isOpen: false, patient: null })}
+                patientName={historyModal.patient?.name}
+                patientPhone={historyModal.patient?.phone}
+                patientId={historyModal.patient?.id}
+            />
         </div>
     );
 }

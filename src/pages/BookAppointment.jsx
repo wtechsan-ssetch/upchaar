@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase.js';
 import { useAuth } from '@/auth/AuthContext.jsx';
 import { getStorageUrl } from '@/lib/uploadImage.js';
+import RazorpayCheckout from '@/components/RazorpayCheckout.jsx';
 
 // ── Static Data ──────────────────────────────────────
 // Constants will be fetched dynamically
@@ -164,35 +165,56 @@ export default function BookAppointment() {
 
         if (!staffError && staffData && staffData.length > 0) {
             const orgPromises = staffData.map(async (link) => {
-                const table = link.organization_type === 'medical' ? 'medicals' : 'clinics';
-                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(link.organization_id));
-                let { data, error } = await supabase
-                    .from(table)
-                    .select('*')
-                    .eq(isUUID ? 'profile_id' : 'id', link.organization_id)
-                    .maybeSingle();
-                
-                if (error) console.error(`Error fetching from ${table}:`, error);
-                
-                // Fallback to profiles table if not found in medicals/clinics
+                const orgId = link.organization_id;
+                const orgType = link.organization_type;
+                const table = orgType === 'medical' ? 'medicals' : 'clinics';
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(orgId));
+
+                let data = null;
+
+                // Strategy 1: If UUID, try matching via profile_id column
+                if (isUUID) {
+                    const { data: d1 } = await supabase
+                        .from(table)
+                        .select('*')
+                        .eq('profile_id', orgId)
+                        .maybeSingle();
+                    data = d1 || null;
+                }
+
+                // Strategy 2: If still no data, try matching via id column directly
+                if (!data) {
+                    const { data: d2 } = await supabase
+                        .from(table)
+                        .select('*')
+                        .eq('id', orgId)
+                        .maybeSingle();
+                    data = d2 || null;
+                }
+
+                // Strategy 3: Fall back to profiles table (covers cases where no internal row exists)
                 if (!data && isUUID) {
                     const { data: profileData } = await supabase
                         .from('profiles')
                         .select('id, full_name, name, city, state, phone')
-                        .eq('id', link.organization_id)
+                        .eq('id', orgId)
                         .maybeSingle();
-                        
+
                     if (profileData) {
                         data = {
                             id: profileData.id,
                             name: profileData.full_name || profileData.name || 'Unnamed Facility',
                             address: [profileData.city, profileData.state].filter(Boolean).join(', ') || '',
-                            phone: profileData.phone || ''
+                            phone: profileData.phone || '',
                         };
                     }
                 }
-                
-                return data ? { ...data, organization_type: link.organization_type } : null;
+
+                if (!data) return null;
+
+                // Ensure name is always populated (clinics table uses 'name', not 'full_name')
+                const name = data.name || data.full_name || 'Unnamed Facility';
+                return { ...data, name, organization_type: orgType };
             });
             const list = (await Promise.all(orgPromises)).filter(Boolean);
             setClinics(list);
@@ -249,6 +271,11 @@ export default function BookAppointment() {
     }, [searchParams]);
 
     // ── Navigation & Actions ─────────────────────────
+    const baseFee = selectedDoctor?.consultation_fee ?? selectedDoctor?.fees ?? 500;
+    const bookingCharge = selectedDoctor?.booking_charges || 0;
+    const platformFee = selectedDoctor?.platform_fee || 0;
+    const totalFee = baseFee + bookingCharge + platformFee;
+
     const handleConfirmSlots = () => {
         if (user) {
             setStep(4);
@@ -266,44 +293,106 @@ export default function BookAppointment() {
         }, 1500);
     };
 
-    const handleConfirmBooking = async () => {
+    const handleValidateBooking = async () => {
+        try {
+
+            // Helper functions for time parsing
+            const parseTimeToMinutes = (timeStr) => {
+                if (!timeStr) return 0;
+                const [time, ampm] = timeStr.split(' ');
+                if (!time || !ampm) return 0;
+                let [h, m] = time.split(':').map(Number);
+                if (ampm === 'PM' && h !== 12) h += 12;
+                if (ampm === 'AM' && h === 12) h = 0;
+                return h * 60 + m;
+            };
+
+            const parseTimetableTime = (timeStr) => {
+                if (!timeStr) return 0;
+                let [h, m] = timeStr.split(':').map(Number);
+                return h * 60 + m;
+            };
+
+            // 1. Determine current timetable range
+            const slotMin = parseTimeToMinutes(selectedSlot);
+            const dStr = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' });
+            const matchedOrgId = selectedClinic?.id;
+            const matchedRanges = doctorTimetables.filter(t => t.org_id === matchedOrgId && t.day === dStr);
+
+            let currentRange = null;
+            for (const range of matchedRanges) {
+                const startMin = parseTimetableTime(range.time_from);
+                const endMin = parseTimetableTime(range.time_to);
+                if (slotMin >= startMin && slotMin < endMin) {
+                    currentRange = range;
+                    break;
+                }
+            }
+
+            // 2. Fetch all appointments for the day to check duplicates
+            const { data: dayAppointments, error: dayAppointmentsError } = await supabase
+                .from('appointments')
+                .select('id, time_slot, patient_id')
+                .eq('doctor_id', selectedDoctor.id)
+                .eq('date', selectedDate)
+                .neq('status', 'Cancelled');
+
+            if (dayAppointmentsError) throw dayAppointmentsError;
+
+            // 3. Check for duplicates in the same range
+            let isDuplicate = false;
+            const existingAppts = dayAppointments || [];
+
+            if (currentRange) {
+                const startMin = parseTimetableTime(currentRange.time_from);
+                const endMin = parseTimetableTime(currentRange.time_to);
+                
+                for (const app of existingAppts) {
+                    const appMin = parseTimeToMinutes(app.time_slot);
+                    if (appMin >= startMin && appMin < endMin) {
+                        // Check if it's the same patient
+                        if (user?.id && app.patient_id === user.id) {
+                            isDuplicate = true;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // Fallback if no range found: check exact time slot
+                for (const app of existingAppts) {
+                    if (app.time_slot === selectedSlot) {
+                        if (user?.id && app.patient_id === user.id) {
+                            isDuplicate = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (isDuplicate) {
+                toast.error('You have already booked the appointment', {
+                    description: 'You cannot book another appointment with this doctor in the same time block.',
+                });
+                return false;
+            }
+            return true;
+        } catch (err) {
+            console.error('Validation error:', err);
+            toast.error(`Validation failed: ${err?.message || 'Please try again.'}`);
+            return false;
+        }
+    };
+
+    const handlePaymentSuccess = async () => {
         setBookingLoading(true);
         
         try {
-            const normalizedPhone = patientInfo.phone?.trim() || null;
-
-            let duplicateQuery = supabase
-                .from('appointments')
-                .select('id', { count: 'exact', head: true })
-                .eq('doctor_id', selectedDoctor.id)
-                .eq('date', selectedDate)
-                .eq('time_slot', selectedSlot)
-                .neq('status', 'Cancelled');
-
-            if (user?.id) {
-                duplicateQuery = duplicateQuery.eq('patient_id', user.id);
-            } else if (normalizedPhone) {
-                duplicateQuery = duplicateQuery.eq('patient_phone', normalizedPhone);
-            }
-
-            const { count: existingCount, error: duplicateError } = await duplicateQuery;
-
-            if (duplicateError) throw duplicateError;
-
-            if ((existingCount ?? 0) > 0) {
-                toast.error('Duplicate booking not allowed.', {
-                    description: 'You already have an appointment with this doctor on the same date and time slot.',
-                });
-                return;
-            }
-
             // For guest (non-logged-in) users patient_id must be explicitly null
             // so the RLS "Allow guest appointment booking" policy passes.
             // For logged-in users it must match auth.uid().
             const appointmentData = {
                 patient_id: user?.id ?? null,
                 patient_name: patientInfo.name,
-                patient_phone: normalizedPhone,
                 doctor_id: selectedDoctor.id,
                 doctor_name: selectedDoctor.full_name,
                 organization_id: selectedClinic?.id ?? null,
@@ -312,17 +401,13 @@ export default function BookAppointment() {
                 time_slot: selectedSlot,
                 status: 'Confirmed',
                 type: 'In-person',       // DB constraint allows: 'In-person' | 'Online'
-                fee: selectedDoctor.fees || 500,
+                fee: totalFee,
+                platform_revenue: platformFee,
                 queue_number: null,       // no queue for scheduled bookings
                 specialization: selectedDoctor.specialization ?? null,
             };
 
             let { error } = await supabase.from('appointments').insert([appointmentData]);
-
-            if (error?.message?.includes("Could not find the 'patient_phone' column")) {
-                const { patient_phone: _unusedPhone, ...fallbackAppointmentData } = appointmentData;
-                ({ error } = await supabase.from('appointments').insert([fallbackAppointmentData]));
-            }
             
             if (!error) {
                 setBookingSuccess(true);
@@ -333,11 +418,19 @@ export default function BookAppointment() {
                 setStep(5);
             } else {
                 console.error('Booking error:', error);
-                toast.error(`Booking failed: ${error.message}`);
+                if (error?.code === '23505' || error?.message?.toLowerCase().includes('duplicate')) {
+                    toast.error('You have already booked the appointment');
+                } else {
+                    toast.error(`Booking failed: ${error.message}`);
+                }
             }
         } catch (err) {
-            console.error('Unexpected error:', err);
-            toast.error('Something went wrong. Please try again.');
+            console.error('Unexpected booking error:', err);
+            if (err?.code === '23505' || err?.message?.toLowerCase().includes('duplicate')) {
+                toast.error('You have already booked the appointment');
+            } else {
+                toast.error(`Booking failed: ${err?.message || 'Something went wrong. Please try again.'}`);
+            }
         } finally {
             setBookingLoading(false);
         }
@@ -539,7 +632,9 @@ export default function BookAppointment() {
                                                             </div>
                                                         </div>
                                                         <div className="pt-4 border-t flex items-center justify-between">
-                                                            <span className="text-sm font-bold text-slate-700">₹{doc.fees || 500} <span className="text-slate-400 font-normal">Fee</span></span>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-bold text-slate-700">₹{(doc.consultation_fee ?? doc.fees ?? 500) + (doc.booking_charges || 0) + (doc.platform_fee || 0)} <span className="text-slate-400 font-normal">Fee</span></span>
+                                                            </div>
                                                             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 group">
                                                                 Book Now
                                                                 <ArrowRight className="ml-1 h-3 w-3 group-hover:translate-x-1 transition-transform" />
@@ -597,8 +692,17 @@ export default function BookAppointment() {
                                                 <div className="w-[1px] bg-slate-100" />
                                                 <div className="text-center">
                                                     <p className="text-xs text-slate-400 font-bold uppercase">Consultation</p>
-                                                    <p className="font-bold">₹{selectedDoctor.fees || 500}</p>
+                                                    <p className="font-bold">₹{baseFee}</p>
                                                 </div>
+                                                {(bookingCharge > 0 || platformFee > 0) && (
+                                                    <>
+                                                        <div className="w-[1px] bg-slate-100" />
+                                                        <div className="text-center">
+                                                            <p className="text-xs text-slate-400 font-bold uppercase">Total Fee</p>
+                                                            <p className="font-bold text-emerald-600">₹{totalFee}</p>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -874,25 +978,41 @@ export default function BookAppointment() {
                                             <div className="h-[1px] bg-slate-100 my-4" />
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="text-slate-500">Consultation Fee</span>
-                                                <span className="font-bold">₹{selectedDoctor.fees || 500}</span>
+                                                <span className="font-bold">₹{baseFee}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="text-slate-500">Booking Charges</span>
-                                                <span className="font-bold">₹50</span>
+                                                <span className="font-bold">{bookingCharge === 0 ? 'FREE' : `₹${bookingCharge}`}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-slate-500">Platform Fee</span>
+                                                <span className="font-bold">{platformFee === 0 ? 'FREE' : `₹${platformFee}`}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-lg pt-4 border-t font-black">
                                                 <span className="text-slate-900">Total Payable</span>
-                                                <span className="text-blue-600">₹{(selectedDoctor.fees || 500) + 50}</span>
+                                                <span className="text-emerald-600">₹{totalFee}</span>
                                             </div>
                                         </div>
 
-                                        <Button 
-                                            className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold shadow-xl shadow-emerald-500/20"
-                                            onClick={handleConfirmBooking}
-                                            disabled={bookingLoading}
-                                        >
-                                            {bookingLoading ? <Loader2 className="animate-spin mr-2" /> : 'Confirm and Pay Cash'}
-                                        </Button>
+                                        {bookingLoading ? (
+                                            <Button disabled className="w-full h-14 bg-emerald-600 opacity-50">
+                                                <Loader2 className="animate-spin mr-2" /> Processing...
+                                            </Button>
+                                        ) : (
+                                            <RazorpayCheckout 
+                                                amount={totalFee * 100} 
+                                                currency="INR"
+                                                receipt={`receipt_${new Date().getTime()}`}
+                                                onBeforePayment={handleValidateBooking}
+                                                onSuccess={handlePaymentSuccess}
+                                                onError={(err) => {
+                                                    toast.error('Payment Failed', { description: 'Your payment was not completed.' });
+                                                    setBookingLoading(false);
+                                                }}
+                                                className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold shadow-xl shadow-emerald-500/20 rounded-md"
+                                                buttonText="Pay Now & Confirm"
+                                            />
+                                        )}
                                         <p className="text-[10px] text-center text-slate-400">
                                             By clicking confirm, you agree to our terms of service and refund policy.
                                         </p>

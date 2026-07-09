@@ -77,7 +77,7 @@ export default function BloggerLogin() {
 
                     <p className="text-center mt-4 text-xs text-slate-400">
                         Looking for admin?{' '}
-                        <Link to="/admin/login" className="text-primary hover:underline">Admin Portal →</Link>
+                        <a href={`${import.meta.env.VITE_ADMIN_URL || 'http://localhost:6001'}/admin/login`} className="text-primary hover:underline">Admin Portal →</a>
                     </p>
                 </div>
             </motion.div>

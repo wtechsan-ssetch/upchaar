@@ -25,7 +25,7 @@
  * ─────────────────────────────────────────────────
  */
 
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
 // ── Shared layout & guards (always needed, not lazy) ──
@@ -39,6 +39,8 @@ const DashboardGate  = lazy(() => import('@/auth/DashboardGate.jsx'));
 
 // ── PUBLIC pages ──────────────────────────────────────
 const LandingPage     = lazy(() => import('@/pages/Landing'));
+const AboutUsPage     = lazy(() => import('@/pages/AboutUs'));
+const ServicesPage    = lazy(() => import('@/pages/Services.jsx'));
 const DashboardPage   = lazy(() => import('@/pages/Dashboard'));
 const DoctorsPage     = lazy(() => import('@/pages/Doctors'));
 const DoctorDetailPage = lazy(() => import('@/pages/DoctorDetail.jsx'));
@@ -61,20 +63,9 @@ const PrivacyPolicyPage = lazy(() => import('@/pages/PrivacyPolicy.jsx'));
 const PatientLogin     = lazy(() => import('@/patient/pages/PatientLogin.jsx'));
 const PatientRegister  = lazy(() => import('@/patient/pages/PatientRegister.jsx'));
 const PatientDashboard = lazy(() => import('@/patient/pages/PatientDashboard.jsx'));
+const PatientDiagnosticBookings = lazy(() => import('@/patient/pages/DiagnosticBookings.jsx'));
 
-// ── ADMIN pages ───────────────────────────────────────
-const AdminLogin              = lazy(() => import('@/admin/pages/AdminLogin.jsx'));
-const AdminLayout             = lazy(() => import('@/admin/layouts/AdminLayout.jsx'));
-const AdminDashboard          = lazy(() => import('@/admin/pages/AdminDashboard.jsx'));
-const DoctorManagement        = lazy(() => import('@/admin/pages/DoctorManagement.jsx'));
-const PatientManagement       = lazy(() => import('@/admin/pages/PatientManagement.jsx'));
-const AppointmentManagement   = lazy(() => import('@/admin/pages/AppointmentManagement.jsx'));
-const NotificationCenter      = lazy(() => import('@/admin/pages/NotificationCenter.jsx'));
-const ActivityLogs            = lazy(() => import('@/admin/pages/ActivityLogs.jsx'));
-const Settings                = lazy(() => import('@/admin/pages/Settings.jsx'));
-const FacilitiesManagement    = lazy(() => import('@/admin/pages/FacilitiesManagement.jsx'));
-const SupportAdminManagement  = lazy(() => import('@/admin/pages/SupportAdminManagement.jsx'));
-const BloggerManagement       = lazy(() => import('@/admin/pages/BloggerManagement.jsx'));
+// Admin module removed. Admin portal runs as a standalone project.
 
 // ── DOCTOR pages ──────────────────────────────────────
 const DoctorLayout       = lazy(() => import('@/doctor/layouts/DoctorLayout.jsx'));
@@ -115,6 +106,14 @@ const PageLoader = () => (
     </div>
 );
 
+const AdminRedirect = () => {
+    useEffect(() => {
+        const ADMIN_URL = import.meta.env.VITE_ADMIN_URL || 'http://localhost:6001';
+        window.location.replace(`${ADMIN_URL}${window.location.pathname}${window.location.search}`);
+    }, []);
+    return null;
+};
+
 /**
  * AppRoutes
  * The single <Routes> tree for the entire application.
@@ -150,6 +149,8 @@ export function AppRoutes() {
 
             {/* Home / Landing */}
             <Route path="/" element={<LandingPage />} />
+            <Route path="/about-us" element={<AboutUsPage />} />
+            <Route path="/services" element={<ServicesPage />} />
 
             {/* Feature pages share the AppLayout (sidebar/topbar) */}
             <Route path="/doctors" element={<ProtectedRoute><AppLayout><DoctorsPage /></AppLayout></ProtectedRoute>} />
@@ -180,29 +181,14 @@ export function AppRoutes() {
             <Route path="/patient/login" element={<PatientLogin />} />
             <Route path="/patient/register" element={<PatientRegister />} />
             <Route path="/patient/dashboard" element={<RequireAuth><AppLayout><PatientDashboard /></AppLayout></RequireAuth>} />
+            <Route path="/patient/diagnostic-bookings" element={<RequireAuth><AppLayout><PatientDiagnosticBookings /></AppLayout></RequireAuth>} />
 
 
             {/* ═══════════════════════════════════════
                 ADMIN ROUTES
-                /admin/login   — Standalone login page
-                /admin/*       — Protected via AdminLayout
-                Roles: super_admin (full), support_admin (limited)
+                Redirects to external admin app.
                 ═══════════════════════════════════════ */}
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="dashboard" element={<AdminDashboard />} />
-                <Route path="doctors" element={<DoctorManagement />} />
-                <Route path="patients" element={<PatientManagement />} />
-                <Route path="appointments" element={<AppointmentManagement />} />
-                <Route path="notifications" element={<NotificationCenter />} />
-                <Route path="logs" element={<ActivityLogs />} />
-                <Route path="settings" element={<Settings />} />
-                {/* Super Admin only — guarded inside AdminLayout by role check */}
-                <Route path="facilities" element={<FacilitiesManagement />} />
-                <Route path="support-admins" element={<SupportAdminManagement />} />
-                <Route path="bloggers" element={<BloggerManagement />} />
-            </Route>
+            <Route path="/admin/*" element={<AdminRedirect />} />
 
 
             {/* ═══════════════════════════════════════
@@ -249,7 +235,7 @@ export function AppRoutes() {
                 ═══════════════════════════════════════ */}
             <Route path="/medical/dashboard" element={<RequireAuth><MedicalDashboard /></RequireAuth>} />
             <Route path="/clinic/dashboard" element={<RequireAuth><ClinicDashboard /></RequireAuth>} />
-            <Route path="/diagnostic/dashboard" element={<RequireAuth><DiagnosticDashboard /></RequireAuth>} />
+            <Route path="/diagnostic/dashboard" element={<RequireAuth><AppLayout><DiagnosticDashboard /></AppLayout></RequireAuth>} />
 
         </Routes>
         </Suspense>

@@ -46,7 +46,8 @@ export default function MedicalsPage() {
                 const { data: profilesData, error: profilesError } = await supabase
                     .from('profiles')
                     .select('*')
-                    .in('profile_type', ['medical', 'clinic', 'hospital']);
+                    .in('profile_type', ['medical', 'clinic', 'hospital'])
+                    .eq('status', 'active');
 
                 if (profilesError) throw profilesError;
                 
