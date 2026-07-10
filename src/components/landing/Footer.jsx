@@ -29,9 +29,9 @@ export const Footer = () => {
         ],
         "For Corporates": [{ title: "Wellness program", href: "#" }],
         "More": [
-            { title: "Help & Support", href: "/terms" },
+            { title: "Help & Support", href: "/support" },
             { title: "Developers", href: "#" },
-            { title: "Privacy Policy", href: "#" },
+            { title: "Privacy Policy", href: "/privacy-policy" },
             { title: "Terms and Conditions", href: "/terms" },
         ],
         "Social": [
@@ -44,7 +44,7 @@ export const Footer = () => {
     };
 
     return (
-        <footer id="footer" className="bg-slate-900 text-white">
+        <footer id="footer" className="bg-slate-900 text-white relative z-10">
             <div className="container py-12">
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-8">
                     {Object.entries(footerSections).map(([title, links]) => (
@@ -53,17 +53,12 @@ export const Footer = () => {
                             <ul className="space-y-2">
                                 {links.map((link) => (
                                     <li key={link.title}>
-                                        {link.href.startsWith('http') ? (
-                                            <a 
-                                                href={link.href} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="text-sm text-gray-300 hover:text-red-400 relative z-10"
-                                            >
+                                        {link.href === '#' ? (
+                                            <a href="#" className="text-sm text-gray-300 hover:text-red-400 cursor-pointer">
                                                 {link.title}
                                             </a>
                                         ) : (
-                                            <Link to={link.href} className="text-sm text-gray-300 hover:text-red-400">
+                                            <Link to={link.href} className="text-sm text-gray-300 hover:text-red-400 cursor-pointer" onClick={() => window.scrollTo(0, 0)}>
                                                 {link.title}
                                             </Link>
                                         )}
