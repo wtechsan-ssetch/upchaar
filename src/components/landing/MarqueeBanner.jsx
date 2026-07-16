@@ -2,7 +2,7 @@ import React from 'react';
 
 const messages = [
     "🏥 Welcome to Upchar Health — All in One Smart & Digital Healthcare System. You will get all the healthcare providers in one platform.",
-    "🎉 Free Registration for the first 100 doctors. 50 doctors have already registered — become the next one!",
+    "🎉 Free Registration for the first 100 doctors. 3 doctors have already registered — become the next one!",
 ];
 
 // Duplicate the messages to create a seamless loop
