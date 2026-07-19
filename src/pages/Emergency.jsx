@@ -31,14 +31,14 @@ export default function EmergencyPage() {
                         <div className="h-16 w-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
                             <AlertTriangle size={32} />
                         </div>
-                        <h2 className="text-2xl font-bold text-slate-900 mb-2">Maps API Key Required</h2>
+                        {/* <h2 className="text-2xl font-bold text-slate-900 mb-2">Maps API Key Required</h2> */}
                         <p className="text-slate-600 mb-8">
-                            Emergency maps require a Google Maps API key. Please configure your environment variables to enable this feature.
+                            Currently Emergency support is not available in Upchar health we are working hardly on that
                         </p>
-                        <div className="p-4 bg-slate-900 rounded-xl text-left mb-8 font-mono text-sm">
+                        {/* <div className="p-4 bg-slate-900 rounded-xl text-left mb-8 font-mono text-sm">
                             <p className="text-slate-400 mb-1">Add to .env file:</p>
                             <code className="text-teal-400 break-all">VITE_GOOGLE_MAPS_API_KEY=&quot;YOUR_KEY&quot;</code>
-                        </div>
+                        </div> */}
                         <Link to="/" className="inline-flex items-center justify-center w-full px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
                             Return to Homepage
                         </Link>
