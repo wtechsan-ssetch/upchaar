@@ -122,7 +122,7 @@ const QUICK_ACTIONS = [
     { icon: Calendar, label: 'Doctors', desc: 'Schedule with a doctor', color: 'from-blue-500 to-indigo-500', href: '/doctors' },
     { icon: Store, label: 'Medical / Clinics', desc: 'Find nearby medicals', color: 'from-pink-500 to-rose-500', href: '/medicals' },
     { icon: Pill, label: 'Prescriptions', desc: 'Your current medications', color: 'from-orange-500 to-amber-500', href: '/records' },
-    { icon: Activity, label: 'Diagnostic Centers', desc: 'Book Lab & Diagnostic tests', color: 'from-cyan-500 to-blue-500', href: '/patient/diagnostic-booking' },
+    { icon: Activity, label: 'Diagnostic Centers', desc: 'Book Lab & Diagnostic tests', color: 'from-cyan-500 to-blue-500', href: '/diagnostics' },
     { icon: MapPin, label: 'Find Nearby', desc: 'Hospitals & clinics', color: 'from-emerald-500 to-teal-500', href: '/hospitals' },
 ];
 
