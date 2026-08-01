@@ -7,7 +7,7 @@ import {
     Activity, Clock, DollarSign, Users, LogOut, CheckCircle, XCircle,
     Search, Edit, LayoutDashboard, TestTubes, FileText, Settings,
     ChevronLeft, ChevronRight, Menu, Plus, X, Filter, Trash2,
-    Camera, Loader2, User, Phone, MapPin, Globe, Save
+    Camera, Loader2, User, Phone, MapPin, Globe, Save, ShieldCheck
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase.js';
 import { uploadAvatar, getStorageUrl } from '@/lib/uploadImage.js';
@@ -191,6 +191,23 @@ export default function DiagnosticDashboard() {
     const [tests, setTests] = useState([]);
     const [testsLoading, setTestsLoading] = useState(true);
     const [dcId, setDcId] = useState(null); // diagnostic_centers.id
+    const [acceptsInsurance, setAcceptsInsurance] = useState(true);
+
+    const handleToggleInsurance = async (newValue) => {
+        setAcceptsInsurance(newValue);
+        if (!dcId) return;
+        try {
+            const { error } = await supabase
+                .from('diagnostic_centers')
+                .update({ accepts_insurance: newValue })
+                .eq('id', dcId);
+            if (error) throw error;
+            toast.success(`Insurance Acceptance updated to ${newValue ? 'YES' : 'NO'}`);
+        } catch (err) {
+            console.error('Error updating insurance preference:', err);
+            toast.error('Failed to update insurance preference.');
+        }
+    };
 
     // Load tests from Supabase on mount
     useEffect(() => {
@@ -241,8 +258,6 @@ export default function DiagnosticDashboard() {
                     
                     if (createError) {
                         console.error('Error creating diagnostic center:', createError);
-                        // If it's a constraint error, maybe it was created in the meantime? 
-                        // Let's not toast error yet, just log it.
                     } else {
                         dc = created;
                     }
@@ -251,6 +266,8 @@ export default function DiagnosticDashboard() {
                 if (dc) {
                     console.log('Using diagnostic center row:', dc.id);
                     setDcId(dc.id);
+                    setAcceptsInsurance(dc.accepts_insurance ?? true);
+
                     
                     let rawTests = [];
                     if (typeof dc.tests === 'string') {
@@ -595,8 +612,47 @@ export default function DiagnosticDashboard() {
                                         </div>
                                     ))}
                                 </div>
+
+                                {/* Insurance Acceptance Feature Setting Card */}
+                                <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl mb-10 border border-teal-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                                    <div className="space-y-1">
+                                        <span className="px-3 py-1 bg-teal-500/20 text-teal-300 rounded-full text-xs font-black uppercase tracking-wider border border-teal-500/30 inline-flex items-center gap-1.5">
+                                            <ShieldCheck size={14} /> Center Insurance Policy Settings
+                                        </span>
+                                        <h3 className="text-xl font-black text-white pt-1">Do you accept health insurance for diagnostic tests?</h3>
+                                        <p className="text-xs text-slate-300 max-w-xl">
+                                            If enabled (YES), patients booking tests at your center can upload their Health Insurance Policy Card & Identity Card (Aadhaar/Govt ID) alongside their test prescription.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleToggleInsurance(true)}
+                                            className={`px-6 py-3 rounded-2xl font-black text-xs transition-all flex items-center gap-2 border-2 ${
+                                                acceptsInsurance
+                                                    ? 'border-emerald-400 bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/30 scale-105'
+                                                    : 'border-white/20 bg-white/10 text-slate-300 hover:bg-white/20'
+                                            }`}
+                                        >
+                                            <CheckCircle size={16} /> YES (Accept Insurance)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleToggleInsurance(false)}
+                                            className={`px-6 py-3 rounded-2xl font-black text-xs transition-all flex items-center gap-2 border-2 ${
+                                                !acceptsInsurance
+                                                    ? 'border-amber-400 bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/30 scale-105'
+                                                    : 'border-white/20 bg-white/10 text-slate-300 hover:bg-white/20'
+                                            }`}
+                                        >
+                                            <XCircle size={16} /> NO (Self-Pay Only)
+                                        </button>
+                                    </div>
+                                </div>
                             </motion.div>
                         )}
+
 
                         {(activeTab === 'Dashboard' || activeTab === 'Available Tests') && (
                             <motion.div
