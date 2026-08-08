@@ -69,7 +69,7 @@ export default function DiagnosticDashboard() {
         let mounted = true;
         supabase
             .from('diagnostic_centers')
-            .select('id, status, metadata')
+            .select('id, status')
             .eq('profile_id', profile.id)
             .maybeSingle()
             .then(({ data }) => {
@@ -82,28 +82,11 @@ export default function DiagnosticDashboard() {
         return () => { mounted = false; };
     }, [profile?.id]);
 
-    // Show spinner while fetching diagnostic approval status
-    if (diagnosticStatusLoading) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-                <div style={{
-                    width: 40, height: 40, borderRadius: '50%',
-                    border: '3px solid #e2e8f0',
-                    borderTopColor: '#14b8a6',
-                    animation: 'spin 0.7s linear infinite',
-                }} />
-                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            </div>
-        );
-    }
-
-    // Block access if diagnostic center is not yet approved by admin.
-    // Read status from `diagnostic_centers` table — this is what admin updates.
-    const diagnosticStatus = (diagnosticRecord?.status || 'Pending').toLowerCase();
-    if (diagnosticStatus === 'pending' || diagnosticStatus === 'rejected' || diagnosticStatus === 'suspended') {
-        const pendingProfile = { ...profile, status: diagnosticRecord?.status || 'Pending', metadata: diagnosticRecord?.metadata };
-        return <ProviderPendingPage profile={pendingProfile} />;
-    }
+    // Compute approval status (used for conditional rendering AFTER all hooks)
+    const profStatus = (profile?.status || '').toLowerCase();
+    const recStatus = (diagnosticRecord?.status || '').toLowerCase();
+    const isApproved = profStatus === 'active' || profStatus === 'approved' || recStatus === 'active' || recStatus === 'approved';
+    const isRejected = profStatus === 'rejected' || recStatus === 'rejected' || profStatus === 'suspended' || recStatus === 'suspended';
 
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
@@ -423,6 +406,31 @@ export default function DiagnosticDashboard() {
         { name: 'Reports', icon: FileText },
         { name: 'Settings', icon: Settings }
     ];
+
+    // ── Early returns AFTER all hooks (Rules of Hooks compliance) ──
+    if (diagnosticStatusLoading) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+                <div style={{
+                    width: 40, height: 40, borderRadius: '50%',
+                    border: '3px solid #e2e8f0',
+                    borderTopColor: '#14b8a6',
+                    animation: 'spin 0.7s linear infinite',
+                }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
+    }
+
+    if (!isApproved) {
+        const effectiveStatus = isRejected ? (profStatus || recStatus || 'Rejected') : 'Pending';
+        const pendingProfile = { 
+            ...profile, 
+            status: effectiveStatus, 
+            metadata: profile?.metadata 
+        };
+        return <ProviderPendingPage profile={pendingProfile} />;
+    }
 
     return (
         <div className="h-screen bg-slate-50 flex overflow-hidden">
