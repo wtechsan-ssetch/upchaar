@@ -94,20 +94,50 @@ export default function DiagnosticDashboard() {
     useEffect(() => {
         if (!profile?.id) return;
         let mounted = true;
-        supabase
-            .from('diagnostic_centers')
-            .select('id, status, metadata, accepts_insurance')
-            .eq('profile_id', profile.id)
-            .maybeSingle()
-            .then(({ data }) => {
-                if (mounted) {
-                    setDiagnosticRecord(data);
-                    setDiagnosticStatusLoading(false);
+
+        const checkStatus = () => {
+            supabase
+                .from('diagnostic_centers')
+                .select('id, status, metadata, accepts_insurance')
+                .eq('profile_id', profile.id)
+                .maybeSingle()
+                .then(({ data }) => {
+                    if (mounted) {
+                        setDiagnosticRecord(data);
+                        setDiagnosticStatusLoading(false);
+                    }
+                })
+                .catch(() => { if (mounted) setDiagnosticStatusLoading(false); });
+        };
+
+        checkStatus();
+
+        // Subscribe to real-time status updates so admin approval immediately reflects
+        const channel = supabase
+            .channel(`dc-status-${profile.id}`)
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'diagnostic_centers', filter: `profile_id=eq.${profile.id}` },
+                (payload) => {
+                    if (mounted && payload.new) {
+                        setDiagnosticRecord(prev => ({ ...prev, ...payload.new }));
+                    }
                 }
-            })
-            .catch(() => { if (mounted) setDiagnosticStatusLoading(false); });
-        return () => { mounted = false; };
-    }, [profile?.id]);
+            )
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profile.id}` },
+                () => {
+                    if (mounted && refreshProfile) refreshProfile();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            mounted = false;
+            supabase.removeChannel(channel);
+        };
+    }, [profile?.id, refreshProfile]);
 
     // Load tests from Supabase on mount
     const loadTests = async () => {
@@ -498,9 +528,12 @@ export default function DiagnosticDashboard() {
     }
 
     // Block if status is pending/rejected
-    const diagnosticStatus = (diagnosticRecord?.status || 'Pending').toLowerCase();
-    if (diagnosticStatus === 'pending' || diagnosticStatus === 'rejected' || diagnosticStatus === 'suspended') {
-        const pendingProfile = { ...profile, status: diagnosticRecord?.status || 'Pending', metadata: diagnosticRecord?.metadata };
+    const statusRaw = diagnosticRecord?.status || profile?.status || 'Pending';
+    const statusLower = statusRaw.toLowerCase();
+    const isApproved = statusLower === 'active' || statusLower === 'approved';
+
+    if (!isApproved && (statusLower === 'pending' || statusLower === 'rejected' || statusLower === 'suspended')) {
+        const pendingProfile = { ...profile, status: statusRaw, metadata: diagnosticRecord?.metadata };
         return <ProviderPendingPage profile={pendingProfile} />;
     }
 

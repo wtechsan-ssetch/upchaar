@@ -237,7 +237,7 @@ export function AppRoutes() {
                 ═══════════════════════════════════════ */}
             <Route path="/medical/dashboard" element={<RequireAuth><MedicalDashboard /></RequireAuth>} />
             <Route path="/clinic/dashboard" element={<RequireAuth><ClinicDashboard /></RequireAuth>} />
-            <Route path="/diagnostic/dashboard" element={<RequireAuth><AppLayout><DiagnosticDashboard /></AppLayout></RequireAuth>} />
+            <Route path="/diagnostic/dashboard" element={<RequireAuth><DiagnosticDashboard /></RequireAuth>} />
 
         </Routes>
         </Suspense>
