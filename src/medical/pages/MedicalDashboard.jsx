@@ -86,7 +86,7 @@ export default function MedicalDashboard() {
     let mounted = true;
     supabase
       .from('medicals')
-      .select('id, status, metadata')
+      .select('id, status, rejection_reason')
       .eq('profile_id', profile.id)
       .maybeSingle()
       .then(({ data }) => {
@@ -99,28 +99,11 @@ export default function MedicalDashboard() {
     return () => { mounted = false; };
   }, [profile?.id]);
 
-  // Show spinner while fetching medical approval status
-  if (medicalStatusLoading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: '50%',
-          border: '3px solid #e2e8f0',
-          borderTopColor: '#14b8a6',
-          animation: 'spin 0.7s linear infinite',
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  // Block access if medical store is not yet approved by admin.
-  // Read status from `medicals` table — this is what admin updates.
-  const medicalStatus = (medicalRecord?.status || 'Pending').toLowerCase();
-  if (medicalStatus === 'pending' || medicalStatus === 'rejected' || medicalStatus === 'suspended') {
-    const pendingProfile = { ...profile, status: medicalRecord?.status || 'Pending', metadata: medicalRecord?.metadata };
-    return <ProviderPendingPage profile={pendingProfile} />;
-  }
+  // Compute approval status (used for conditional rendering AFTER all hooks)
+  const profStatus = (profile?.status || '').toLowerCase();
+  const recStatus = (medicalRecord?.status || '').toLowerCase();
+  const isApproved = profStatus === 'active' || profStatus === 'approved' || recStatus === 'active' || recStatus === 'approved';
+  const isRejected = profStatus === 'rejected' || recStatus === 'rejected' || profStatus === 'suspended' || recStatus === 'suspended';
 
   const handleQuickAvatarChange = async (e) => {
     const file = e.target.files?.[0];
@@ -454,6 +437,33 @@ export default function MedicalDashboard() {
     { color: 'emerald', icon: 'event_available', label: "Today's Appointments", value: stats.todayAppointments },
     { color: 'amber', icon: 'payments', label: 'Total Revenue', value: `Rs. ${stats.totalRevenue}` },
   ], [stats]);
+
+  // ── Early returns AFTER all hooks (Rules of Hooks compliance) ──
+  // Show spinner while fetching medical approval status
+  if (medicalStatusLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: '50%',
+          border: '3px solid #e2e8f0',
+          borderTopColor: '#14b8a6',
+          animation: 'spin 0.7s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // Block access if medical store is not yet approved by admin.
+  if (!isApproved) {
+    const effectiveStatus = isRejected ? (profStatus || recStatus || 'Rejected') : 'Pending';
+    const pendingProfile = { 
+      ...profile, 
+      status: effectiveStatus, 
+      metadata: { rejectionReason: medicalRecord?.rejection_reason } 
+    };
+    return <ProviderPendingPage profile={pendingProfile} />;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-800" style={{ fontFamily: "'Inter', sans-serif" }}>

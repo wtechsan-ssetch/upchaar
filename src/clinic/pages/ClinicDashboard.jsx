@@ -85,7 +85,7 @@ export default function ClinicDashboard() {
     let mounted = true;
     supabase
       .from('clinics')
-      .select('id, status, metadata')
+      .select('id, status, rejection_reason')
       .eq('profile_id', profile.id)
       .maybeSingle()
       .then(({ data }) => {
@@ -100,29 +100,11 @@ export default function ClinicDashboard() {
 
   const displayName = profile?.full_name || profile?.name || 'Clinic Center';
 
-  // Show spinner while fetching clinic approval status
-  if (clinicStatusLoading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: '50%',
-          border: '3px solid #e2e8f0',
-          borderTopColor: '#14b8a6',
-          animation: 'spin 0.7s linear infinite',
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  // Block access if clinic is not yet approved by admin.
-  // Read status from `clinics` table — this is what admin updates.
-  const clinicStatus = (clinicRecord?.status || 'Pending').toLowerCase();
-  if (clinicStatus === 'pending' || clinicStatus === 'rejected' || clinicStatus === 'suspended') {
-    // Pass a merged profile with the real status so ProviderPendingPage shows correct info
-    const pendingProfile = { ...profile, status: clinicRecord?.status || 'Pending', metadata: clinicRecord?.metadata };
-    return <ProviderPendingPage profile={pendingProfile} />;
-  }
+  // Compute approval status (used for conditional rendering AFTER all hooks)
+  const profStatus = (profile?.status || '').toLowerCase();
+  const recStatus = (clinicRecord?.status || '').toLowerCase();
+  const isApproved = profStatus === 'active' || profStatus === 'approved' || recStatus === 'active' || recStatus === 'approved';
+  const isRejected = profStatus === 'rejected' || recStatus === 'rejected' || profStatus === 'suspended' || recStatus === 'suspended';
 
   const handleQuickAvatarChange = async (e) => {
     const file = e.target.files?.[0];
@@ -445,6 +427,35 @@ export default function ClinicDashboard() {
     { color: 'emerald', icon: 'event_available', label: "Today's Visits", value: stats.todayVisits },
     { color: 'amber', icon: 'payments', label: 'Total Revenue', value: `Rs. ${stats.revenue}` },
   ], [stats]);
+
+  // ── Early returns AFTER all hooks (Rules of Hooks compliance) ──
+  // Show spinner while fetching clinic approval status
+  if (clinicStatusLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: '50%',
+          border: '3px solid #e2e8f0',
+          borderTopColor: '#14b8a6',
+          animation: 'spin 0.7s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // Block access if clinic is not yet approved by admin.
+  if (!isApproved) {
+    const effectiveStatus = isRejected ? (profStatus || recStatus || 'Rejected') : 'Pending';
+    const pendingProfile = { 
+      ...profile, 
+      status: effectiveStatus, 
+      metadata: { rejectionReason: clinicRecord?.rejection_reason } 
+    };
+    return <ProviderPendingPage profile={pendingProfile} />;
+  }
+
+
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-800" style={{ fontFamily: "'Inter', sans-serif" }}>
