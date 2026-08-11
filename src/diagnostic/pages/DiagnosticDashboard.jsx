@@ -96,26 +96,6 @@ export default function DiagnosticDashboard() {
     useEffect(() => {
         if (!profileId) return;
         let mounted = true;
-        supabase
-            .from('diagnostic_centers')
-            .select('id, status')
-            .eq('profile_id', profile.id)
-            .maybeSingle()
-            .then(({ data }) => {
-                if (mounted) {
-                    setDiagnosticRecord(data);
-                    setDiagnosticStatusLoading(false);
-                }
-            })
-            .catch(() => { if (mounted) setDiagnosticStatusLoading(false); });
-        return () => { mounted = false; };
-    }, [profile?.id]);
-
-    // Compute approval status (used for conditional rendering AFTER all hooks)
-    const profStatus = (profile?.status || '').toLowerCase();
-    const recStatus = (diagnosticRecord?.status || '').toLowerCase();
-    const isApproved = profStatus === 'active' || profStatus === 'approved' || recStatus === 'active' || recStatus === 'approved';
-    const isRejected = profStatus === 'rejected' || recStatus === 'rejected' || profStatus === 'suspended' || recStatus === 'suspended';
 
         const checkStatus = () => {
             supabase
@@ -568,30 +548,7 @@ export default function DiagnosticDashboard() {
         { name: 'Settings', icon: Settings }
     ];
 
-    // ── Early returns AFTER all hooks (Rules of Hooks compliance) ──
-    if (diagnosticStatusLoading) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-                <div style={{
-                    width: 40, height: 40, borderRadius: '50%',
-                    border: '3px solid #e2e8f0',
-                    borderTopColor: '#14b8a6',
-                    animation: 'spin 0.7s linear infinite',
-                }} />
-                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            </div>
-        );
-    }
 
-    if (!isApproved) {
-        const effectiveStatus = isRejected ? (profStatus || recStatus || 'Rejected') : 'Pending';
-        const pendingProfile = { 
-            ...profile, 
-            status: effectiveStatus, 
-            metadata: profile?.metadata 
-        };
-        return <ProviderPendingPage profile={pendingProfile} />;
-    }
 
     return (
         <div className="h-screen bg-slate-50 flex overflow-hidden">
