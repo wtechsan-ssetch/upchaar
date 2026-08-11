@@ -158,3 +158,30 @@ export async function uploadPrescription(file, userId) {
     const { data } = supabase.storage.from('diagnostic_prescriptions').getPublicUrl(path);
     return data.publicUrl;
 }
+
+/**
+ * uploadDiagnosticFile
+ * Uploads diagnostic document (prescription, insurance policy, id card) to avatars bucket.
+ */
+export async function uploadDiagnosticFile(file, folder = 'prescriptions', userId = 'guest') {
+    if (!file) return null;
+    const ext = file.name.split('.').pop() || 'pdf';
+    const timestamp = Date.now();
+    const path = `diagnostics/${folder}/${userId}_${timestamp}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, {
+            contentType: file.type,
+            upsert: true,
+        });
+
+    if (uploadError) {
+        console.error('[uploadDiagnosticFile]', uploadError.message);
+        return null;
+    }
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+    return data?.publicUrl || null;
+}
+
