@@ -91,8 +91,10 @@ export default function DiagnosticDashboard() {
         }
     }, [profile]);
 
+    const profileId = profile?.id;
+
     useEffect(() => {
-        if (!profile?.id) return;
+        if (!profileId) return;
         let mounted = true;
         supabase
             .from('diagnostic_centers')
@@ -119,7 +121,7 @@ export default function DiagnosticDashboard() {
             supabase
                 .from('diagnostic_centers')
                 .select('id, status, metadata, accepts_insurance')
-                .eq('profile_id', profile.id)
+                .eq('profile_id', profileId)
                 .maybeSingle()
                 .then(({ data }) => {
                     if (mounted) {
@@ -134,10 +136,10 @@ export default function DiagnosticDashboard() {
 
         // Subscribe to real-time status updates so admin approval immediately reflects
         const channel = supabase
-            .channel(`dc-status-${profile.id}`)
+            .channel(`dc-status-${profileId}`)
             .on(
                 'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'diagnostic_centers', filter: `profile_id=eq.${profile.id}` },
+                { event: 'UPDATE', schema: 'public', table: 'diagnostic_centers', filter: `profile_id=eq.${profileId}` },
                 (payload) => {
                     if (mounted && payload.new) {
                         setDiagnosticRecord(prev => ({ ...prev, ...payload.new }));
@@ -146,7 +148,7 @@ export default function DiagnosticDashboard() {
             )
             .on(
                 'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profile.id}` },
+                { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profileId}` },
                 () => {
                     if (mounted && refreshProfile) refreshProfile();
                 }
@@ -157,7 +159,7 @@ export default function DiagnosticDashboard() {
             mounted = false;
             supabase.removeChannel(channel);
         };
-    }, [profile?.id, refreshProfile]);
+    }, [profileId, refreshProfile]);
 
     // Load tests from Supabase on mount
     const loadTests = async () => {
@@ -248,11 +250,11 @@ export default function DiagnosticDashboard() {
 
     useEffect(() => {
         loadTests();
-    }, [profile?.id]);
+    }, [profileId]);
 
     // Load Incoming Diagnostic Requests for this Center
     const fetchRequests = async () => {
-        if (!profile?.id) return;
+        if (!profileId) return;
         setLoadingRequests(true);
         try {
             const { data, error } = await supabase
@@ -265,8 +267,8 @@ export default function DiagnosticDashboard() {
                 const centerRequests = data.filter(r =>
                     !r.diagnostic_center_id ||
                     r.diagnostic_center_id === dcId ||
-                    r.diagnostic_center_id === profile.id ||
-                    r.diagnostic_center_name === profile.full_name
+                    r.diagnostic_center_id === profileId ||
+                    r.diagnostic_center_name === profile?.full_name
                 );
                 setRequests(centerRequests);
             }
@@ -288,7 +290,7 @@ export default function DiagnosticDashboard() {
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [profile?.id, dcId]);
+    }, [profileId, dcId]);
 
     // Save/Persist tests array to `diagnostic_centers`
     const persistTests = async (updatedTests, targetId = dcId) => {
