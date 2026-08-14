@@ -24,11 +24,11 @@ export const MarqueeBanner = () => {
                 .marquee-banner-wrapper {
                     width: 100%;
                     overflow: hidden;
-                    background: linear-gradient(90deg, #0f4c81 0%, #1a73e8 50%, #0f4c81 100%);
+                    background: linear-gradient(90deg, #FF9933 0%, #FFFFFF 50%, #138808 100%);
                     padding: 10px 0;
                     position: relative;
-                    box-shadow: 0 2px 12px rgba(15, 76, 129, 0.35);
-                    border-bottom: 2px solid rgba(255,255,255,0.15);
+                    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+                    border-bottom: 2px solid rgba(0, 0, 0, 0.05);
                     z-index: 40;
                 }
 
@@ -44,11 +44,11 @@ export const MarqueeBanner = () => {
                 }
                 .marquee-banner-wrapper::before {
                     left: 0;
-                    background: linear-gradient(to right, #0f4c81, transparent);
+                    background: linear-gradient(to right, #FF9933, transparent);
                 }
                 .marquee-banner-wrapper::after {
                     right: 0;
-                    background: linear-gradient(to left, #0f4c81, transparent);
+                    background: linear-gradient(to left, #138808, transparent);
                 }
 
                 .marquee-track {
@@ -65,18 +65,18 @@ export const MarqueeBanner = () => {
                 .marquee-item {
                     white-space: nowrap;
                     font-size: 0.875rem;
-                    font-weight: 500;
-                    color: #ffffff;
+                    font-weight: 600;
+                    color: #1f2937;
                     letter-spacing: 0.02em;
                     padding: 0 2rem;
                     display: inline-flex;
                     align-items: center;
                     gap: 0.75rem;
-                    text-shadow: 0 1px 3px rgba(0,0,0,0.25);
+                    text-shadow: 0 0 8px rgba(255, 255, 255, 0.7), 0 0 3px rgba(255, 255, 255, 0.9);
                 }
 
                 .marquee-sep {
-                    color: #90cdf4;
+                    color: #10b981;
                     font-size: 0.65rem;
                     margin-left: 0.75rem;
                     opacity: 0.8;
