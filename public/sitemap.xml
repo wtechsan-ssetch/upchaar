@@ -36,8 +36,16 @@
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
-
-  <!-- Legal Pages -->
+  <url>
+    <loc>https://upcharhealth.com/about</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://upcharhealth.com/support</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
   <url>
     <loc>https://upcharhealth.com/terms</loc>
     <changefreq>monthly</changefreq>
@@ -48,8 +56,6 @@
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
-
-  <!-- Login/Register Pages -->
   <url>
     <loc>https://upcharhealth.com/login</loc>
     <changefreq>monthly</changefreq>
@@ -74,5 +80,19 @@
     <loc>https://upcharhealth.com/doctor/login</loc>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
+  </url>
+
+  <!-- Blog Posts (Dynamic) -->
+  <url>
+    <loc>https://upcharhealth.com/blogs/happy-independence-day</loc>
+    <lastmod>2026-08-15</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://upcharhealth.com/blogs/the-silent-healthcare-gap-why-we-don-t-know-the-doctors-next-door</loc>
+    <lastmod>2026-04-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
   </url>
 </urlset>
