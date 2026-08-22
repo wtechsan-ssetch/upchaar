@@ -89,23 +89,29 @@ export function BlogProvider({ children }) {
     useEffect(() => { loadPosts(); }, []);
 
     /** Map snake_case DB columns → camelCase so components stay consistent */
-    const normalizePost = (p) => ({
-        ...p,
-        coverGradient:  p.cover_gradient  || p.coverGradient  || COVER_GRADIENTS[0],
-        imageUrl:       p.image_url       || p.imageUrl       || '',
-        readTime:       p.read_time       || p.readTime       || 5,
-        publishedAt:    p.published_at    || p.publishedAt    || null,
-        updatedAt:      p.updated_at      || p.updatedAt      || new Date().toISOString(),
-        createdAt:      p.created_at      || p.createdAt      || new Date().toISOString(),
-        author: p.controllers
-            ? {
-                name:      p.controllers.name,
-                avatarUrl: p.controllers.avatar_url,
-                avatarColor: (p.controllers.metadata || {}).avatarColor || (p.controllers.metadata || {}).avatar_color || '#0d9488',
-                ...(p.controllers.metadata || {}),
-              }
-            : { name: 'Unknown', avatarColor: '#0d9488' },
-    });
+    const normalizePost = (p) => {
+        const plainText = (p.content || '').replace(/<[^>]+>/g, '');
+        const wordCount = plainText.split(/\s+/).filter(Boolean).length;
+        const computedReadTime = Math.max(1, Math.ceil(wordCount / 200));
+
+        return {
+            ...p,
+            coverGradient:  p.cover_gradient  || p.coverGradient  || COVER_GRADIENTS[0],
+            imageUrl:       p.image_url       || p.imageUrl       || '',
+            readTime:       computedReadTime,
+            publishedAt:    p.published_at    || p.publishedAt    || null,
+            updatedAt:      p.updated_at      || p.updatedAt      || new Date().toISOString(),
+            createdAt:      p.created_at      || p.createdAt      || new Date().toISOString(),
+            author: p.controllers
+                ? {
+                    name:      p.controllers.name,
+                    avatarUrl: p.controllers.avatar_url,
+                    avatarColor: (p.controllers.metadata || {}).avatarColor || (p.controllers.metadata || {}).avatar_color || '#0d9488',
+                    ...(p.controllers.metadata || {}),
+                  }
+                : { name: 'Unknown', avatarColor: '#0d9488' },
+        };
+    };
 
     const loadPosts = async () => {
         setPostsLoading(true);
@@ -206,7 +212,22 @@ export function BlogProvider({ children }) {
         };
         const { data, error } = await supabase.from('posts').insert([row]).select().single();
         if (error) throw new Error(error.message);
-        await loadPosts(); return data;
+
+        // Re-fetch the single post with the author join so name isn't "Unknown"
+        const { data: fullPost } = await supabase
+            .from('posts')
+            .select('*, controllers:author_id(id, name, avatar_url, metadata)')
+            .eq('id', data.id)
+            .single();
+        const normalized = normalizePost(fullPost || data);
+
+        // Optimistically add the new post to state so it appears immediately
+        setPosts(prev => [normalized, ...prev]);
+
+        // Also do a full refresh in the background to keep everything in sync
+        loadPosts();
+
+        return normalized;
     }, [blogger]);
 
     const saveDraft = useCallback(async (postData) => {
@@ -223,7 +244,22 @@ export function BlogProvider({ children }) {
         };
         const { data, error } = await supabase.from('posts').insert([row]).select().single();
         if (error) throw new Error(error.message);
-        await loadPosts(); return data;
+
+        // Re-fetch with author join so name isn't "Unknown"
+        const { data: fullPost } = await supabase
+            .from('posts')
+            .select('*, controllers:author_id(id, name, avatar_url, metadata)')
+            .eq('id', data.id)
+            .single();
+        const normalized = normalizePost(fullPost || data);
+
+        // Optimistically add the new draft to state
+        setPosts(prev => [normalized, ...prev]);
+
+        // Background refresh
+        loadPosts();
+
+        return normalized;
     }, [blogger]);
 
     const updatePost = useCallback(async (postId, updates) => {
@@ -246,7 +282,22 @@ export function BlogProvider({ children }) {
         if (updates.status === 'published') row.published_at = new Date().toISOString();
         const { data, error } = await supabase.from('posts').update(row).eq('id', postId).select().single();
         if (error) throw new Error(error.message);
-        await loadPosts(); return data;
+
+        // Re-fetch with author join so name isn't "Unknown"
+        const { data: fullPost } = await supabase
+            .from('posts')
+            .select('*, controllers:author_id(id, name, avatar_url, metadata)')
+            .eq('id', data.id)
+            .single();
+        const normalized = normalizePost(fullPost || data);
+
+        // Optimistically update the post in state so changes appear immediately
+        setPosts(prev => prev.map(p => p.id === postId ? normalized : p));
+
+        // Background refresh
+        loadPosts();
+
+        return normalized;
     }, []);
 
     const deletePost = useCallback(async (postId) => {
@@ -269,7 +320,7 @@ export function BlogProvider({ children }) {
             if (!post) return;
             const newLikes = (post.likes || 0) + 1;
             setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: newLikes } : p));
-            await supabase.from('posts').update({ likes: newLikes }).eq('id', postId);
+            await supabase.rpc('increment_likes', { post_id: postId });
         } catch (e) {
             console.warn('like post error', e);
         }
@@ -281,7 +332,7 @@ export function BlogProvider({ children }) {
             if (!post) return;
             const newViews = (post.views || 0) + 1;
             setPosts(prev => prev.map(p => p.id === postId ? { ...p, views: newViews } : p));
-            await supabase.from('posts').update({ views: newViews }).eq('id', postId);
+            await supabase.rpc('increment_views', { post_id: postId });
         } catch (e) {
             console.warn('increment views error', e);
         }
