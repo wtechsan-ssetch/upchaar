@@ -228,7 +228,7 @@ export function AuthProvider({ children }) {
     }, [fetchProfile, safeSignOut]);
 
     /** signUp — creates auth user + profile via DB trigger */
-    const signUp = useCallback(async ({ fullName, email, phone, whatsappNumber, password, profileType }) => {
+    const signUp = useCallback(async ({ fullName, email, phone, whatsappNumber, password, profileType, centerName, state, city, pincode, centerPhotoUrl }) => {
         isRegistering.current = true;
         try {
             if (!isStrongPassword(password)) {
@@ -244,6 +244,11 @@ export function AuthProvider({ children }) {
                         phone: phone?.trim() || '',
                         whatsapp_number: whatsappNumber?.trim() || '',
                         profile_type: profileType,
+                        city: city?.trim() || '',
+                        state: state || '',
+                        center_name: centerName?.trim() || '',
+                        pincode: pincode?.trim() || '',
+                        avatar_url: centerPhotoUrl || '',
                     },
                 },
             }), 'Sign up is taking too long. Please check your connection and try again.');
@@ -267,6 +272,15 @@ export function AuthProvider({ children }) {
                 await new Promise(r => setTimeout(r, 250));
             }
 
+            // Update profile with additional center details if available
+            if (city || state || centerPhotoUrl) {
+                await supabase.from('profiles').update({
+                    ...(city && { city: city.trim() }),
+                    ...(state && { state }),
+                    ...(centerPhotoUrl && { avatar_url: centerPhotoUrl }),
+                }).eq('id', userId);
+            }
+
             // Seed controllers table for admin roles
             if (['blogger', 'support_admin', 'super_admin'].includes(profileType)) {
                 await supabase.from('controllers').insert({
@@ -278,32 +292,45 @@ export function AuthProvider({ children }) {
                 }).select().maybeSingle();
             }
 
-            // Seed medicals or clinics table
+            // Seed medicals or clinics or diagnostic_centers table
+            const centerTitle = (centerName || fullName).trim();
             if (profileType === 'medical') {
                 await supabase.from('medicals').insert({
                     profile_id: userId,
-                    name: fullName.trim(),
+                    name: centerTitle,
                     email: email.trim(),
                     phone: phone?.trim() || '',
                     whatsapp_number: whatsappNumber?.trim() || '',
+                    state: state || null,
+                    city: city?.trim() || null,
+                    pincode: pincode?.trim() || null,
+                    image_url: centerPhotoUrl || null,
                     status: 'Pending',
                 });
             } else if (profileType === 'clinic') {
                 await supabase.from('clinics').insert({
                     profile_id: userId,
-                    name: fullName.trim(),
+                    name: centerTitle,
                     email: email.trim(),
                     phone: phone?.trim() || '',
                     whatsapp_number: whatsappNumber?.trim() || '',
+                    state: state || null,
+                    city: city?.trim() || null,
+                    pincode: pincode?.trim() || null,
+                    image_url: centerPhotoUrl || null,
                     status: 'Pending',
                 });
             } else if (profileType === 'diagnostic') {
                 await supabase.from('diagnostic_centers').insert({
                     profile_id: userId,
-                    name: fullName.trim(),
+                    name: centerTitle,
                     email: email.trim(),
                     phone: phone?.trim() || '',
                     whatsapp_number: whatsappNumber?.trim() || '',
+                    state: state || null,
+                    city: city?.trim() || null,
+                    pincode: pincode?.trim() || null,
+                    image_url: centerPhotoUrl || null,
                     status: 'Pending',
                 });
             }

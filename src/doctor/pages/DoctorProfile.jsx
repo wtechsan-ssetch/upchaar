@@ -24,7 +24,7 @@ const SPECIALIZATIONS = [
     'General Physician', 'Cardiologist', 'Dermatologist', 'Endocrinologist',
     'Gastroenterologist', 'Gynaecologist', 'Neurologist', 'Oncologist',
     'Ophthalmologist', 'Orthopaedic', 'Paediatrician', 'Psychiatrist',
-    'Pulmonologist', 'Urologist',
+    'Pulmonologist', 'Urologist', 'Other',
 ];
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -63,12 +63,18 @@ export default function DoctorProfile() {
     const { doctor, doctorRecord, updateProfile, rotateSecretKey } = useDoctor();
     const fileRef = useRef(null);
 
+    const isPredefined = SPECIALIZATIONS.includes(doctor.specialization);
+    const initialSpecSelect = isPredefined ? (doctor.specialization || '') : (doctor.specialization ? 'Other' : '');
+    const initialCustomSpec = isPredefined ? '' : (doctor.specialization || '');
+
     const [form, setForm] = useState({
         fullName: doctor.fullName || '',
         phone: doctor.phone || '',
         email: doctor.email || '',
         city: doctor.city || '',
         gender: doctor.gender || '',
+        specializationSelect: initialSpecSelect,
+        customSpecialization: initialCustomSpec,
         specialization: doctor.specialization || '',
         experience: doctor.experience || '',
         fee: doctor.fee || '',
@@ -150,8 +156,13 @@ export default function DoctorProfile() {
         setError('');
         setSaving(true);
         try {
+            const finalSpecialization = form.specializationSelect === 'Other' 
+                ? form.customSpecialization.trim() 
+                : form.specializationSelect;
+
             const result = await updateProfile({
                 ...form,
+                specialization: finalSpecialization,
                 experience: Number(form.experience) || 0,
                 fee: Number(form.fee) || 0,
                 languages: form.languages.split(',').map(s => s.trim()).filter(Boolean),
@@ -378,11 +389,37 @@ export default function DoctorProfile() {
                 <Section icon={Stethoscope} title="Professional Details">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Field label="Specialization">
-                            <select name="specialization" value={form.specialization} onChange={handleChange} className={inputCls}>
+                            <select
+                                name="specializationSelect"
+                                value={form.specializationSelect}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setForm(f => ({
+                                        ...f,
+                                        specializationSelect: val,
+                                        customSpecialization: val !== 'Other' ? '' : f.customSpecialization
+                                    }));
+                                }}
+                                className={inputCls}
+                            >
                                 <option value="">Select…</option>
-                                {SPECIALIZATIONS.map(s => <option key={s}>{s}</option>)}
+                                {SPECIALIZATIONS.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </Field>
+
+                        {form.specializationSelect === 'Other' && (
+                            <div className="sm:col-span-2">
+                                <Field label="Enter Specialization Name">
+                                    <input
+                                        name="customSpecialization"
+                                        value={form.customSpecialization}
+                                        onChange={handleChange}
+                                        placeholder="Specify your specialization (e.g. Homeopathy, Ayurvedic Physician...)"
+                                        className={inputCls}
+                                    />
+                                </Field>
+                            </div>
+                        )}
                         <Field label="Degree">
                             <input name="degree" value={form.degree} onChange={handleChange}
                                 placeholder="MBBS, MD (Cardiology)" className={inputCls} />

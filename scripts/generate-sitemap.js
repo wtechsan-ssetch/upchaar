@@ -13,7 +13,7 @@ const rootDir = path.resolve(__dirname, '..');
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://wusyykhngnxglvftrmrb.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1c3l5a2huZ254Z2x2ZnRybXJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNDE4MTksImV4cCI6MjA4NzYxNzgxOX0.t4HrTIT-NQida5UgA56M6IGVkuf2RDLt1zI19mAhH_I';
 
-const BASE_URL = 'https://upcharhealth.com';
+const BASE_URL = 'https://www.upcharhealth.in';
 
 const staticRoutes = [
     { url: '/', priority: '1.0', changefreq: 'daily' },
