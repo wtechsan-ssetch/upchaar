@@ -28,20 +28,6 @@ const INDIAN_STATES = [
     'Delhi', 'Other',
 ];
 
-const CITY_DATA = {
-    'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Thane', 'Nashik', 'Other'],
-    'Delhi': ['New Delhi', 'Delhi NCR', 'Other'],
-    'Karnataka': ['Bengaluru', 'Mysuru', 'Hubballi', 'Mangaluru', 'Other'],
-    'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Other'],
-    'Uttar Pradesh': ['Lucknow', 'Kanpur', 'Noida', 'Varanasi', 'Other'],
-    'West Bengal': ['Kolkata', 'Howrah', 'Siliguri', 'Other'],
-    'Gujarat': ['Ahmedabad', 'Surat', 'Vadodara', 'Other'],
-    'Rajasthan': ['Jaipur', 'Jodhpur', 'Udaipur', 'Other'],
-    'Punjab': ['Ludhiana', 'Amritsar', 'Chandigarh', 'Other'],
-    'Bihar': ['Patna', 'Gaya', 'Bhagalpur', 'Other'],
-    'Other': ['Other']
-};
-
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const LANGUAGES = ['English', 'Hindi', 'Bengali', 'Marathi', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Gujarati', 'Punjabi', 'Odia', 'Urdu'];
 
@@ -58,11 +44,12 @@ const initialData = {
     fullName: '', email: '', phone: '', dob: '', gender: '', profilePhoto: null,
     password: '', confirmPassword: '',
     // Step 2
-    licenseNo: '', nmcNo: '', specialization: '', subSpecialization: '',
+    licenseNo: '', nmcNo: '', specialization: '', customSpecialization: '', subSpecialization: '',
     degree: '', passingYear: '', institution: '', additionalQualifications: '',
     // Step 3
     experience: '', languages: [],
-    state: '', city: '', manualCity: '', consultationFee: '',    // Step 4
+    state: '', city: '', consultationFee: '',
+    // Step 4
     govtId: null, licenseDoc: null, degreeCert: null,
     acceptTerms: false, declaration: false,
 };
@@ -103,7 +90,11 @@ function validate(step, data) {
     if (step === 2) {
         if (!data.licenseNo.trim()) errors.licenseNo = 'License number is required';
         if (!data.nmcNo.trim()) errors.nmcNo = 'Registration number is required';
-        if (!data.specialization) errors.specialization = 'Specialization is required';
+        if (!data.specialization) {
+            errors.specialization = 'Specialization is required';
+        } else if (data.specialization === 'Other' && !data.customSpecialization.trim()) {
+            errors.customSpecialization = 'Please enter your specialization';
+        }
         if (!data.degree.trim()) errors.degree = 'Degree is required';
         if (!data.passingYear || data.passingYear < 1970 || data.passingYear > new Date().getFullYear())
             errors.passingYear = 'Valid passing year required';
@@ -113,8 +104,7 @@ function validate(step, data) {
         if (!data.experience || data.experience < 0) errors.experience = 'Years of experience is required';
         if (data.languages.length === 0) errors.languages = 'Select at least one language';
         if (!data.state) errors.state = 'State is required';
-        if (!data.city) errors.city = 'City is required';
-        if (data.city === 'Other' && !data.manualCity.trim()) errors.manualCity = 'Please enter your city';
+        if (!data.city.trim()) errors.city = 'City name is required';
         if (!data.consultationFee || data.consultationFee < 0) errors.consultationFee = 'Valid consultation fee is required';
     }
     if (step === 4) {
@@ -283,7 +273,10 @@ function Step2({ data, onChange, errors }) {
             </div>
             <div>
                 <FormLabel required>Specialization</FormLabel>
-                <select id="specialization" value={data.specialization} onChange={e => onChange('specialization', e.target.value)}
+                <select id="specialization" value={data.specialization} onChange={e => {
+                    onChange('specialization', e.target.value);
+                    if (e.target.value !== 'Other') onChange('customSpecialization', '');
+                }}
                     className={`w-full h-10 rounded-md border px-3 text-sm bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none
                         ${errors.specialization ? 'border-red-400' : 'border-input'}`}>
                     <option value="">Select specialization</option>
@@ -291,6 +284,16 @@ function Step2({ data, onChange, errors }) {
                 </select>
                 <FieldError msg={errors.specialization} />
             </div>
+            {data.specialization === 'Other' && (
+                <div className="sm:col-span-2">
+                    <FormLabel required>Enter Specialization Name</FormLabel>
+                    <Input id="customSpecialization" placeholder="Specify your specialization (e.g. Homeopathy, Ayurvedic Physician...)"
+                        value={data.customSpecialization}
+                        onChange={e => onChange('customSpecialization', e.target.value)}
+                        className={errors.customSpecialization ? 'border-red-400' : ''} />
+                    <FieldError msg={errors.customSpecialization} />
+                </div>
+            )}
             <div>
                 <FormLabel>Sub-specialization</FormLabel>
                 <Input id="subSpecialization" placeholder="e.g. Interventional Cardiology" value={data.subSpecialization}
@@ -329,8 +332,6 @@ function Step3({ data, onChange, errors }) {
         onChange(field, arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
     };
 
-    const cities = CITY_DATA[data.state] || (data.state ? ['Other'] : []);
-
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -368,11 +369,7 @@ function Step3({ data, onChange, errors }) {
                 {/* State & City */}
                 <div>
                     <FormLabel required>State</FormLabel>
-                    <select id="state" value={data.state} onChange={e => {
-                        onChange('state', e.target.value);
-                        onChange('city', '');
-                        onChange('manualCity', '');
-                    }}
+                    <select id="state" value={data.state} onChange={e => onChange('state', e.target.value)}
                         className={`w-full h-10 rounded-md border px-3 text-sm bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none
                             ${errors.state ? 'border-red-400' : 'border-input'}`}>
                         <option value="">Select state</option>
@@ -383,28 +380,10 @@ function Step3({ data, onChange, errors }) {
 
                 <div>
                     <FormLabel required>City</FormLabel>
-                    <select id="city" value={data.city} onChange={e => {
-                        onChange('city', e.target.value);
-                        if (e.target.value !== 'Other') onChange('manualCity', '');
-                    }}
-                        disabled={!data.state}
-                        className={`w-full h-10 rounded-md border px-3 text-sm bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none
-                            ${errors.city ? 'border-red-400' : 'border-input'} disabled:opacity-50`}>
-                        <option value="">Select city</option>
-                        {cities.map(c => <option key={c} value={c}>{c}</option>)}
-                        {!cities.includes('Other') && data.state && <option value="Other">Other</option>}
-                    </select>
+                    <Input id="city" placeholder="Enter your city name" value={data.city}
+                        onChange={e => onChange('city', e.target.value)} className={errors.city ? 'border-red-400' : ''} />
                     <FieldError msg={errors.city} />
                 </div>
-
-                {(data.city === 'Other' || data.state === 'Other') && (
-                    <div className="sm:col-span-2">
-                        <FormLabel required>Enter City Name</FormLabel>
-                        <Input id="manualCity" placeholder="Enter your city name" value={data.manualCity}
-                            onChange={e => onChange('manualCity', e.target.value)} className={errors.manualCity ? 'border-red-400' : ''} />
-                        <FieldError msg={errors.manualCity} />
-                    </div>
-                )}
             </div>
             
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
@@ -569,7 +548,7 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
                 throw new Error('Registration failed. Please try again.');
             }
 
-            const cityToSave = data.city === 'Other' ? data.manualCity : data.city;
+            const cityToSave = data.city?.trim() || null;
             const now = new Date().toISOString();
 
             const { error: profileError } = await supabase
@@ -600,7 +579,7 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
                     phone: data.phone.trim(),
                     dob: data.dob || null,
                     gender: data.gender || null,
-                    specialization: data.specialization || null,
+                    specialization: (data.specialization === 'Other' ? data.customSpecialization.trim() : data.specialization) || null,
                     sub_specialization: data.subSpecialization || null,
                     degree: data.degree.trim(),
                     additional_qualifications: data.additionalQualifications || null,
@@ -659,7 +638,8 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
                 uploadFile(data.degreeCert, folder, 'degree_cert'),
             ]);
 
-            const cityToSave = data.city === 'Other' ? data.manualCity : data.city;
+            const cityToSave = data.city?.trim() || null;
+            const specializationToSave = data.specialization === 'Other' ? data.customSpecialization.trim() : data.specialization;
             // 2. Call the register-doctor Edge Function (service-role, bypasses RLS)
             //    — creates auth user, profile, and pending_doctors row server-side
             const payload = {
@@ -671,7 +651,7 @@ export function DoctorOnboardingModal({ isOpen, onClose }) {
                 gender: data.gender || null,
                 licenseNo: data.licenseNo.trim(),
                 nmcNo: data.nmcNo.trim(),
-                specialization: data.specialization,
+                specialization: specializationToSave,
                 subSpecialization: data.subSpecialization || null,
                 degree: data.degree.trim(),
                 passingYear: data.passingYear || null,

@@ -55,7 +55,7 @@ export default function BlogPost() {
     const pubDate  = safeDate(post.publishedAt || post.published_at);
     const tags     = Array.isArray(post.tags) ? post.tags : [];
 
-    const canonicalUrl = `https://upcharhealth.com/blogs/${post.slug}`;
+    const canonicalUrl = `https://www.upcharhealth.in/blogs/${post.slug}`;
     const plainExcerpt = post.excerpt || (post.content ? post.content.replace(/<[^>]+>/g, '').slice(0, 160) : '');
 
     const jsonLd = {
@@ -75,7 +75,7 @@ export default function BlogPost() {
             'name': 'Upchaar Health',
             'logo': {
                 '@type': 'ImageObject',
-                'url': 'https://upcharhealth.com/logo.png',
+                'url': 'https://www.upcharhealth.in/logo.png',
             },
         },
         'mainEntityOfPage': {

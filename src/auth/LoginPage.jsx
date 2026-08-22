@@ -21,11 +21,12 @@ import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '@/lib/auth.js';
 import { sendOtp, verifyOtp, normalisePhone } from '@/lib/otpService.js';
 import { supabase } from '@/lib/supabase.js';
 import { checkRateLimit, clearRateLimit } from '@/lib/rateLimit.js';
+import { INDIAN_STATES } from '@/lib/constants.js';
 import ForgotPasswordModal from './ForgotPasswordModal.jsx';
 import {
     Heart, Mail, Lock, Eye, EyeOff, Loader2, AlertCircle,
     User, Phone, ChevronDown, Building2, Activity,
-    Pill, HospitalIcon, Users, CheckCircle2, ShieldCheck, RefreshCw
+    Pill, HospitalIcon, Users, CheckCircle2, ShieldCheck, RefreshCw, Upload, MapPin
 } from 'lucide-react';
 
 // ── Profile type options shown in the Sign Up dropdown ──
@@ -64,6 +65,11 @@ export default function LoginPage() {
         password:       '',
         confirmPassword:'',
         profileType:    'patient',
+        centerName:     '',
+        state:          '',
+        city:           '',
+        pincode:        '',
+        centerPhoto:    null,
     });
     const [showSignUpPass,  setShowSignUpPass]  = useState(false);
     const [showConfirmPass, setShowConfirmPass] = useState(false);
@@ -165,6 +171,30 @@ export default function LoginPage() {
             // setResendCooldown(RESEND_COOLDOWN);
             // setSignupStep('otp');
             
+            // Additional validation for center registration (clinic, medical, diagnostic)
+            let centerPhotoUrl = null;
+            if (['clinic', 'medical', 'diagnostic'].includes(signUpForm.profileType)) {
+                if (!signUpForm.centerName.trim()) { setError('Please enter your center name.'); return; }
+                if (!signUpForm.state) { setError('Please select your state.'); return; }
+                if (!signUpForm.city.trim()) { setError('Please enter your city name.'); return; }
+                if (!signUpForm.pincode.trim() || !/^\d{6}$/.test(signUpForm.pincode.trim())) {
+                    setError('Please enter a valid 6-digit PIN code.'); return;
+                }
+
+                if (signUpForm.centerPhoto) {
+                    const file = signUpForm.centerPhoto;
+                    const ext = file.name.split('.').pop();
+                    const path = `center_photos/${Date.now()}_${Math.random().toString(36).substr(2, 6)}.${ext}`;
+                    const { error: uploadErr } = await supabase.storage
+                        .from('doctor-avtar')
+                        .upload(path, file, { upsert: true, contentType: file.type });
+                    if (!uploadErr) {
+                        const { data: { publicUrl } } = supabase.storage.from('doctor-avtar').getPublicUrl(path);
+                        centerPhotoUrl = publicUrl;
+                    }
+                }
+            }
+
             await signUp({
                 fullName:       signUpForm.fullName,
                 email:          signUpForm.email,
@@ -172,6 +202,11 @@ export default function LoginPage() {
                 whatsappNumber: signUpForm.whatsappNumber,
                 password:       signUpForm.password,
                 profileType:    signUpForm.profileType,
+                centerName:     signUpForm.centerName,
+                state:          signUpForm.state,
+                city:           signUpForm.city,
+                pincode:        signUpForm.pincode,
+                centerPhotoUrl: centerPhotoUrl,
             });
 
             setSignupStep('done');
@@ -183,7 +218,7 @@ export default function LoginPage() {
                 setSignupStep('form');
                 const needsApproval = ['doctor', 'clinic', 'medical', 'diagnostic', 'hospital'].includes(signUpForm.profileType);
                 setSuccess(`🎉 Account created! Please sign in${needsApproval ? ' — your account is pending admin approval. You will see a status page after signing in.' : '.'}`);
-                setSignUpForm({ fullName:'', email:'', phone:'', whatsappNumber:'', password:'', confirmPassword:'', profileType:'patient' });
+                setSignUpForm({ fullName:'', email:'', phone:'', whatsappNumber:'', password:'', confirmPassword:'', profileType:'patient', centerName:'', state:'', city:'', pincode:'', centerPhoto:null });
                 setOtp(['','','','','','']);
             }, 2200);
 
@@ -502,9 +537,108 @@ export default function LoginPage() {
                                     </div>
                                 ) : (
                                     <>
+                                        {/* Center Specific Fields (Clinic, Medical, Diagnostic) */}
+                                        {['clinic', 'medical', 'diagnostic'].includes(signUpForm.profileType) && (
+                                            <div className="space-y-4 p-3.5 bg-teal-50/40 rounded-2xl border border-teal-100/60 mb-2">
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                                                        {signUpForm.profileType === 'clinic'
+                                                            ? 'Clinic Name'
+                                                            : signUpForm.profileType === 'medical'
+                                                                ? 'Medical Store Name'
+                                                                : 'Diagnostic Center Name'}{' '}
+                                                        <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <div className="relative">
+                                                        <Building2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                        <input
+                                                            name="centerName"
+                                                            type="text"
+                                                            required
+                                                            value={signUpForm.centerName}
+                                                            onChange={handleSignUpChange}
+                                                            placeholder={
+                                                                signUpForm.profileType === 'clinic'
+                                                                    ? 'Enter your clinic name'
+                                                                    : signUpForm.profileType === 'medical'
+                                                                        ? 'Enter your medical store name'
+                                                                        : 'Enter your diagnostic center name'
+                                                            }
+                                                            className={`${inputCls} pl-10 pr-4 bg-white`}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                                                            State <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <select
+                                                            name="state"
+                                                            required
+                                                            value={signUpForm.state}
+                                                            onChange={handleSignUpChange}
+                                                            className={`${inputCls} px-3 text-slate-700 bg-white`}
+                                                        >
+                                                            <option value="">Select state</option>
+                                                            {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                                                            City <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <input
+                                                            name="city"
+                                                            type="text"
+                                                            required
+                                                            value={signUpForm.city}
+                                                            onChange={handleSignUpChange}
+                                                            placeholder="Write your city"
+                                                            className={`${inputCls} px-3 bg-white`}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                                                        PIN Code <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <div className="relative">
+                                                        <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                        <input
+                                                            name="pincode"
+                                                            type="text"
+                                                            required
+                                                            maxLength={6}
+                                                            value={signUpForm.pincode}
+                                                            onChange={handleSignUpChange}
+                                                            placeholder="6-digit pincode"
+                                                            className={`${inputCls} pl-9 pr-4 bg-white`}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                                                        Upload Photo of Your Center <span className="text-slate-400 font-normal">(optional)</span>
+                                                    </label>
+                                                    <input
+                                                        type="file"
+                                                        accept=".jpg,.jpeg,.png"
+                                                        onChange={e => setSignUpForm(f => ({ ...f, centerPhoto: e.target.files[0] || null }))}
+                                                        className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-teal-600 file:text-white hover:file:bg-teal-700 transition cursor-pointer bg-white rounded-xl border border-slate-200 p-1"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Full Name */}
                                         <div>
-                                    <label className="block text-xs font-semibold text-slate-600 mb-2">Full Name</label>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-2">
+                                        {['clinic', 'medical', 'diagnostic'].includes(signUpForm.profileType) ? 'Contact Person Full Name' : 'Full Name'}
+                                    </label>
                                     <div className="relative">
                                         <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                         <input name="fullName" type="text" required value={signUpForm.fullName} onChange={handleSignUpChange}
