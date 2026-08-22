@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { useBlog } from '@/blog/context/BlogContext.jsx';
 import { Heart, Eye, Clock, ArrowLeft, Share2, Calendar, Stethoscope, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -54,8 +55,61 @@ export default function BlogPost() {
     const pubDate  = safeDate(post.publishedAt || post.published_at);
     const tags     = Array.isArray(post.tags) ? post.tags : [];
 
+    const canonicalUrl = `https://upcharhealth.com/blogs/${post.slug}`;
+    const plainExcerpt = post.excerpt || (post.content ? post.content.replace(/<[^>]+>/g, '').slice(0, 160) : '');
+
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        'headline': post.title,
+        'description': plainExcerpt,
+        'image': imgUrl || undefined,
+        'datePublished': post.publishedAt || post.published_at,
+        'dateModified': post.updatedAt || post.updated_at || post.publishedAt || post.published_at,
+        'author': {
+            '@type': 'Person',
+            'name': post.author?.name || 'Upchaar Health',
+        },
+        'publisher': {
+            '@type': 'Organization',
+            'name': 'Upchaar Health',
+            'logo': {
+                '@type': 'ImageObject',
+                'url': 'https://upcharhealth.com/logo.png',
+            },
+        },
+        'mainEntityOfPage': {
+            '@type': 'WebPage',
+            '@id': canonicalUrl,
+        },
+    };
+
     return (
         <div className="min-h-screen bg-white">
+            <Helmet>
+                <title>{post.title} | Upchar Health Blog</title>
+                <meta name="description" content={plainExcerpt} />
+                <link rel="canonical" href={canonicalUrl} />
+
+                {/* Open Graph / Facebook */}
+                <meta property="og:type" content="article" />
+                <meta property="og:title" content={post.title} />
+                <meta property="og:description" content={plainExcerpt} />
+                <meta property="og:url" content={canonicalUrl} />
+                {imgUrl && <meta property="og:image" content={imgUrl} />}
+
+                {/* Twitter */}
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content={post.title} />
+                <meta name="twitter:description" content={plainExcerpt} />
+                {imgUrl && <meta name="twitter:image" content={imgUrl} />}
+
+                {/* JSON-LD Structured Data */}
+                <script type="application/ld+json">
+                    {JSON.stringify(jsonLd)}
+                </script>
+            </Helmet>
+
             {/* ── Hero Cover ───────────────────────────────────────────────── */}
             <div className={cn(
                 `bg-gradient-to-br ${gradient} h-64 sm:h-96 relative flex items-end overflow-hidden`
