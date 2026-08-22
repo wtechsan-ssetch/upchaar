@@ -2,10 +2,10 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useBlog } from '@/blog/context/BlogContext.jsx';
-import { Heart, Eye, Clock, ArrowLeft, Share2, Calendar, Stethoscope, BookOpen } from 'lucide-react';
+import { Heart, Eye, Clock, ArrowLeft, Share2, Calendar, Stethoscope, BookOpen, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import DOMPurify from 'dompurify';
 
 function safeDate(val) {
@@ -17,6 +17,9 @@ export default function BlogPost() {
     const { publishedPosts, likePost, incrementViews } = useBlog();
     const [liked, setLiked]   = useState(false);
     const [copied, setCopied] = useState(false);
+    const [showLikeModal, setShowLikeModal] = useState(false);
+    const [likeEmail, setLikeEmail] = useState('');
+    const [likeError, setLikeError] = useState('');
     const viewedSlugRef = useRef(null);
 
     const post = publishedPosts.find(p => p.slug === slug);
@@ -33,13 +36,63 @@ export default function BlogPost() {
         }
     }, [slug, post, incrementViews]);
 
+    // Check if already liked from localStorage
+    useEffect(() => {
+        if (post) {
+            const likedPosts = JSON.parse(localStorage.getItem('upchar_liked_posts') || '{}');
+            if (likedPosts[post.id]) {
+                setLiked(true);
+            }
+        }
+    }, [post?.id]);
+
     const handleLike = () => {
-        if (!liked && post) { likePost(post.id); setLiked(true); }
+        if (liked) return;
+        setShowLikeModal(true);
     };
-    const handleShare = () => {
-        navigator.clipboard.writeText(window.location.href);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+
+    const handleConfirmLike = () => {
+        const email = likeEmail.trim().toLowerCase();
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setLikeError('Please enter a valid email address.');
+            return;
+        }
+        const likedPosts = JSON.parse(localStorage.getItem('upchar_liked_posts') || '{}');
+        if (likedPosts[post.id]) {
+            setLikeError('You have already liked this article.');
+            return;
+        }
+        likedPosts[post.id] = email;
+        localStorage.setItem('upchar_liked_posts', JSON.stringify(likedPosts));
+        likePost(post.id);
+        setLiked(true);
+        setShowLikeModal(false);
+        setLikeEmail('');
+        setLikeError('');
+    };
+
+    const handleShare = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: post.title,
+                    text: post.excerpt || `Check out this article: ${post.title}`,
+                    url: window.location.href,
+                });
+            } catch (err) {
+                // User cancelled share — fall back to clipboard copy
+                if (err.name !== 'AbortError') {
+                    navigator.clipboard.writeText(window.location.href);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                }
+            }
+        } else {
+            // Fallback for browsers that don't support Web Share API
+            navigator.clipboard.writeText(window.location.href);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
     };
 
     if (!post) return (
@@ -210,12 +263,12 @@ export default function BlogPost() {
                                     : 'bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-500'
                             )}>
                             <Heart size={15} className={liked ? 'fill-current' : ''} />
-                            {(post.likes || 0) + (liked ? 1 : 0)} Likes
+                            {post.likes || 0} Likes
                         </button>
                         <button onClick={handleShare}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-sm font-semibold hover:bg-slate-200 transition-all">
                             <Share2 size={15} />
-                            {copied ? 'Copied!' : 'Share'}
+                            {copied ? 'Link Copied!' : 'Share'}
                         </button>
                         <Link to="/blogs" className="ml-auto text-sm text-primary hover:underline flex items-center gap-1">
                             <ArrowLeft size={13} /> All Articles
@@ -260,6 +313,68 @@ export default function BlogPost() {
                     </section>
                 )}
             </div>
+
+            {/* Like Email Modal */}
+            <AnimatePresence>
+                {showLikeModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+                        onClick={() => { setShowLikeModal(false); setLikeError(''); setLikeEmail(''); }}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            onClick={e => e.stopPropagation()}
+                            className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm"
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="h-10 w-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                                    <Heart size={18} className="text-rose-500" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800">Like this article</h3>
+                                    <p className="text-xs text-slate-500">Enter your email to like this post</p>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                        <input
+                                            type="email"
+                                            value={likeEmail}
+                                            onChange={e => { setLikeEmail(e.target.value); setLikeError(''); }}
+                                            onKeyDown={e => e.key === 'Enter' && handleConfirmLike()}
+                                            placeholder="your@email.com"
+                                            autoFocus
+                                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-rose-200 focus:border-rose-400 transition"
+                                        />
+                                    </div>
+                                    {likeError && <p className="text-xs text-red-500 mt-1.5">{likeError}</p>}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => { setShowLikeModal(false); setLikeError(''); setLikeEmail(''); }}
+                                        className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmLike}
+                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-semibold hover:bg-rose-600 shadow-md shadow-rose-200 transition"
+                                    >
+                                        <Heart size={14} className="fill-current" /> Like
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
