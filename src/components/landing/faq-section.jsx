@@ -32,6 +32,10 @@ const patientFaqs = [
 
 const doctorFaqs = [
     {
+        question: "How does Upchar Health help me as a doctor?",
+        answer: "Upchar Health helps you attract new patients through greater online visibility and improve patient retention with digital follow-up reminders. It gives you a digital presence where patients can discover and book appointments with you, while automated reminders and AI-powered calls help bring patients back for their follow-ups."
+    },
+    {
         question: "How do I register as a practitioner on the platform?",
         answer: "You can sign up via the provider portal by submitting your basic details, a copy of your valid medical license, and your medical council registration number. Once our team verifies your credentials, your profile will go live."
     },
